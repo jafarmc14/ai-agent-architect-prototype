@@ -1,0 +1,27 @@
+# Environments
+.env
+
+# Database
+toko.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+.venv/
+env/
+venv/
+ENV/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Temporary logs & scripts
+out.txt
+err*.txt
+install_log.txt
+list_products.py
