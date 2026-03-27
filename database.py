@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from datetime import datetime
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "toko.db")
 
@@ -42,7 +43,31 @@ def init_database():
         )
     """)
 
-    # Check if data already exists
+    # ==================== SHOPPING CART TABLE (Feature 3) ====================
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS shopping_cart (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL DEFAULT 'default',
+            product_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL DEFAULT 1,
+            added_at TEXT NOT NULL,
+            FOREIGN KEY (product_id) REFERENCES products(id)
+        )
+    """)
+
+    # ==================== SUPPORT TICKETS TABLE (Feature 5) ====================
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS support_tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_message TEXT NOT NULL,
+            agent_summary TEXT,
+            priority TEXT NOT NULL DEFAULT 'Normal',
+            status TEXT NOT NULL DEFAULT 'Open',
+            created_at TEXT NOT NULL
+        )
+    """)
+
+    # Check if product data already exists
     cursor.execute("SELECT COUNT(*) FROM products")
     if cursor.fetchone()[0] == 0:
         # ==================== DUMMY PRODUCT DATA ====================
@@ -89,7 +114,11 @@ def init_database():
     print(f"Database initialized successfully at: {DB_PATH}")
 
 
-# === Query functions used by Agent Tools ===
+# =====================================================================
+# QUERY FUNCTIONS USED BY AGENT TOOLS
+# =====================================================================
+
+# --- Feature 0: Original Stock Check ---
 def query_stock(product_name: str) -> str:
     """Search product stock by name (partial match)."""
     conn = get_connection()
@@ -112,6 +141,7 @@ def query_stock(product_name: str) -> str:
     return "\n".join(results)
 
 
+# --- Feature 0: Original Order Check ---
 def query_order(order_id: str) -> str:
     """Search order status by order ID."""
     conn = get_connection()
@@ -141,6 +171,198 @@ def query_order(order_id: str) -> str:
         f"• Order Date: {row['order_date']}\n"
         f"• Estimated Arrival: {arrival}"
     )
+
+
+# --- Feature 1: Smart Product Recommender ---
+def query_products_by_filter(category: str = "", max_price: float = 0, min_price: float = 0) -> str:
+    """Search products by category and/or price range."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = "SELECT name, category, price, stock, country FROM products WHERE 1=1"
+    params = []
+
+    if category:
+        query += " AND LOWER(category) LIKE LOWER(?)"
+        params.append(f"%{category}%")
+    if min_price > 0:
+        query += " AND price >= ?"
+        params.append(min_price)
+    if max_price > 0:
+        query += " AND price <= ?"
+        params.append(max_price)
+
+    query += " ORDER BY price ASC"
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+
+    if not rows:
+        filters = []
+        if category:
+            filters.append(f"category='{category}'")
+        if min_price > 0:
+            filters.append(f"min_price=Rp{min_price:,.0f}")
+        if max_price > 0:
+            filters.append(f"max_price=Rp{max_price:,.0f}")
+        return f"No products found matching filters: {', '.join(filters)}."
+
+    results = [f"Found {len(rows)} product(s):"]
+    for r in rows:
+        results.append(
+            f"• {r['name']} | Category: {r['category']} | Price: Rp{r['price']:,.0f} | Stock: {r['stock']} units | Origin: {r['country']}"
+        )
+    return "\n".join(results)
+
+
+# --- Feature 2: Cancel Order ---
+def cancel_order(order_id: str) -> str:
+    """Cancel an order if it is still in 'Processing' or 'Awaiting Payment' status."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, status, customer_name FROM orders WHERE UPPER(id) = UPPER(?)", (order_id,))
+    row = cursor.fetchone()
+
+    if not row:
+        conn.close()
+        return f"Order '{order_id}' not found in the database."
+
+    if row['status'] in ('Completed', 'Shipped'):
+        conn.close()
+        return f"❌ Cannot cancel order {row['id']}. Current status is '{row['status']}'. Only orders with status 'Processing' or 'Awaiting Payment' can be cancelled."
+
+    if row['status'] == 'Cancelled':
+        conn.close()
+        return f"Order {row['id']} has already been cancelled."
+
+    cursor.execute("UPDATE orders SET status = 'Cancelled' WHERE UPPER(id) = UPPER(?)", (order_id,))
+    conn.commit()
+    conn.close()
+    return f"✅ Order {row['id']} for customer '{row['customer_name']}' has been successfully cancelled. Previous status: '{row['status']}' → New status: 'Cancelled'."
+
+
+# --- Feature 2: Update Shipping Address ---
+def update_order_address(order_id: str, new_address: str) -> str:
+    """Update the shipping address of an order if it has not been shipped yet."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, status, shipping_address FROM orders WHERE UPPER(id) = UPPER(?)", (order_id,))
+    row = cursor.fetchone()
+
+    if not row:
+        conn.close()
+        return f"Order '{order_id}' not found in the database."
+
+    if row['status'] in ('Shipped', 'Completed', 'Cancelled'):
+        conn.close()
+        return f"❌ Cannot update address for order {row['id']}. Current status is '{row['status']}'. Address can only be changed for 'Processing' or 'Awaiting Payment' orders."
+
+    old_address = row['shipping_address']
+    cursor.execute("UPDATE orders SET shipping_address = ? WHERE UPPER(id) = UPPER(?)", (new_address, order_id))
+    conn.commit()
+    conn.close()
+    return f"✅ Shipping address for order {row['id']} has been updated.\n• Old address: {old_address}\n• New address: {new_address}"
+
+
+# --- Feature 3: Shopping Cart ---
+def add_to_cart(product_name: str, quantity: int = 1, session_id: str = "default") -> str:
+    """Add a product to the shopping cart by product name."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Find the product first
+    cursor.execute("SELECT id, name, price, stock FROM products WHERE LOWER(name) LIKE LOWER(?)", (f"%{product_name}%",))
+    rows = cursor.fetchall()
+
+    if not rows:
+        conn.close()
+        return f"Product '{product_name}' not found. Please check the product name and try again."
+
+    if len(rows) > 1:
+        names = ", ".join([r['name'] for r in rows])
+        conn.close()
+        return f"Multiple products matched '{product_name}': {names}. Please be more specific."
+
+    product = rows[0]
+    if quantity > product['stock']:
+        conn.close()
+        return f"❌ Insufficient stock for '{product['name']}'. Requested: {quantity}, Available: {product['stock']} units."
+
+    # Check if product already in cart
+    cursor.execute(
+        "SELECT id, quantity FROM shopping_cart WHERE session_id = ? AND product_id = ?",
+        (session_id, product['id'])
+    )
+    existing = cursor.fetchone()
+
+    if existing:
+        new_qty = existing['quantity'] + quantity
+        cursor.execute("UPDATE shopping_cart SET quantity = ? WHERE id = ?", (new_qty, existing['id']))
+    else:
+        cursor.execute(
+            "INSERT INTO shopping_cart (session_id, product_id, quantity, added_at) VALUES (?, ?, ?, ?)",
+            (session_id, product['id'], quantity, datetime.now().isoformat())
+        )
+
+    conn.commit()
+    conn.close()
+    total = product['price'] * quantity
+    return f"🛒 Added to cart: {product['name']} x{quantity} (Rp{total:,.0f})"
+
+
+def view_cart(session_id: str = "default") -> str:
+    """View all items currently in the shopping cart."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT p.name, p.price, c.quantity, (p.price * c.quantity) as subtotal
+           FROM shopping_cart c
+           JOIN products p ON c.product_id = p.id
+           WHERE c.session_id = ?""",
+        (session_id,)
+    )
+    rows = cursor.fetchall()
+    conn.close()
+
+    if not rows:
+        return "🛒 Your shopping cart is empty."
+
+    results = ["🛒 Your Shopping Cart:"]
+    grand_total = 0
+    for r in rows:
+        results.append(f"• {r['name']} x{r['quantity']} — Rp{r['subtotal']:,.0f}")
+        grand_total += r['subtotal']
+    results.append(f"\n💰 Grand Total: Rp{grand_total:,.0f}")
+    return "\n".join(results)
+
+
+def clear_cart(session_id: str = "default") -> str:
+    """Remove all items from the shopping cart."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM shopping_cart WHERE session_id = ?", (session_id,))
+    deleted = cursor.rowcount
+    conn.commit()
+    conn.close()
+
+    if deleted == 0:
+        return "🛒 Cart is already empty, nothing to clear."
+    return f"🗑️ Shopping cart cleared. {deleted} item(s) removed."
+
+
+# --- Feature 5: Human Handoff / Support Tickets ---
+def create_support_ticket(customer_message: str, agent_summary: str = "", priority: str = "Normal") -> str:
+    """Create a support ticket for human escalation."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO support_tickets (customer_message, agent_summary, priority, status, created_at) VALUES (?, ?, ?, 'Open', ?)",
+        (customer_message, agent_summary, priority, datetime.now().isoformat())
+    )
+    ticket_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return f"🎫 Support ticket #{ticket_id} created successfully (Priority: {priority}). A human agent will review your case within 1x24 hours."
 
 
 # Run init when this file is executed directly
