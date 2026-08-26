@@ -63,6 +63,24 @@ This system is a web-based chat interface powered by an AI model that supports s
 
 Note: The default runtime model is `openrouter/free`, unless overridden with `OPENROUTER_MODEL` in `.env`.
 
+### Runtime Layers
+
+The refactored runtime separates LLM tool adapters from business logic and persistence:
+
+```text
+LLM
+ ↓
+Tool (`core/tools/store_tools.py`)
+ ↓
+Service (`core/services/store_service.py`)
+ ↓
+Repository (`core/repositories/store_repository.py`)
+ ↓
+Database (`database.py` / `toko.db`)
+```
+
+Language policy: service and repository outputs remain internal/canonical. The LLM is responsible for translating and rewriting final responses in the same language used by the customer.
+
 ---
 
 ## 3. AI Agent Tools (10 Total)
@@ -87,8 +105,14 @@ Note: The default runtime model is `openrouter/free`, unless overridden with `OP
 | File | Purpose |
 |---|---|
 | `app.py` | **Frontend entry point.** Defines the Streamlit chat interface, manages session-based chat history, captures user input, and displays AI responses. |
-| `agent.py` | **Orchestrator / AI Agent core.** Initializes the LLM via OpenRouter, defines all 10 agent tools, binds them to the model, and implements the multi-step tool-calling execution loop. |
-| `database.py` | **Database layer.** Creates and initializes the SQLite database (`toko.db`) with schema and dummy data. Provides all query and mutation functions used by the agent tools. |
+| `agent.py` | **Compatibility facade.** Re-exports the public agent API so existing imports from `app.py` and evaluation code continue to work. |
+| `core/orchestration/runtime.py` | **Orchestrator runtime.** Initializes the LLM via OpenRouter, binds tools, manages chat history, and runs the multi-step tool-calling loop. |
+| `core/tools/store_tools.py` | **Agent tools.** Defines all 10 LangChain tools as thin adapters into the service layer. |
+| `core/services/store_service.py` | **Business logic layer.** Handles product aliases, order rules, cart rules, support-ticket formatting, and knowledge-base search behavior. |
+| `core/repositories/store_repository.py` | **Repository layer.** Encapsulates SQLite queries and mutations through `database.get_connection()`. |
+| `core/prompts/system.py` | **System prompt.** Defines Ubichinon's identity, tone, capabilities, and tool-use rules. |
+| `core/workflows/` | **Workflow package.** Reserved for future multi-step workflows as the prototype grows. |
+| `database.py` | **Database layer.** Creates and initializes the SQLite database (`toko.db`) with schema, dummy data, and shared connection setup. |
 | `knowledge_base.txt` | **Store policies & FAQ.** Contains official store rules for returns, refunds, shipping, warranty, payments, operating hours, and loyalty program. Searched by the AI agent for policy-related questions. |
 | `.env` | **Environment configuration.** Stores the `OPENROUTER_API_KEY` securely, loaded at runtime by `python-dotenv`. |
 | `toko.db` | **SQLite database file.** Auto-generated on first run. Contains `products`, `orders`, `shopping_cart`, and `support_tickets` tables. |
