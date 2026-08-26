@@ -1,0 +1,128 @@
+{
+  "name": "baseline_report_v1",
+  "created_at": "2026-08-26T14:28:42.714824",
+  "model": "openrouter/free",
+  "dataset_dir": "D:\\AI-Agent Arch Prot\\evaluation\\datasets\\baseline",
+  "summary": {
+    "total_cases": 3,
+    "tool_selection_passed": 1,
+    "tool_selection_rate": 0.3333,
+    "argument_accuracy_passed": 1,
+    "argument_accuracy_rate": 0.3333,
+    "responses_returned": 3,
+    "response_return_rate": 1.0,
+    "exceptions": 0,
+    "avg_latency_ms": 10256.62,
+    "max_latency_ms": 12692.96,
+    "min_latency_ms": 7909.56
+  },
+  "results": [
+    {
+      "id": "cart_001",
+      "dataset_file": "cart.jsonl",
+      "query": "Add 2 Nike shoes to my cart",
+      "expected_tool": "add_product_to_cart",
+      "expected_arguments": {
+        "product_name": "Nike",
+        "quantity": 2
+      },
+      "actual_tools": [],
+      "actual_tool_calls": [],
+      "tool_selection_pass": false,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [
+        "expected 1 tool call(s), got 0"
+      ],
+      "response_returned": true,
+      "response_preview": "\n\nI'd be happy to help you add Nike shoes to your cart! To make sure I add the right items, could you please tell me the specific model or name of the Nike shoes you'd like? For example, \"Nike Air Max\", \"Nike Running Shoes\", \"Nike sneakers\", etc.\n\nOnce you provide the specific product name, I'll add 2 of them to your cart right away.",
+      "exception": null,
+      "latency_ms": 7909.56,
+      "access": "WRITE",
+      "risk": "MEDIUM"
+    },
+    {
+      "id": "cart_002",
+      "dataset_file": "cart.jsonl",
+      "query": "Also add 1 Python Programming Book please",
+      "expected_tool": "add_product_to_cart",
+      "expected_arguments": {
+        "product_name": "Python Programming Book",
+        "quantity": 1
+      },
+      "actual_tools": [
+        "add_product_to_cart"
+      ],
+      "actual_tool_calls": [
+        {
+          "name": "add_product_to_cart",
+          "args": {
+            "product_name": "Python Programming Book",
+            "quantity": 1
+          },
+          "output_preview": "🛒 Added to cart: Python Programming Book x1 (Rp95,000)"
+        }
+      ],
+      "tool_selection_pass": true,
+      "argument_accuracy_pass": true,
+      "argument_mismatches": [],
+      "response_returned": true,
+      "response_preview": "Done! ✅ Saya sudah menambahkan **Python Programming Book** sebanyak 1 eksemplar ke keranjang belanja Anda dengan harga **Rp95.000**.\n\nAda lagi yang bisa saya bantu? 😊",
+      "exception": null,
+      "latency_ms": 10167.33,
+      "access": "WRITE",
+      "risk": "MEDIUM"
+    },
+    {
+      "id": "cart_003",
+      "dataset_file": "cart.jsonl",
+      "query": "Masukkan 3 kaos hitam ke keranjang saya",
+      "expected_tool": "add_product_to_cart",
+      "expected_arguments": {
+        "product_name": "Black Plain T-Shirt",
+        "quantity": 3
+      },
+      "actual_tools": [
+        "add_product_to_cart",
+        "search_products",
+        "add_product_to_cart"
+      ],
+      "actual_tool_calls": [
+        {
+          "name": "add_product_to_cart",
+          "args": {
+            "product_name": "kaos hitam",
+            "quantity": 3
+          },
+          "output_preview": "Product 'kaos hitam' not found. Please check the product name and try again."
+        },
+        {
+          "name": "search_products",
+          "args": {
+            "category": "Clothing"
+          },
+          "output_preview": "Found 2 product(s):\n• Black Plain T-Shirt | Category: Clothing | Price: Rp89,000 | Stock: 200 units | Origin: Indonesia\n• Oversize Denim Jacket | Category: Clothing | Price: Rp350,000 | Stock: 80 units | Origin: Indonesia"
+        },
+        {
+          "name": "add_product_to_cart",
+          "args": {
+            "product_name": "Black Plain T-Shirt",
+            "quantity": 3
+          },
+          "output_preview": "🛒 Added to cart: Black Plain T-Shirt x3 (Rp267,000)"
+        }
+      ],
+      "tool_selection_pass": false,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [
+        "expected 1 tool call(s), got 3",
+        "argument 'product_name' expected 'Black Plain T-Shirt', got 'kaos hitam'"
+      ],
+      "response_returned": true,
+      "response_preview": "Sudah saya tambahkan 3 ekor Black Plain T-Shirt (kaos hitam) ke keranjang Anda sebesar Rp267.000.\n\nJika ada yang ingin Anda cek lagi, silakan lihat keranjang Anda dengan bertanya \"lihat keranjang saya\". Apakah ada hal lain yang bisa saya bantu?",
+      "exception": null,
+      "latency_ms": 12692.96,
+      "access": "WRITE",
+      "risk": "MEDIUM"
+    }
+  ]
+}

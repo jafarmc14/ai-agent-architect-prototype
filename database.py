@@ -4,6 +4,27 @@ from datetime import datetime
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "toko.db")
 
+PRODUCT_ALIASES = {
+    "nike shoes": "Nike",
+    "nike shoe": "Nike",
+    "sepatu nike": "Nike",
+    "kaos hitam": "Black Plain T-Shirt",
+    "kaos polos hitam": "Black Plain T-Shirt",
+    "baju hitam": "Black Plain T-Shirt",
+    "t-shirt hitam": "Black Plain T-Shirt",
+    "tas eiger": "Eiger",
+    "headphone sony": "Sony",
+    "sony headphone": "Sony",
+    "sony headphones": "Sony",
+    "jam casio": "Casio",
+}
+
+
+def normalize_product_query(product_name: str) -> str:
+    """Map common natural-language product aliases to searchable catalog terms."""
+    product_key = product_name.lower().strip()
+    return PRODUCT_ALIASES.get(product_key, product_name)
+
 def get_connection():
     """Create a connection to the SQLite database."""
     conn = sqlite3.connect(DB_PATH)
@@ -121,11 +142,12 @@ def init_database():
 # --- Feature 0: Original Stock Check ---
 def query_stock(product_name: str) -> str:
     """Search product stock by name (partial match)."""
+    search_term = normalize_product_query(product_name)
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
         "SELECT name, category, price, stock, country FROM products WHERE LOWER(name) LIKE LOWER(?)",
-        (f"%{product_name}%",)
+        (f"%{search_term}%",)
     )
     rows = cursor.fetchall()
     conn.close()
@@ -267,11 +289,12 @@ def update_order_address(order_id: str, new_address: str) -> str:
 # --- Feature 3: Shopping Cart ---
 def add_to_cart(product_name: str, quantity: int = 1, session_id: str = "default") -> str:
     """Add a product to the shopping cart by product name."""
+    search_term = normalize_product_query(product_name)
     conn = get_connection()
     cursor = conn.cursor()
 
     # Find the product first
-    cursor.execute("SELECT id, name, price, stock FROM products WHERE LOWER(name) LIKE LOWER(?)", (f"%{product_name}%",))
+    cursor.execute("SELECT id, name, price, stock FROM products WHERE LOWER(name) LIKE LOWER(?)", (f"%{search_term}%",))
     rows = cursor.fetchall()
 
     if not rows:

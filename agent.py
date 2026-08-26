@@ -42,7 +42,7 @@ llm = ChatOpenAI(
 # --- Tool 1: Check Product Stock (Original) ---
 @tool
 def check_stock(product_name: str) -> str:
-    """Use this when the user asks about stock or availability of a specific product. Input: product name (full or partial)."""
+    """Use this when the user asks about stock or availability of a product. Input can be a full name, partial name, or common Indonesian product alias."""
     return query_stock(product_name)
 
 # --- Tool 2: Check Order Status (Original) ---
@@ -77,7 +77,7 @@ def update_shipping_address(order_id: str, new_address: str) -> str:
 # --- Tool 6: Add to Cart (Feature 3) ---
 @tool
 def add_product_to_cart(product_name: str, quantity: int = 1) -> str:
-    """Use this when the user wants to add a product to their shopping cart. Input: product name (full or partial) and quantity (default 1)."""
+    """Use this when the user wants to add a product to their shopping cart. Input can be a full name, partial name, or common Indonesian product alias. Call this tool before asking for clarification unless the product is truly ambiguous."""
     return add_to_cart(product_name, quantity)
 
 # --- Tool 7: View Cart (Feature 3) ---
@@ -171,48 +171,88 @@ SYSTEM_PROMPT = (
     "8. HUMAN ESCALATION: Use 'escalate_to_human' when you cannot solve the issue, the user is angry/frustrated, or they explicitly ask for a human agent.\n\n"
     "RULES:\n"
     "- Always use the appropriate tool to get real data before answering factual questions.\n"
+    "- For add-to-cart requests, call 'add_product_to_cart' first using the user's product phrase and quantity. Do not invent alternate catalog items or ask for clarification before checking the tool.\n"
+    "- Product tools support partial names and common Indonesian aliases, such as 'Nike shoes', 'sepatu Nike', and 'kaos hitam'.\n"
     "- Never make up product data, prices, or order statuses.\n"
     "- If a user asks about policies (returns, refunds, shipping, etc.), ALWAYS use the knowledge base tool first.\n"
-    "- If you sense frustration or cannot help, proactively offer to escalate to a human agent.\n"
+    "- If the user explicitly asks for a human, admin, real person, or support agent, immediately call 'escalate_to_human'. Do not ask for a reason first.\n"
+    "- If the user is angry, frustrated, reports a long unresolved delay, duplicate payment, damaged product, rude courier, or another complex complaint, immediately call 'escalate_to_human' with High priority unless Urgent is clearly needed.\n"
     "- Respond in the same language the user uses.\n"
     "- If the user uses Indonesian, use natural, friendly, and polite Indonesian. Avoid sounding stiff or overly formal."
 )
 
-def get_agent_response(user_input: str) -> str:
-    """Standalone executor function using native LLM tool calling."""
+def reset_chat_history() -> None:
+    """Reset agent memory. Useful for isolated evaluation cases."""
     global chat_history
-    try:
-        # Initialize system prompt if memory is empty
-        if not chat_history:
-            chat_history.append(SystemMessage(content=SYSTEM_PROMPT))
+    chat_history = []
 
-        # Add user message
-        chat_history.append(HumanMessage(content=user_input))
 
-        # Call LLM
+def _execute_agent(user_input: str, trace: dict | None = None) -> str:
+    """Run the agent once, optionally recording tool calls into trace."""
+    global chat_history
+
+    # Initialize system prompt if memory is empty
+    if not chat_history:
+        chat_history.append(SystemMessage(content=SYSTEM_PROMPT))
+
+    # Add user message
+    chat_history.append(HumanMessage(content=user_input))
+
+    # Call LLM
+    ai_msg = llm_with_tools.invoke(chat_history)
+    chat_history.append(ai_msg)
+
+    # Multi-step tool execution loop if the model requests tool access
+    while hasattr(ai_msg, 'tool_calls') and ai_msg.tool_calls:
+        for tool_call in ai_msg.tool_calls:
+            selected_tool = tools_by_name.get(tool_call["name"].lower())
+            if selected_tool:
+                tool_output = selected_tool.invoke(tool_call["args"])
+            else:
+                tool_output = f"Error: Tool {tool_call['name']} not found."
+
+            if trace is not None:
+                trace.setdefault("tool_calls", []).append({
+                    "name": tool_call["name"],
+                    "args": tool_call["args"],
+                    "output": str(tool_output),
+                })
+
+            # Append tool result back to history
+            chat_history.append(ToolMessage(
+                content=str(tool_output),
+                tool_call_id=tool_call["id"],
+                name=tool_call["name"]
+            ))
+
+        # Call LLM again after it receives the tool results
         ai_msg = llm_with_tools.invoke(chat_history)
         chat_history.append(ai_msg)
 
-        # Multi-step tool execution loop if the model requests tool access
-        while hasattr(ai_msg, 'tool_calls') and ai_msg.tool_calls:
-            for tool_call in ai_msg.tool_calls:
-                selected_tool = tools_by_name.get(tool_call["name"].lower())
-                if selected_tool:
-                    tool_output = selected_tool.invoke(tool_call["args"])
-                else:
-                    tool_output = f"Error: Tool {tool_call['name']} not found."
+    return ai_msg.content
 
-                # Append tool result back to history
-                chat_history.append(ToolMessage(
-                    content=str(tool_output),
-                    tool_call_id=tool_call["id"],
-                    name=tool_call["name"]
-                ))
 
-            # Call LLM again after it receives the tool results
-            ai_msg = llm_with_tools.invoke(chat_history)
-            chat_history.append(ai_msg)
-
-        return ai_msg.content
+def get_agent_response(user_input: str) -> str:
+    """Standalone executor function using native LLM tool calling."""
+    try:
+        return _execute_agent(user_input)
     except Exception as e:
         return f"*(System Message)* Sorry, an error occurred while contacting the AI model: {str(e)}"
+
+
+def get_agent_response_with_trace(user_input: str) -> dict:
+    """Run the agent and return response, tool calls, and exception details."""
+    trace = {"tool_calls": []}
+    try:
+        response = _execute_agent(user_input, trace=trace)
+        return {
+            "response": response,
+            "tool_calls": trace["tool_calls"],
+            "exception": None,
+        }
+    except Exception as e:
+        return {
+            "response": "",
+            "tool_calls": trace["tool_calls"],
+            "exception": str(e),
+        }

@@ -1,0 +1,258 @@
+{
+  "name": "baseline_report_v1",
+  "created_at": "2026-08-26T14:51:08.536971",
+  "model": "openrouter/free",
+  "dataset_dir": "D:\\AI-Agent Arch Prot\\evaluation\\datasets\\baseline",
+  "summary": {
+    "total_cases": 10,
+    "evaluated_cases": 1,
+    "skipped_cases": 9,
+    "tool_selection_passed": 0,
+    "tool_selection_rate": 0.0,
+    "argument_accuracy_passed": 0,
+    "argument_accuracy_rate": 0.0,
+    "responses_returned": 0,
+    "response_return_rate": 0.0,
+    "exceptions": 1,
+    "rate_limit_exceptions": 1,
+    "avg_latency_ms": 2083.03,
+    "max_latency_ms": 2083.03,
+    "min_latency_ms": 2083.03
+  },
+  "results": [
+    {
+      "id": "cart_001",
+      "dataset_file": "cart.jsonl",
+      "query": "Add 2 Nike shoes to my cart",
+      "expected_tool": "add_product_to_cart",
+      "expected_arguments": {
+        "product_name": "Nike",
+        "quantity": 2
+      },
+      "actual_tools": [],
+      "actual_tool_calls": [],
+      "tool_selection_pass": false,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [
+        "expected 1 tool call(s), got 0"
+      ],
+      "response_returned": false,
+      "response_preview": "",
+      "exception": "Error code: 429 - {'error': {'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day', 'code': 429, 'metadata': {'headers': {'X-RateLimit-Limit': '50', 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': '1787788800000'}, 'limit_source': 'openrouter_free_tier_daily', 'remedy_hint': 'Wait for the daily reset (see X-RateLimit-Reset), or purchase credits to raise your free-model daily limit.', 'provider_name': None, 'previous_errors': [{'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}, {'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}, {'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}, {'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}, {'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}, {'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}, {'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}]}}, 'user_id': 'user_3BDTF7ubhkU1dmplrlooaYSIZ39'}",
+      "latency_ms": 2083.03,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": false,
+      "skip_reason": null
+    },
+    {
+      "id": "cart_002",
+      "dataset_file": "cart.jsonl",
+      "query": "Also add 1 Python Programming Book please",
+      "expected_tool": "add_product_to_cart",
+      "expected_arguments": {
+        "product_name": "Python Programming Book",
+        "quantity": 1
+      },
+      "actual_tools": [],
+      "actual_tool_calls": [],
+      "tool_selection_pass": false,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [],
+      "response_returned": false,
+      "response_preview": "",
+      "exception": null,
+      "latency_ms": 0,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": true,
+      "skip_reason": "Skipped because OpenRouter rate limit was reached."
+    },
+    {
+      "id": "cart_003",
+      "dataset_file": "cart.jsonl",
+      "query": "Masukkan 3 kaos hitam ke keranjang saya",
+      "expected_tool": "add_product_to_cart",
+      "expected_arguments": {
+        "product_name": "Black Plain T-Shirt",
+        "quantity": 3
+      },
+      "actual_tools": [],
+      "actual_tool_calls": [],
+      "tool_selection_pass": false,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [],
+      "response_returned": false,
+      "response_preview": "",
+      "exception": null,
+      "latency_ms": 0,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": true,
+      "skip_reason": "Skipped because OpenRouter rate limit was reached."
+    },
+    {
+      "id": "cart_004",
+      "dataset_file": "cart.jsonl",
+      "query": "What's in my cart right now?",
+      "expected_tool": "view_shopping_cart",
+      "expected_arguments": {},
+      "actual_tools": [],
+      "actual_tool_calls": [],
+      "tool_selection_pass": false,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [],
+      "response_returned": false,
+      "response_preview": "",
+      "exception": null,
+      "latency_ms": 0,
+      "access": "READ",
+      "risk": "LOW",
+      "skipped": true,
+      "skip_reason": "Skipped because OpenRouter rate limit was reached."
+    },
+    {
+      "id": "cart_005",
+      "dataset_file": "cart.jsonl",
+      "query": "Please clear my cart, I changed my mind",
+      "expected_tool": "clear_shopping_cart",
+      "expected_arguments": {},
+      "actual_tools": [],
+      "actual_tool_calls": [],
+      "tool_selection_pass": false,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [],
+      "response_returned": false,
+      "response_preview": "",
+      "exception": null,
+      "latency_ms": 0,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": true,
+      "skip_reason": "Skipped because OpenRouter rate limit was reached."
+    },
+    {
+      "id": "cart_006",
+      "dataset_file": "cart.jsonl",
+      "query": "Add 100 Sony headphones to my cart",
+      "expected_tool": "add_product_to_cart",
+      "expected_arguments": {
+        "product_name": "Sony",
+        "quantity": 100
+      },
+      "actual_tools": [],
+      "actual_tool_calls": [],
+      "tool_selection_pass": false,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [],
+      "response_returned": false,
+      "response_preview": "",
+      "exception": null,
+      "latency_ms": 0,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": true,
+      "skip_reason": "Skipped because OpenRouter rate limit was reached."
+    },
+    {
+      "id": "escalation_001",
+      "dataset_file": "escalation.jsonl",
+      "query": "I want to speak to a real human agent please",
+      "expected_tool": "escalate_to_human",
+      "expected_arguments": {
+        "customer_message": "I want to speak to a real human agent please",
+        "priority": "Normal"
+      },
+      "actual_tools": [],
+      "actual_tool_calls": [],
+      "tool_selection_pass": false,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [],
+      "response_returned": false,
+      "response_preview": "",
+      "exception": null,
+      "latency_ms": 0,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": true,
+      "skip_reason": "Skipped because OpenRouter rate limit was reached."
+    },
+    {
+      "id": "escalation_002",
+      "dataset_file": "escalation.jsonl",
+      "query": "This is ridiculous! I've been waiting for 2 weeks and my order still hasn't arrived. Nobody is helping me! I'm extremely frustrated!",
+      "expected_tool": "escalate_to_human",
+      "expected_arguments": {
+        "customer_message": "This is ridiculous! I've been waiting for 2 weeks and my order still hasn't arrived. Nobody is helping me! I'm extremely frustrated!",
+        "priority": "High"
+      },
+      "actual_tools": [],
+      "actual_tool_calls": [],
+      "tool_selection_pass": false,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [],
+      "response_returned": false,
+      "response_preview": "",
+      "exception": null,
+      "latency_ms": 0,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": true,
+      "skip_reason": "Skipped because OpenRouter rate limit was reached."
+    },
+    {
+      "id": "escalation_003",
+      "dataset_file": "escalation.jsonl",
+      "query": "I received a damaged product but the order shows as Completed. I want a replacement, not a refund. Also, the delivery person was rude.",
+      "expected_tool": [
+        "search_knowledge_base",
+        "escalate_to_human"
+      ],
+      "expected_arguments": [
+        {
+          "query": "return damaged"
+        },
+        {
+          "customer_message": "I received a damaged product but the order shows as Completed. I want a replacement, not a refund. Also, the delivery person was rude.",
+          "priority": "High"
+        }
+      ],
+      "actual_tools": [],
+      "actual_tool_calls": [],
+      "tool_selection_pass": false,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [],
+      "response_returned": false,
+      "response_preview": "",
+      "exception": null,
+      "latency_ms": 0,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": true,
+      "skip_reason": "Skipped because OpenRouter rate limit was reached."
+    },
+    {
+      "id": "escalation_004",
+      "dataset_file": "escalation.jsonl",
+      "query": "Saya mau bicara dengan admin manusia sekarang.",
+      "expected_tool": "escalate_to_human",
+      "expected_arguments": {
+        "customer_message": "Saya mau bicara dengan admin manusia sekarang.",
+        "priority": "Normal"
+      },
+      "actual_tools": [],
+      "actual_tool_calls": [],
+      "tool_selection_pass": false,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [],
+      "response_returned": false,
+      "response_preview": "",
+      "exception": null,
+      "latency_ms": 0,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": true,
+      "skip_reason": "Skipped because OpenRouter rate limit was reached."
+    }
+  ]
+}
