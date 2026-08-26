@@ -33,7 +33,7 @@ This system is a web-based chat interface powered by an AI model that supports s
 |---|---|---|
 | **Frontend** | [Streamlit](https://streamlit.io/) (Python) | Web-based chat interface for user interaction. |
 | **Orchestrator** | [LangChain](https://www.langchain.com/) + Native LLM Tool Calling | Manages the AI agent loop — prompt → LLM → tool calls → reasoning → response. |
-| **LLM API** | [OpenRouter](https://openrouter.ai/) — Model: `stepfun/step-3.5-flash:free` | The large language model that powers intent recognition, reasoning, and response generation. |
+| **LLM API** | [OpenRouter](https://openrouter.ai/) — Model: `openrouter/free` by default, configurable with `OPENROUTER_MODEL` | The large language model that powers intent recognition, reasoning, and response generation. |
 | **Database** | [SQLite](https://www.sqlite.org/) | Local database storing products, orders, shopping cart, and support tickets. |
 | **Knowledge Base** | Plain text file (`knowledge_base.txt`) | Store policies and FAQ document searched by the AI agent for policy-related queries. |
 
@@ -112,6 +112,8 @@ py -m pip install streamlit langchain langchain-openai python-dotenv
 # 3. Configure your API key
 #    Open the .env file and set your OpenRouter API key:
 #    OPENROUTER_API_KEY=sk-or-v1-your-key-here
+#    Optional: override the default model
+#    OPENROUTER_MODEL=openrouter/free
 
 # 4. Initialize the database (auto-creates toko.db with dummy data)
 py database.py

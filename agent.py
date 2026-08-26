@@ -25,10 +25,12 @@ if os.path.exists(KB_PATH):
         knowledge_base_content = f.read()
 
 # Initialize LLM via OpenRouter
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
+
 llm = ChatOpenAI(
     openai_api_base="https://openrouter.ai/api/v1",
     openai_api_key=os.getenv("OPENROUTER_API_KEY", "dummy"),
-    model_name="stepfun/step-3.5-flash:free",
+    model_name=OPENROUTER_MODEL,
     temperature=0.7,
 )
 
