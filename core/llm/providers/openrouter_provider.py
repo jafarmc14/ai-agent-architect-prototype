@@ -1,13 +1,10 @@
-import os
 from typing import Any
 
-from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
+from configs import get_settings
 from core.llm.base import LLMProvider, LLMResponse, LLMToolCall, Message, StructuredSchema, ToolDefinition
 
-
-load_dotenv()
 
 DEFAULT_OPENROUTER_MODEL = "openrouter/free"
 DEFAULT_OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
@@ -22,12 +19,13 @@ class OpenRouterProvider(LLMProvider):
         self,
         model: str | None = None,
         api_key: str | None = None,
-        api_base: str = DEFAULT_OPENROUTER_API_BASE,
+        api_base: str | None = None,
         temperature: float = 0.7,
     ):
-        self.model = model or os.getenv("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL)
-        self.api_base = api_base
-        self.api_key = api_key or os.getenv("OPENROUTER_API_KEY", "dummy")
+        settings = get_settings()
+        self.model = model or settings.openrouter_model or DEFAULT_OPENROUTER_MODEL
+        self.api_base = api_base or settings.openrouter_api_base or DEFAULT_OPENROUTER_API_BASE
+        self.api_key = api_key or settings.openrouter_api_key
         self.temperature = temperature
         self.client = self._build_client(temperature)
 

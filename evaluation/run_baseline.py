@@ -299,6 +299,7 @@ def main() -> int:
     report = {
         "name": "baseline_report_v1",
         "created_at": datetime.now().isoformat(),
+        "environment": getattr(agent, "get_llm_config", lambda: {})().get("environment"),
         "provider": getattr(agent, "LLM_PROVIDER", None),
         "model": getattr(agent, "LLM_MODEL", getattr(agent, "OPENROUTER_MODEL", None)),
         "dataset_dir": str(dataset_dir),

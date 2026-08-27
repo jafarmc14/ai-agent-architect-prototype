@@ -71,6 +71,7 @@ with st.sidebar:
         reset_ui_chat()
 
     current_config = get_llm_config()
+    st.caption(f"Environment: {current_config['environment']}")
     st.caption(f"Active: {current_config['provider']} / {current_config['model']}")
 
     if selected_provider == "ollama":

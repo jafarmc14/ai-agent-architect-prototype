@@ -1,13 +1,10 @@
-import os
 from typing import Any
 
-from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
+from configs import get_settings
 from core.llm.base import LLMProvider, LLMResponse, LLMToolCall, Message, StructuredSchema, ToolDefinition
 
-
-load_dotenv()
 
 DEFAULT_OLLAMA_MODEL = "llama3.1"
 DEFAULT_OLLAMA_API_BASE = "http://localhost:11434/v1"
@@ -25,9 +22,10 @@ class OllamaProvider(LLMProvider):
         api_base: str | None = None,
         temperature: float = 0.7,
     ):
-        self.model = model or os.getenv("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
-        self.api_base = api_base or os.getenv("OLLAMA_API_BASE", DEFAULT_OLLAMA_API_BASE)
-        self.api_key = api_key or os.getenv("OLLAMA_API_KEY", "ollama")
+        settings = get_settings()
+        self.model = model or settings.ollama_model or DEFAULT_OLLAMA_MODEL
+        self.api_base = api_base or settings.ollama_api_base or DEFAULT_OLLAMA_API_BASE
+        self.api_key = api_key or settings.ollama_api_key
         self.temperature = temperature
         self.client = self._build_client(temperature)
 

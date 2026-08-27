@@ -1,11 +1,13 @@
 from pathlib import Path
 
+from configs import get_settings
+
 
 class KnowledgeService:
     """Business logic for policy and FAQ knowledge-base search."""
 
     def __init__(self, knowledge_base_path: Path | None = None):
-        self.knowledge_base_path = knowledge_base_path or Path(__file__).resolve().parents[2] / "knowledge_base.txt"
+        self.knowledge_base_path = knowledge_base_path or get_settings().knowledge_base_path
         self.knowledge_base_content = ""
         if self.knowledge_base_path.exists():
             self.knowledge_base_content = self.knowledge_base_path.read_text(encoding="utf-8")

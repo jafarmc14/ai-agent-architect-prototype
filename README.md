@@ -116,7 +116,8 @@ Language policy: service and repository outputs remain internal/canonical. The L
 | `core/llm/gateway.py` | **LLM gateway.** Application-facing LLM entry point that hides provider-specific client details from orchestration. |
 | `core/llm/providers/openrouter_provider.py` | **OpenRouter provider adapter.** Wraps LangChain `ChatOpenAI` configured for OpenRouter and implements the provider contract. |
 | `core/llm/providers/ollama_provider.py` | **Ollama provider adapter.** Wraps Ollama's local OpenAI-compatible API for local development with `LLM_PROVIDER=ollama`. |
-| `core/orchestration/runtime.py` | **Orchestrator runtime.** Initializes the LLM via OpenRouter, binds tools, manages chat history, and runs the multi-step tool-calling loop. |
+| `configs/settings.py` | **Centralized environment-specific configuration.** Loads shared `.env` plus optional `.env.<environment>` overrides selected by `APP_ENV`. |
+| `core/orchestration/runtime.py` | **Orchestrator runtime.** Initializes the LLM through `LLMGateway`, binds tools, manages chat history, and runs the multi-step tool-calling loop. |
 | `core/tools/store_tools.py` | **Agent tools.** Defines all 10 LangChain tools as thin adapters into the service layer. |
 | `core/services/product_service.py` | **Product service.** Handles product aliases, stock lookup, and product filtering. |
 | `core/services/order_service.py` | **Order service.** Handles order status lookup, cancellation rules, and address update rules. |
@@ -133,7 +134,12 @@ Language policy: service and repository outputs remain internal/canonical. The L
 | `core/workflows/` | **Workflow package.** Reserved for future multi-step workflows as the prototype grows. |
 | `database.py` | **Database layer.** Creates and initializes the SQLite database (`toko.db`) with schema, dummy data, and shared connection setup. |
 | `knowledge_base.txt` | **Store policies & FAQ.** Contains official store rules for returns, refunds, shipping, warranty, payments, operating hours, and loyalty program. Searched by the AI agent for policy-related questions. |
-| `.env` | **Environment configuration.** Stores provider settings such as `LLM_PROVIDER`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OLLAMA_MODEL`, and `OLLAMA_API_BASE`, loaded at runtime by `python-dotenv`. |
+| `.env` | **Local non-secret configuration.** Stores environment, provider, model, path, and other non-secret runtime settings. |
+| `.env.secrets` | **Local secret configuration.** Stores API keys, DB password, JWT secret, and other sensitive values. Ignored by Git. |
+| `.env.example` | **Safe non-secret template.** Documents required non-secret configuration keys. |
+| `.env.secrets.example` | **Safe secret template.** Documents required secret keys using placeholder values only. |
+| `configs/environments/*.env.example` | **Non-secret environment templates.** Safe examples for development, testing, staging, and production config. |
+| `configs/secrets/*.secrets.env.example` | **Secret templates.** Placeholder-only examples for development, testing, staging, and production secrets. |
 | `toko.db` | **SQLite database file.** Auto-generated on first run. Contains `products`, `orders`, `shopping_cart`, and `support_tickets` tables. |
 | `.gitignore` | **Git ignore rules.** Prevents `.env`, `toko.db`, and temp files from being pushed to the repository. |
 | `CAPABILITY_MATRIX.md` | **Capability inventory.** Groups all agent tools by access type (`READ`/`WRITE`) and risk level (`LOW`/`MEDIUM`/`HIGH`). |
@@ -160,12 +166,15 @@ cd "D:\AI-Agent Arch Prot"
 # 2. Install all required Python packages
 py -m pip install streamlit langchain langchain-openai python-dotenv
 
-# 3. Configure your API key
-#    Open the .env file and set your OpenRouter API key:
+# 3. Configure runtime settings
+#    Open the .env file and set non-secret settings:
+#    APP_ENV=development
 #    LLM_PROVIDER=openrouter
-#    OPENROUTER_API_KEY=sk-or-v1-your-key-here
 #    Optional: override the default model
 #    OPENROUTER_MODEL=openrouter/free
+#
+#    Open .env.secrets and set secrets:
+#    OPENROUTER_API_KEY=sk-or-v1-your-key-here
 
 # 4. Initialize the database (auto-creates toko.db with dummy data)
 py database.py
@@ -192,18 +201,93 @@ ollama serve
 py -m streamlit run app.py
 ```
 
+### Environment-Specific Configuration
+
+The app supports four environments:
+
+```text
+development
+testing
+staging
+production
+```
+
+Set the active environment with:
+
+```bash
+APP_ENV=development
+```
+
+Non-secret configuration is loaded in this order:
+
+```text
+.env
+.env.<APP_ENV>
+```
+
+Secret configuration is loaded separately in this order:
+
+```text
+.env.secrets
+.env.<APP_ENV>.secrets
+```
+
+Environment-specific files override shared values. For example, with `APP_ENV=testing`, the app loads `.env`, `.env.testing`, `.env.secrets`, and `.env.testing.secrets`.
+
+Safe non-secret templates are available in:
+
+```text
+configs/environments/
+```
+
+Safe secret templates are available in:
+
+```text
+configs/secrets/
+```
+
+Recommended local files:
+
+```text
+.env.development
+.env.testing
+.env.staging
+.env.production
+.env.secrets
+.env.development.secrets
+.env.testing.secrets
+.env.staging.secrets
+.env.production.secrets
+```
+
+These real `.env*` files are ignored by Git because they may contain secrets or machine-specific values.
+
+Secret values include:
+
+```text
+OPENROUTER_API_KEY
+OLLAMA_API_KEY
+DB_PASSWORD
+JWT_SECRET
+```
+
 ### Switching LLM Providers
 
 Provider selection is config-only. The application calls `LLMGateway`, while tools, services, repositories, and database code do not import provider adapters directly.
 
 In the Streamlit UI, use the sidebar **LLM Provider** menu to switch between OpenRouter and Ollama during local testing. Changing the provider/model resets the current chat session so the conversation context stays aligned with the selected runtime.
 
-Use OpenRouter:
+Use OpenRouter non-secret config:
 
 ```bash
 LLM_PROVIDER=openrouter
-OPENROUTER_API_KEY=sk-or-v1-your-key-here
 OPENROUTER_MODEL=openrouter/free
+```
+
+Set the OpenRouter key in `.env.secrets`:
+
+```bash
+OPENROUTER_API_KEY=sk-or-v1-your-key-here
 ```
 
 Use local Ollama:

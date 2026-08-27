@@ -1,14 +1,9 @@
 import asyncio
-import os
 from typing import Any
 
-from dotenv import load_dotenv
-
+from configs import get_settings
 from core.llm.base import LLMProvider, LLMResponse, Message, StructuredSchema, ToolDefinition
 from core.llm.providers import OllamaProvider, OpenRouterProvider
-
-
-load_dotenv()
 
 
 class LLMGateway:
@@ -42,7 +37,8 @@ class LLMGateway:
         provider_name: str | None = None,
         model: str | None = None,
     ) -> LLMProvider:
-        provider_name = (provider_name or os.getenv("LLM_PROVIDER", "openrouter")).strip().lower()
+        settings = get_settings()
+        provider_name = (provider_name or settings.llm_provider).strip().lower()
         if provider_name == "openrouter":
             return OpenRouterProvider(model=model)
         if provider_name == "ollama":

@@ -62,7 +62,7 @@ The report is saved to:
 evaluation/reports/baseline_report_latest.json
 ```
 
-The report includes the active `provider` and `model`, based on `LLM_PROVIDER` and the selected provider-specific model setting.
+The report includes the active `environment`, `provider`, and `model`, based on `APP_ENV`, `LLM_PROVIDER`, and the selected provider-specific model setting.
 
 ## Metrics
 

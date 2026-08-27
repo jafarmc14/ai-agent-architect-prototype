@@ -1,5 +1,8 @@
+import re
+
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
+from configs import get_settings
 from core.llm import llm_gateway
 from core.prompts import SYSTEM_PROMPT
 from core.tools import tools, tools_by_name
@@ -16,52 +19,85 @@ llm_with_tools = llm.bind_tools(tools)
 chat_history = []
 
 
-def _response_language_instruction(user_input: str) -> str:
-    """Create a per-turn language hint for models that weakly follow system prompts."""
-    text = f" {user_input.lower()} "
-    indonesian_markers = [
-        " apa ",
-        " apakah ",
-        " bagaimana ",
-        " berapa ",
-        " bisa ",
-        " saya ",
-        " kamu ",
-        " tolong ",
-        " pesanan ",
-        " keranjang ",
-        " barang ",
-        " produk ",
-        " alamat ",
-        " harga ",
-        " stok ",
-    ]
-    english_markers = [
-        " what ",
-        " how ",
-        " can ",
-        " could ",
-        " would ",
-        " please ",
-        " i ",
-        " my ",
-        " your ",
-        " order ",
-        " cart ",
-        " product ",
-        " address ",
-        " price ",
-        " stock ",
-    ]
+def _detect_response_language(user_input: str) -> str:
+    """Detect the expected response language from common customer phrasing."""
+    tokens = set(re.findall(r"[a-zA-Z]+", user_input.lower()))
 
-    indonesian_score = sum(1 for marker in indonesian_markers if marker in text)
-    english_score = sum(1 for marker in english_markers if marker in text)
+    indonesian_markers = {
+        "ada",
+        "alamat",
+        "apa",
+        "apakah",
+        "bagaimana",
+        "barang",
+        "berapa",
+        "bisa",
+        "harga",
+        "kamu",
+        "kapan",
+        "keranjang",
+        "pesanan",
+        "produk",
+        "saya",
+        "siapa",
+        "stok",
+        "tolong",
+    }
+    english_markers = {
+        "address",
+        "are",
+        "available",
+        "can",
+        "cart",
+        "could",
+        "give",
+        "how",
+        "i",
+        "list",
+        "me",
+        "my",
+        "order",
+        "please",
+        "price",
+        "product",
+        "shoes",
+        "stock",
+        "store",
+        "the",
+        "what",
+        "who",
+        "would",
+        "you",
+        "your",
+    }
+
+    indonesian_score = len(tokens & indonesian_markers)
+    english_score = len(tokens & english_markers)
 
     if english_score > indonesian_score:
-        return "The current user message is in English. Your final answer must be in English."
+        return "English"
     if indonesian_score > english_score:
-        return "The current user message is in Indonesian. Your final answer must be in Indonesian."
-    return "Use the same language as the user's current message for your final answer."
+        return "Indonesian"
+    return "the same language as the user's current message"
+
+
+def _response_language_instruction(user_input: str) -> str:
+    """Create a per-turn language hint for models that weakly follow system prompts."""
+    language = _detect_response_language(user_input)
+    if language == "English":
+        return (
+            "IMPORTANT RESPONSE LANGUAGE: The current user message is in English. "
+            "Answer in English only. Do not answer in Indonesian."
+        )
+    if language == "Indonesian":
+        return (
+            "IMPORTANT RESPONSE LANGUAGE: The current user message is in Indonesian. "
+            "Answer in Indonesian only. Do not answer in English unless the user asks for English."
+        )
+    return (
+        "IMPORTANT RESPONSE LANGUAGE: Use the same language as the user's current message. "
+        "Do not switch languages."
+    )
 
 
 def configure_llm_provider(provider_name: str, model: str | None = None) -> dict:
@@ -82,6 +118,7 @@ def configure_llm_provider(provider_name: str, model: str | None = None) -> dict
 def get_llm_config() -> dict:
     """Return the active LLM runtime configuration."""
     return {
+        "environment": get_settings().app_env,
         "provider": LLM_PROVIDER,
         "model": LLM_MODEL,
     }
@@ -128,6 +165,7 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
                 name=tool_call["name"],
             ))
 
+        chat_history.append(SystemMessage(content=_response_language_instruction(user_input)))
         llm_response = llm_gateway.generate_sync(chat_history, tools=tools)
         ai_msg = llm_response.raw
         chat_history.append(ai_msg)

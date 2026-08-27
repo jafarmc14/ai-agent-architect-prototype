@@ -1,8 +1,18 @@
 # Environments
 .env
+.env.development
+.env.testing
+.env.staging
+.env.production
+.env.secrets
+.env.*.secrets
+*.secret.env
+*.secrets.env
 
 # Database
 toko.db
+toko_test.db
+toko_staging.db
 
 # Python
 __pycache__/
