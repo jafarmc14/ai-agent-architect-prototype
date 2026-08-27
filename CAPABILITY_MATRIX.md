@@ -14,16 +14,16 @@ Inventory of existing agent capabilities in the `prototype-v2` baseline.
 
 | Tool | Access | Risk | Service Method | Repository/Data Surface | Description |
 |---|---|---|---|---|---|
-| `check_stock` | READ | LOW | `StoreService.check_stock` | `products` | Searches product availability by partial product name. |
-| `check_order_status` | READ | LOW | `StoreService.check_order_status` | `orders`, `products` | Retrieves order status, customer, product, shipping address, order date, and ETA. |
-| `search_products` | READ | LOW | `StoreService.search_products` | `products` | Filters and lists products by category and/or price range. |
-| `search_knowledge_base` | READ | LOW | `StoreService.search_knowledge_base` | `knowledge_base.txt` | Searches policy and FAQ content for returns, refunds, shipping, warranty, payments, hours, loyalty, and contact info. |
-| `view_shopping_cart` | READ | LOW | `StoreService.view_cart` | `shopping_cart`, `products` | Displays current cart items, quantities, subtotals, and grand total. |
-| `add_product_to_cart` | WRITE | MEDIUM | `StoreService.add_to_cart` | `shopping_cart`, `products` | Adds a product to the cart or increases existing cart quantity after stock validation. |
-| `clear_shopping_cart` | WRITE | MEDIUM | `StoreService.clear_cart` | `shopping_cart` | Removes all items from the current cart session. |
-| `escalate_to_human` | WRITE | MEDIUM | `StoreService.create_support_ticket` | `support_tickets` | Creates a human support ticket with customer message, reason, priority, status, and timestamp. |
-| `cancel_customer_order` | WRITE | HIGH | `StoreService.cancel_order` | `orders` | Changes eligible order status to `Cancelled`; allowed only for `Processing` or `Awaiting Payment`. |
-| `update_shipping_address` | WRITE | HIGH | `StoreService.update_order_address` | `orders` | Updates shipping address for eligible unshipped orders. |
+| `check_stock` | READ | LOW | `ProductService.check_stock` | `ProductRepository` / `products` | Searches product availability by partial product name. |
+| `check_order_status` | READ | LOW | `OrderService.check_order_status` | `OrderRepository` / `orders`, `products` | Retrieves order status, customer, product, shipping address, order date, and ETA. |
+| `search_products` | READ | LOW | `ProductService.search_products` | `ProductRepository` / `products` | Filters and lists products by category and/or price range. |
+| `search_knowledge_base` | READ | LOW | `KnowledgeService.search_knowledge_base` | `knowledge_base.txt` | Searches policy and FAQ content for returns, refunds, shipping, warranty, payments, hours, loyalty, and contact info. |
+| `view_shopping_cart` | READ | LOW | `CartService.view_cart` | `CartRepository` / `shopping_cart`, `products` | Displays current cart items, quantities, subtotals, and grand total. |
+| `add_product_to_cart` | WRITE | MEDIUM | `CartService.add_to_cart` | `ProductRepository`, `CartRepository` / `shopping_cart`, `products` | Adds a product to the cart or increases existing cart quantity after stock validation. |
+| `clear_shopping_cart` | WRITE | MEDIUM | `CartService.clear_cart` | `CartRepository` / `shopping_cart` | Removes all items from the current cart session. |
+| `escalate_to_human` | WRITE | MEDIUM | `SupportService.create_support_ticket` | `SupportRepository` / `support_tickets` | Creates a human support ticket with customer message, reason, priority, status, and timestamp. |
+| `cancel_customer_order` | WRITE | HIGH | `OrderService.cancel_order` | `OrderRepository` / `orders` | Changes eligible order status to `Cancelled`; allowed only for `Processing` or `Awaiting Payment`. |
+| `update_shipping_address` | WRITE | HIGH | `OrderService.update_order_address` | `OrderRepository` / `orders` | Updates shipping address for eligible unshipped orders. |
 
 ## Grouped View
 

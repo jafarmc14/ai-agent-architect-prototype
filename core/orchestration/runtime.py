@@ -1,28 +1,90 @@
-import os
-
-from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
-from langchain_openai import ChatOpenAI
 
+from core.llm import llm_gateway
 from core.prompts import SYSTEM_PROMPT
 from core.tools import tools, tools_by_name
 from database import init_database
 
 
 init_database()
-load_dotenv()
 
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
-
-llm = ChatOpenAI(
-    openai_api_base="https://openrouter.ai/api/v1",
-    openai_api_key=os.getenv("OPENROUTER_API_KEY", "dummy"),
-    model_name=OPENROUTER_MODEL,
-    temperature=0.7,
-)
-
+LLM_PROVIDER = llm_gateway.provider_name
+LLM_MODEL = llm_gateway.model
+OPENROUTER_MODEL = llm_gateway.model
+llm = llm_gateway.client
 llm_with_tools = llm.bind_tools(tools)
 chat_history = []
+
+
+def _response_language_instruction(user_input: str) -> str:
+    """Create a per-turn language hint for models that weakly follow system prompts."""
+    text = f" {user_input.lower()} "
+    indonesian_markers = [
+        " apa ",
+        " apakah ",
+        " bagaimana ",
+        " berapa ",
+        " bisa ",
+        " saya ",
+        " kamu ",
+        " tolong ",
+        " pesanan ",
+        " keranjang ",
+        " barang ",
+        " produk ",
+        " alamat ",
+        " harga ",
+        " stok ",
+    ]
+    english_markers = [
+        " what ",
+        " how ",
+        " can ",
+        " could ",
+        " would ",
+        " please ",
+        " i ",
+        " my ",
+        " your ",
+        " order ",
+        " cart ",
+        " product ",
+        " address ",
+        " price ",
+        " stock ",
+    ]
+
+    indonesian_score = sum(1 for marker in indonesian_markers if marker in text)
+    english_score = sum(1 for marker in english_markers if marker in text)
+
+    if english_score > indonesian_score:
+        return "The current user message is in English. Your final answer must be in English."
+    if indonesian_score > english_score:
+        return "The current user message is in Indonesian. Your final answer must be in Indonesian."
+    return "Use the same language as the user's current message for your final answer."
+
+
+def configure_llm_provider(provider_name: str, model: str | None = None) -> dict:
+    """Switch the active LLM provider for the running process."""
+    global LLM_PROVIDER, LLM_MODEL, OPENROUTER_MODEL, llm, llm_with_tools
+
+    llm_gateway.configure(provider_name=provider_name, model=model)
+    LLM_PROVIDER = llm_gateway.provider_name
+    LLM_MODEL = llm_gateway.model
+    OPENROUTER_MODEL = llm_gateway.model
+    llm = llm_gateway.client
+    llm_with_tools = llm.bind_tools(tools)
+    reset_chat_history()
+
+    return get_llm_config()
+
+
+def get_llm_config() -> dict:
+    """Return the active LLM runtime configuration."""
+    return {
+        "provider": LLM_PROVIDER,
+        "model": LLM_MODEL,
+    }
 
 
 def reset_chat_history() -> None:
@@ -38,9 +100,11 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
     if not chat_history:
         chat_history.append(SystemMessage(content=SYSTEM_PROMPT))
 
+    chat_history.append(SystemMessage(content=_response_language_instruction(user_input)))
     chat_history.append(HumanMessage(content=user_input))
 
-    ai_msg = llm_with_tools.invoke(chat_history)
+    llm_response = llm_gateway.generate_sync(chat_history, tools=tools)
+    ai_msg = llm_response.raw
     chat_history.append(ai_msg)
 
     while hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls:
@@ -64,7 +128,8 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
                 name=tool_call["name"],
             ))
 
-        ai_msg = llm_with_tools.invoke(chat_history)
+        llm_response = llm_gateway.generate_sync(chat_history, tools=tools)
+        ai_msg = llm_response.raw
         chat_history.append(ai_msg)
 
     return ai_msg.content

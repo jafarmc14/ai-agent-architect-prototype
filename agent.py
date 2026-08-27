@@ -1,8 +1,13 @@
 from core.orchestration import (
+    LLM_MODEL,
+    LLM_PROVIDER,
     OPENROUTER_MODEL,
+    configure_llm_provider,
     get_agent_response,
     get_agent_response_with_trace,
+    get_llm_config,
     llm,
+    llm_gateway,
     llm_with_tools,
     reset_chat_history,
 )
@@ -22,16 +27,21 @@ from core.tools import (
 )
 
 __all__ = [
+    "LLM_MODEL",
+    "LLM_PROVIDER",
     "OPENROUTER_MODEL",
     "add_product_to_cart",
     "cancel_customer_order",
     "check_order_status",
     "check_stock",
     "clear_shopping_cart",
+    "configure_llm_provider",
     "escalate_to_human",
     "get_agent_response",
     "get_agent_response_with_trace",
+    "get_llm_config",
     "llm",
+    "llm_gateway",
     "llm_with_tools",
     "reset_chat_history",
     "search_knowledge_base",

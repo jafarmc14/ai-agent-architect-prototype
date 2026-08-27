@@ -9,7 +9,7 @@
 Build an autonomous AI assistant for e-commerce operations that can perform **message classification**, **stock checking**, **order tracking**, **smart product recommendations**, **transactional actions**, **shopping cart management**, **policy Q&A**, and **human escalation** — all automatically through internal database and knowledge base integration.
 
 ### Product Description
-**Current agent profile:** The assistant's name is **Ubichinon**. It is configured to speak in a friendly, polite, natural Indonesian customer-service style when users communicate in Indonesian.
+**Current agent profile:** The assistant's name is **Ubichinon**. It is configured to be friendly, helpful, and polite, while responding in the same language used by the customer.
 
 This system is a web-based chat interface powered by an AI model that supports store operations across 19 countries. The AI functions as an **"Agent"** — an entity that has access to **10 tools** (functions) to read and write data from the company's internal database system, search store policies, and escalate issues to human agents when needed.
 
@@ -35,7 +35,7 @@ This system is a web-based chat interface powered by an AI model that supports s
 |---|---|---|
 | **Frontend** | [Streamlit](https://streamlit.io/) (Python) | Web-based chat interface for user interaction. |
 | **Orchestrator** | [LangChain](https://www.langchain.com/) + Native LLM Tool Calling | Manages the AI agent loop — prompt → LLM → tool calls → reasoning → response. |
-| **LLM API** | [OpenRouter](https://openrouter.ai/) — Model: `openrouter/free` by default, configurable with `OPENROUTER_MODEL` | The large language model that powers intent recognition, reasoning, and response generation. |
+| **LLM API** | LLM Gateway with OpenRouter by default, or local Ollama via `LLM_PROVIDER=ollama` | The large language model that powers intent recognition, reasoning, and response generation. |
 | **Database** | [SQLite](https://www.sqlite.org/) | Local database storing products, orders, shopping cart, and support tickets. |
 | **Knowledge Base** | Plain text file (`knowledge_base.txt`) | Store policies and FAQ document searched by the AI agent for policy-related queries. |
 
@@ -61,7 +61,7 @@ This system is a web-based chat interface powered by an AI model that supports s
         └──────────┘  └──────────┘  └─────────────────┘
 ```
 
-Note: The default runtime model is `openrouter/free`, unless overridden with `OPENROUTER_MODEL` in `.env`.
+Note: The default runtime provider is OpenRouter with model `openrouter/free`, unless overridden in `.env`.
 
 ### Runtime Layers
 
@@ -70,11 +70,17 @@ The refactored runtime separates LLM tool adapters from business logic and persi
 ```text
 LLM
  ↓
+LLM Gateway (`core/llm/gateway.py`)
+ ↓
+LLM Provider Interface (`core/llm/base.py`)
+ ↓
+Provider Adapter (`core/llm/providers/openrouter_provider.py` or `core/llm/providers/ollama_provider.py`)
+ ↓
 Tool (`core/tools/store_tools.py`)
  ↓
-Service (`core/services/store_service.py`)
+Service (`core/services/*_service.py`)
  ↓
-Repository (`core/repositories/store_repository.py`)
+Repository (`core/repositories/*_repository.py`)
  ↓
 Database (`database.py` / `toko.db`)
 ```
@@ -106,15 +112,28 @@ Language policy: service and repository outputs remain internal/canonical. The L
 |---|---|
 | `app.py` | **Frontend entry point.** Defines the Streamlit chat interface, manages session-based chat history, captures user input, and displays AI responses. |
 | `agent.py` | **Compatibility facade.** Re-exports the public agent API so existing imports from `app.py` and evaluation code continue to work. |
+| `core/llm/base.py` | **LLM provider interface.** Defines the async provider contract with `generate()` and `generate_structured()`. |
+| `core/llm/gateway.py` | **LLM gateway.** Application-facing LLM entry point that hides provider-specific client details from orchestration. |
+| `core/llm/providers/openrouter_provider.py` | **OpenRouter provider adapter.** Wraps LangChain `ChatOpenAI` configured for OpenRouter and implements the provider contract. |
+| `core/llm/providers/ollama_provider.py` | **Ollama provider adapter.** Wraps Ollama's local OpenAI-compatible API for local development with `LLM_PROVIDER=ollama`. |
 | `core/orchestration/runtime.py` | **Orchestrator runtime.** Initializes the LLM via OpenRouter, binds tools, manages chat history, and runs the multi-step tool-calling loop. |
 | `core/tools/store_tools.py` | **Agent tools.** Defines all 10 LangChain tools as thin adapters into the service layer. |
-| `core/services/store_service.py` | **Business logic layer.** Handles product aliases, order rules, cart rules, support-ticket formatting, and knowledge-base search behavior. |
-| `core/repositories/store_repository.py` | **Repository layer.** Encapsulates SQLite queries and mutations through `database.get_connection()`. |
+| `core/services/product_service.py` | **Product service.** Handles product aliases, stock lookup, and product filtering. |
+| `core/services/order_service.py` | **Order service.** Handles order status lookup, cancellation rules, and address update rules. |
+| `core/services/cart_service.py` | **Cart service.** Handles add/view/clear cart behavior and stock validation for cart additions. |
+| `core/services/support_service.py` | **Support service.** Handles support ticket creation for human escalation. |
+| `core/services/knowledge_service.py` | **Knowledge service.** Handles policy and FAQ lookup from `knowledge_base.txt`. |
+| `core/services/store_service.py` | **Service facade.** Keeps a compatibility wrapper around the domain-specific services. |
+| `core/repositories/product_repository.py` | **Product repository.** Encapsulates SQLite reads for product catalog data. |
+| `core/repositories/order_repository.py` | **Order repository.** Encapsulates SQLite reads and writes for order data. |
+| `core/repositories/cart_repository.py` | **Cart repository.** Encapsulates SQLite reads and writes for shopping cart data. |
+| `core/repositories/support_repository.py` | **Support repository.** Encapsulates SQLite writes for support ticket data. |
+| `core/repositories/store_repository.py` | **Repository facade.** Keeps a compatibility wrapper around the domain-specific repositories. |
 | `core/prompts/system.py` | **System prompt.** Defines Ubichinon's identity, tone, capabilities, and tool-use rules. |
 | `core/workflows/` | **Workflow package.** Reserved for future multi-step workflows as the prototype grows. |
 | `database.py` | **Database layer.** Creates and initializes the SQLite database (`toko.db`) with schema, dummy data, and shared connection setup. |
 | `knowledge_base.txt` | **Store policies & FAQ.** Contains official store rules for returns, refunds, shipping, warranty, payments, operating hours, and loyalty program. Searched by the AI agent for policy-related questions. |
-| `.env` | **Environment configuration.** Stores the `OPENROUTER_API_KEY` securely, loaded at runtime by `python-dotenv`. |
+| `.env` | **Environment configuration.** Stores provider settings such as `LLM_PROVIDER`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OLLAMA_MODEL`, and `OLLAMA_API_BASE`, loaded at runtime by `python-dotenv`. |
 | `toko.db` | **SQLite database file.** Auto-generated on first run. Contains `products`, `orders`, `shopping_cart`, and `support_tickets` tables. |
 | `.gitignore` | **Git ignore rules.** Prevents `.env`, `toko.db`, and temp files from being pushed to the repository. |
 | `CAPABILITY_MATRIX.md` | **Capability inventory.** Groups all agent tools by access type (`READ`/`WRITE`) and risk level (`LOW`/`MEDIUM`/`HIGH`). |
@@ -143,6 +162,7 @@ py -m pip install streamlit langchain langchain-openai python-dotenv
 
 # 3. Configure your API key
 #    Open the .env file and set your OpenRouter API key:
+#    LLM_PROVIDER=openrouter
 #    OPENROUTER_API_KEY=sk-or-v1-your-key-here
 #    Optional: override the default model
 #    OPENROUTER_MODEL=openrouter/free
@@ -151,6 +171,52 @@ py -m pip install streamlit langchain langchain-openai python-dotenv
 py database.py
 
 # 5. Launch the application
+py -m streamlit run app.py
+```
+
+### Local Ollama Provider
+
+For local development, run Ollama locally and set:
+
+```bash
+LLM_PROVIDER=ollama
+OLLAMA_MODEL=llama3.1
+OLLAMA_API_BASE=http://localhost:11434/v1
+```
+
+Make sure the selected local model supports tool calling. Example setup:
+
+```bash
+ollama pull llama3.1
+ollama serve
+py -m streamlit run app.py
+```
+
+### Switching LLM Providers
+
+Provider selection is config-only. The application calls `LLMGateway`, while tools, services, repositories, and database code do not import provider adapters directly.
+
+In the Streamlit UI, use the sidebar **LLM Provider** menu to switch between OpenRouter and Ollama during local testing. Changing the provider/model resets the current chat session so the conversation context stays aligned with the selected runtime.
+
+Use OpenRouter:
+
+```bash
+LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=sk-or-v1-your-key-here
+OPENROUTER_MODEL=openrouter/free
+```
+
+Use local Ollama:
+
+```bash
+LLM_PROVIDER=ollama
+OLLAMA_MODEL=llama3.1
+OLLAMA_API_BASE=http://localhost:11434/v1
+```
+
+After changing provider config, restart Streamlit:
+
+```bash
 py -m streamlit run app.py
 ```
 
@@ -270,6 +336,8 @@ evaluation/reports/baseline_report_latest.json
 ```
 
 The report file is overwritten on each run to avoid report folder growth.
+
+The runner uses a clean dummy-data snapshot for each case and restores the user's original `toko.db` after the run, so write-tool tests remain repeatable.
 
 ### Free-Tier Rate Limit Note
 

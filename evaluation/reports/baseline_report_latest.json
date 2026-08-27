@@ -1,23 +1,24 @@
 {
   "name": "baseline_report_v1",
-  "created_at": "2026-08-26T17:25:33.183513",
-  "model": "openrouter/free",
+  "created_at": "2026-08-27T14:40:35.962599",
+  "provider": "ollama",
+  "model": "llama3.1",
   "dataset_dir": "D:\\AI-Agent Arch Prot\\evaluation\\datasets\\baseline",
   "summary": {
-    "total_cases": 3,
-    "evaluated_cases": 3,
+    "total_cases": 10,
+    "evaluated_cases": 10,
     "skipped_cases": 0,
-    "tool_selection_passed": 2,
-    "tool_selection_rate": 0.6667,
-    "argument_accuracy_passed": 2,
-    "argument_accuracy_rate": 0.6667,
-    "responses_returned": 2,
-    "response_return_rate": 0.6667,
-    "exceptions": 1,
-    "rate_limit_exceptions": 1,
-    "avg_latency_ms": 7485.16,
-    "max_latency_ms": 8992.93,
-    "min_latency_ms": 5604.76
+    "tool_selection_passed": 8,
+    "tool_selection_rate": 0.8,
+    "argument_accuracy_passed": 4,
+    "argument_accuracy_rate": 0.4,
+    "responses_returned": 10,
+    "response_return_rate": 1.0,
+    "exceptions": 0,
+    "rate_limit_exceptions": 0,
+    "avg_latency_ms": 5310.45,
+    "max_latency_ms": 11765.78,
+    "min_latency_ms": 2205.73
   },
   "results": [
     {
@@ -37,18 +38,20 @@
           "name": "add_product_to_cart",
           "args": {
             "product_name": "Nike shoes",
-            "quantity": 2
+            "quantity": "2"
           },
           "output_preview": "🛒 Added to cart: Nike Air Max Shoes x2 (Rp2,400,000)"
         }
       ],
       "tool_selection_pass": true,
-      "argument_accuracy_pass": true,
-      "argument_mismatches": [],
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [
+        "argument 'quantity' expected 2, got '2'"
+      ],
       "response_returned": true,
-      "response_preview": "Sudah ditambahkan ke keranjang Anda! 🛒\n\n- **Nike Air Max Shoes** x2\n- **Total: Rp2.400.000**\n\nAda yang ingin ditambahkan lagi atau mau saya bantu cek keranjangnya? 😊",
+      "response_preview": "You now have 2 items in your shopping cart. Would you like to proceed to checkout or add more items?",
       "exception": null,
-      "latency_ms": 7857.79,
+      "latency_ms": 5900.52,
       "access": "WRITE",
       "risk": "MEDIUM",
       "skipped": false,
@@ -71,18 +74,20 @@
           "name": "add_product_to_cart",
           "args": {
             "product_name": "Python Programming Book",
-            "quantity": 1
+            "quantity": "1"
           },
           "output_preview": "🛒 Added to cart: Python Programming Book x1 (Rp95,000)"
         }
       ],
       "tool_selection_pass": true,
-      "argument_accuracy_pass": true,
-      "argument_mismatches": [],
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [
+        "argument 'quantity' expected 1, got '1'"
+      ],
       "response_returned": true,
-      "response_preview": "Done! ✅ Python Programming Book x1 (Rp95,000) has been added to your cart.\n\nIs there anything else you'd like to add or would you like to proceed to checkout?",
+      "response_preview": "Would you like to add more products or proceed with checkout?",
       "exception": null,
-      "latency_ms": 8992.93,
+      "latency_ms": 3029.88,
       "access": "WRITE",
       "risk": "MEDIUM",
       "skipped": false,
@@ -97,17 +102,279 @@
         "product_name": "Black Plain T-Shirt",
         "quantity": 3
       },
-      "actual_tools": [],
-      "actual_tool_calls": [],
+      "actual_tools": [
+        "add_product_to_cart"
+      ],
+      "actual_tool_calls": [
+        {
+          "name": "add_product_to_cart",
+          "args": {
+            "quantity": 3,
+            "product_name": "kaos hitam"
+          },
+          "output_preview": "🛒 Added to cart: Black Plain T-Shirt x3 (Rp267,000)"
+        }
+      ],
+      "tool_selection_pass": true,
+      "argument_accuracy_pass": true,
+      "argument_mismatches": [],
+      "response_returned": true,
+      "response_preview": "Keranjang Anda telah diperbarui! Anda memiliki 3 item di keranjang dengan total Rp267.000.",
+      "exception": null,
+      "latency_ms": 3949.13,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": false,
+      "skip_reason": null
+    },
+    {
+      "id": "cart_004",
+      "dataset_file": "cart.jsonl",
+      "query": "What's in my cart right now?",
+      "expected_tool": "view_shopping_cart",
+      "expected_arguments": {},
+      "actual_tools": [
+        "view_shopping_cart",
+        "view_shopping_cart"
+      ],
+      "actual_tool_calls": [
+        {
+          "name": "view_shopping_cart",
+          "args": {},
+          "output_preview": "🛒 Your shopping cart is empty."
+        },
+        {
+          "name": "view_shopping_cart",
+          "args": {},
+          "output_preview": "🛒 Your shopping cart is empty."
+        }
+      ],
       "tool_selection_pass": false,
       "argument_accuracy_pass": false,
       "argument_mismatches": [
-        "expected 1 tool call(s), got 0"
+        "expected 1 tool call(s), got 2"
       ],
-      "response_returned": false,
-      "response_preview": "",
-      "exception": "Error code: 429 - {'error': {'message': 'Provider returned error', 'code': 429, 'metadata': {'raw': 'minimax/minimax-m2.7:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations', 'provider_name': 'GMICloud', 'is_byok': False, 'provider_error_code': 'rate_limit_exceeded', 'limit_source': 'upstream_provider_shared_pool', 'remedy_hint': 'Retry shortly, add your own provider key (https://openrouter.ai/settings/integrations), or route to another provider with provider routing: https://openrouter.ai/docs/features/provider-routing', 'retry_after_seconds': 60, 'retry_after_seconds_raw': 60, 'previous_errors': [{'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}, {'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}, {'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}, {'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}, {'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}, {'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}, {'code': 429, 'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'}]}}, 'user_id': 'user_3BDTF7ubhkU1dmplrlooaYSIZ39'}",
-      "latency_ms": 5604.76,
+      "response_returned": true,
+      "response_preview": "Please add products to your cart to see its contents!",
+      "exception": null,
+      "latency_ms": 3293.3,
+      "access": "READ",
+      "risk": "LOW",
+      "skipped": false,
+      "skip_reason": null
+    },
+    {
+      "id": "cart_005",
+      "dataset_file": "cart.jsonl",
+      "query": "Please clear my cart, I changed my mind",
+      "expected_tool": "clear_shopping_cart",
+      "expected_arguments": {},
+      "actual_tools": [
+        "clear_shopping_cart"
+      ],
+      "actual_tool_calls": [
+        {
+          "name": "clear_shopping_cart",
+          "args": {},
+          "output_preview": "🛒 Cart is already empty, nothing to clear."
+        }
+      ],
+      "tool_selection_pass": true,
+      "argument_accuracy_pass": true,
+      "argument_mismatches": [],
+      "response_returned": true,
+      "response_preview": "{\"status\": \"Cart is already empty\"}",
+      "exception": null,
+      "latency_ms": 2205.73,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": false,
+      "skip_reason": null
+    },
+    {
+      "id": "cart_006",
+      "dataset_file": "cart.jsonl",
+      "query": "Add 100 Sony headphones to my cart",
+      "expected_tool": "add_product_to_cart",
+      "expected_arguments": {
+        "product_name": "Sony",
+        "quantity": 100
+      },
+      "actual_tools": [
+        "add_product_to_cart"
+      ],
+      "actual_tool_calls": [
+        {
+          "name": "add_product_to_cart",
+          "args": {
+            "product_name": "Sony headphones",
+            "quantity": "100"
+          },
+          "output_preview": "❌ Insufficient stock for 'Sony WH-1000 Headphone'. Requested: 100, Available: 15 units."
+        }
+      ],
+      "tool_selection_pass": true,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [
+        "argument 'quantity' expected 100, got '100'"
+      ],
+      "response_returned": true,
+      "response_preview": "Mohon maaf, stok yang tersedia untuk headphone Sony hanya 15 unit saja. Apakah Anda ingin menambahkan 15 unit saja ke dalam keranjang Anda?",
+      "exception": null,
+      "latency_ms": 3957.97,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": false,
+      "skip_reason": null
+    },
+    {
+      "id": "escalation_001",
+      "dataset_file": "escalation.jsonl",
+      "query": "I want to speak to a real human agent please",
+      "expected_tool": "escalate_to_human",
+      "expected_arguments": {
+        "customer_message": "I want to speak to a real human agent please",
+        "priority": "Normal"
+      },
+      "actual_tools": [
+        "escalate_to_human"
+      ],
+      "actual_tool_calls": [
+        {
+          "name": "escalate_to_human",
+          "args": {
+            "customer_message": "I want to speak to a real human agent please",
+            "priority": "Normal",
+            "reason": "User explicitly asked for human agent"
+          },
+          "output_preview": "🎫 Support ticket #1 created successfully (Priority: Normal). A human agent will review your case within 1x24 hours."
+        }
+      ],
+      "tool_selection_pass": true,
+      "argument_accuracy_pass": true,
+      "argument_mismatches": [],
+      "response_returned": true,
+      "response_preview": "Saya telah mengirimkan permintaanmu ke tim suport kami. Segera, salah satu tim suport kami akan menghubungimu untuk membantu menyelesaikan masalahmu. Terima kasih!",
+      "exception": null,
+      "latency_ms": 5604.18,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": false,
+      "skip_reason": null
+    },
+    {
+      "id": "escalation_002",
+      "dataset_file": "escalation.jsonl",
+      "query": "This is ridiculous! I've been waiting for 2 weeks and my order still hasn't arrived. Nobody is helping me! I'm extremely frustrated!",
+      "expected_tool": "escalate_to_human",
+      "expected_arguments": {
+        "customer_message": "This is ridiculous! I've been waiting for 2 weeks and my order still hasn't arrived. Nobody is helping me! I'm extremely frustrated!",
+        "priority": "High"
+      },
+      "actual_tools": [
+        "escalate_to_human"
+      ],
+      "actual_tool_calls": [
+        {
+          "name": "escalate_to_human",
+          "args": {
+            "customer_message": "This is ridiculous! I\\u2019ve been waiting for 2 weeks and my order still hasn\\u2019t arrive. Nobody is helping me! I\\u2019m extremely frustrated!",
+            "priority": "High",
+            "reason": "The user is extremely frustrated and has been waiting for 2 weeks without any resolution, and they feel nobody is helping them."
+          },
+          "output_preview": "🎫 Support ticket #1 created successfully (Priority: High). A human agent will review your case within 1x24 hours."
+        }
+      ],
+      "tool_selection_pass": true,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [
+        "argument 'customer_message' expected \"This is ridiculous! I've been waiting for 2 weeks and my order still hasn't arrived. Nobody is helping me! I'm extremely frustrated!\", got 'This is ridiculous! I\\\\u2019ve been waiting for 2 weeks and my order still hasn\\\\u2019t arrive. Nobody is helping me! I\\\\u2019m extremely frustrated!'"
+      ],
+      "response_returned": true,
+      "response_preview": "Saya mengerti bahwa Anda sangat frustrasi dan telah menunggu 2 minggu tanpa ada tanggapan dari kami. Saya akan membantu Anda dengan segera. Silakan tunggu notifikasi dari kami dalam waktu 24 jam. Terima kasih atas kesabaran Anda.",
+      "exception": null,
+      "latency_ms": 11765.78,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": false,
+      "skip_reason": null
+    },
+    {
+      "id": "escalation_003",
+      "dataset_file": "escalation.jsonl",
+      "query": "I received a damaged product but the order shows as Completed. I want a replacement, not a refund. Also, the delivery person was rude.",
+      "expected_tool": [
+        "search_knowledge_base",
+        "escalate_to_human"
+      ],
+      "expected_arguments": [
+        {
+          "query": "return damaged"
+        },
+        {
+          "customer_message": "I received a damaged product but the order shows as Completed. I want a replacement, not a refund. Also, the delivery person was rude.",
+          "priority": "High"
+        }
+      ],
+      "actual_tools": [
+        "escalate_to_human"
+      ],
+      "actual_tool_calls": [
+        {
+          "name": "escalate_to_human",
+          "args": {
+            "reason": "User reports damaged product and rude delivery person, requires human assistance for resolution",
+            "customer_message": "Received damaged product, order shows as Completed, want replacement, rude delivery person",
+            "priority": "High"
+          },
+          "output_preview": "🎫 Support ticket #1 created successfully (Priority: High). A human agent will review your case within 1x24 hours."
+        }
+      ],
+      "tool_selection_pass": false,
+      "argument_accuracy_pass": false,
+      "argument_mismatches": [
+        "expected 2 tool call(s), got 1",
+        "tool #1 expected 'search_knowledge_base', got 'escalate_to_human'"
+      ],
+      "response_returned": true,
+      "response_preview": "Saya telah memulai proses pemberitahuan ke operator layanan pelanggan. Anda akan mendapatkan pemberitahuan kapan langkah berikutnya.",
+      "exception": null,
+      "latency_ms": 8156.89,
+      "access": "WRITE",
+      "risk": "MEDIUM",
+      "skipped": false,
+      "skip_reason": null
+    },
+    {
+      "id": "escalation_004",
+      "dataset_file": "escalation.jsonl",
+      "query": "Saya mau bicara dengan admin manusia sekarang.",
+      "expected_tool": "escalate_to_human",
+      "expected_arguments": {
+        "customer_message": "Saya mau bicara dengan admin manusia sekarang.",
+        "priority": "Normal"
+      },
+      "actual_tools": [
+        "escalate_to_human"
+      ],
+      "actual_tool_calls": [
+        {
+          "name": "escalate_to_human",
+          "args": {
+            "customer_message": "Saya mau bicara dengan admin manusia sekarang",
+            "priority": "Normal",
+            "reason": "User explicitly asked to speak to a human"
+          },
+          "output_preview": "🎫 Support ticket #1 created successfully (Priority: Normal). A human agent will review your case within 1x24 hours."
+        }
+      ],
+      "tool_selection_pass": true,
+      "argument_accuracy_pass": true,
+      "argument_mismatches": [],
+      "response_returned": true,
+      "response_preview": "Saya telah mengirim permintaanmu kepada tim dukungan kami. Kamu akan menerima perubahan dari kami melalui email atau pesan teks segera.",
+      "exception": null,
+      "latency_ms": 5241.17,
       "access": "WRITE",
       "risk": "MEDIUM",
       "skipped": false,

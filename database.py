@@ -135,6 +135,22 @@ def init_database():
     print(f"Database initialized successfully at: {DB_PATH}")
 
 
+def reset_database():
+    """Reset database contents to the original dummy baseline data."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM support_tickets")
+    cursor.execute("DELETE FROM shopping_cart")
+    cursor.execute("DELETE FROM orders")
+    cursor.execute("DELETE FROM products")
+    cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('products', 'shopping_cart', 'support_tickets')")
+
+    conn.commit()
+    conn.close()
+    init_database()
+
+
 # =====================================================================
 # QUERY FUNCTIONS USED BY AGENT TOOLS
 # =====================================================================

@@ -271,11 +271,15 @@ def main() -> int:
 
     results = []
     with TemporaryDirectory() as tmp_dir:
-        backup_path = Path(tmp_dir) / "toko.db"
-        shutil.copy2(db_path, backup_path)
+        original_backup_path = Path(tmp_dir) / "toko_original.db"
+        baseline_backup_path = Path(tmp_dir) / "toko_baseline.db"
+
+        shutil.copy2(db_path, original_backup_path)
+        database.reset_database()
+        shutil.copy2(db_path, baseline_backup_path)
 
         for index, case in enumerate(cases, start=1):
-            restore_database(db_path, backup_path)
+            restore_database(db_path, baseline_backup_path)
             print(f"[{index}/{len(cases)}] {case['id']} - {case['query']}")
             result = evaluate_case(case, agent, database)
             results.append(result)
@@ -290,12 +294,13 @@ def main() -> int:
             if args.delay_seconds > 0 and index < len(cases):
                 time.sleep(args.delay_seconds)
 
-        restore_database(db_path, backup_path)
+        restore_database(db_path, original_backup_path)
 
     report = {
         "name": "baseline_report_v1",
         "created_at": datetime.now().isoformat(),
-        "model": getattr(agent, "OPENROUTER_MODEL", None),
+        "provider": getattr(agent, "LLM_PROVIDER", None),
+        "model": getattr(agent, "LLM_MODEL", getattr(agent, "OPENROUTER_MODEL", None)),
         "dataset_dir": str(dataset_dir),
         "summary": summarize(results),
         "results": results,

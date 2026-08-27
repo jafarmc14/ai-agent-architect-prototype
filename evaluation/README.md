@@ -62,6 +62,8 @@ The report is saved to:
 evaluation/reports/baseline_report_latest.json
 ```
 
+The report includes the active `provider` and `model`, based on `LLM_PROVIDER` and the selected provider-specific model setting.
+
 ## Metrics
 
 The v1 runner records:
@@ -73,6 +75,6 @@ The v1 runner records:
 - latency in milliseconds
 - skipped cases caused by rate limits
 
-The runner restores `toko.db` before each case, so write-tool evaluations do not permanently mutate the baseline database.
+The runner resets `toko.db` to the original dummy data before creating the evaluation baseline snapshot, restores that clean snapshot before each case, then restores the user's original `toko.db` after the run. This keeps write-tool evaluations repeatable without permanently mutating the local database.
 
 When OpenRouter free-tier rate limits are reached, the runner stops early by default and marks the remaining cases as skipped. This keeps rate-limit failures from being counted as agent accuracy failures. Use `--continue-on-rate-limit` only when you intentionally want to keep retrying after rate-limit errors.
