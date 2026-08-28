@@ -22,14 +22,48 @@ def check_order_status(order_id: str) -> str:
 
 
 @tool
-def search_products(category: str = "", max_price: float = 0, min_price: float = 0) -> str:
-    """Use this when the user wants to browse or filter products by category and/or price range.
+def search_products(
+    category: str = "",
+    max_price: float = 0,
+    min_price: float = 0,
+    query: str = "",
+    size: int = 0,
+    color: str = "",
+    waterproof: bool | None = None,
+    sku: str = "",
+    available: bool | None = None,
+    min_stock: int = 0,
+    soft_preferences: str = "",
+) -> str:
+    """Use this when the user wants to browse or filter products by structured search criteria.
     Input parameters:
     - category: product category like 'Electronics', 'Shoes', 'Clothing', 'Beauty', 'Accessories', 'Bags', 'Books' (optional)
     - max_price: maximum price in Rupiah (optional, 0 means no limit)
     - min_price: minimum price in Rupiah (optional, 0 means no limit)
-    Examples: user says 'show me cheap electronics under 600000' -> category='Electronics', max_price=600000"""
-    return product_service.search_products(category, max_price, min_price)
+    - query: raw product phrase for extraction, such as 'black waterproof hiking shoes size 42' (optional)
+    - size: requested size when mentioned, such as 42 (optional)
+    - color: requested color when mentioned, such as 'black' (optional)
+    - waterproof: true/false when explicitly mentioned (optional)
+    - sku: exact SKU or product code when mentioned (optional, hard constraint)
+    - available: true when user requires in-stock/available products, false for out-of-stock searches (optional, hard constraint)
+    - min_stock: minimum available stock quantity when mentioned (optional, hard constraint)
+    - soft_preferences: comma-separated preferences like 'comfortable, minimalist, good for winter' (optional, soft constraints)
+    Examples: user says 'show me cheap electronics under 600000' -> category='Electronics', max_price=600000.
+    User says 'black waterproof hiking shoes size 42 under Rp500000' -> query='black waterproof hiking shoes size 42 under Rp500000', category='Shoes', size=42, color='black', waterproof=true, max_price=500000."""
+    normalized_size = size if size and size > 0 else None
+    return product_service.search_products(
+        category=category,
+        max_price=max_price,
+        min_price=min_price,
+        query=query,
+        size=normalized_size,
+        color=color,
+        waterproof=waterproof,
+        sku=sku,
+        available=available,
+        min_stock=min_stock,
+        soft_preferences=soft_preferences,
+    )
 
 
 @tool

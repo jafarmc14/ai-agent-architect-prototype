@@ -15,7 +15,16 @@ class SQLiteProductRepository:
         conn.close()
         return rows
 
-    def find_products_by_filter(self, category: str = "", max_price: float = 0, min_price: float = 0):
+    def find_products_by_filter(
+        self,
+        category: str = "",
+        max_price: float = 0,
+        min_price: float = 0,
+        size: int | None = None,
+        sku: str = "",
+        available: bool | None = None,
+        min_stock: int = 0,
+    ):
         conn = get_connection()
         cursor = conn.cursor()
 
@@ -31,6 +40,17 @@ class SQLiteProductRepository:
         if max_price > 0:
             query += " AND price <= ?"
             params.append(max_price)
+        if size is not None:
+            query += " AND 1 = 0"
+        if available is True:
+            query += " AND stock > 0"
+        elif available is False:
+            query += " AND stock = 0"
+        if sku:
+            query += " AND 1 = 0"
+        if min_stock > 0:
+            query += " AND stock >= ?"
+            params.append(min_stock)
 
         query += " ORDER BY price ASC"
         cursor.execute(query, params)

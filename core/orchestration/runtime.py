@@ -101,6 +101,20 @@ def _response_language_instruction(user_input: str) -> str:
     )
 
 
+def _clean_ai_response(content: str) -> str:
+    """Remove role labels that some local models emit as plain text."""
+    cleaned = content.strip()
+    role_label_pattern = re.compile(r"^(?:assistant|ai|bot)\s*:?\s*", re.IGNORECASE)
+
+    while True:
+        next_cleaned = role_label_pattern.sub("", cleaned, count=1).lstrip()
+        if next_cleaned == cleaned:
+            break
+        cleaned = next_cleaned
+
+    return cleaned
+
+
 def configure_llm_provider(provider_name: str, model: str | None = None) -> dict:
     """Switch the active LLM provider for the running process."""
     global LLM_PROVIDER, LLM_MODEL, OPENROUTER_MODEL, llm, llm_with_tools
@@ -172,7 +186,12 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
         ai_msg = llm_response.raw
         chat_history.append(ai_msg)
 
-    return ai_msg.content
+    cleaned_content = _clean_ai_response(ai_msg.content)
+    try:
+        ai_msg.content = cleaned_content
+    except (AttributeError, TypeError, ValueError):
+        pass
+    return cleaned_content
 
 
 def get_agent_response(user_input: str) -> str:

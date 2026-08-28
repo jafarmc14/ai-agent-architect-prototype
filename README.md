@@ -113,6 +113,126 @@ Database Provider (`DATABASE_PROVIDER=postgres` or `sqlite`)
 
 Language policy: service and repository outputs remain internal/canonical. The LLM is responsible for translating and rewriting final responses in the same language used by the customer.
 
+### Product Search Foundation
+
+Product search keeps the existing deterministic filters as the first-class search contract:
+
+```text
+category
+min_price
+max_price
+```
+
+Structured query extraction is handled before repository access. The current structured search shape is:
+
+```json
+{
+  "query": "black waterproof hiking shoes size 42 under Rp 500,000",
+  "category": "Shoes",
+  "catalog_category": "Shoes",
+  "size": 42,
+  "color": "black",
+  "waterproof": true,
+  "min_price": 0,
+  "max_price": 500000
+}
+```
+
+Product constraints are separated by enforcement level:
+
+```text
+Hard constraints:
+price, size, availability, SKU, stock
+
+Soft constraints:
+comfortable, minimalist, good for winter
+```
+
+Hard constraints must be treated as database filters, not final-response reasoning. PostgreSQL applies price, size, SKU, availability, and stock constraints directly in SQL. Size is evaluated against `product_variants.attributes`; with the current migrated seed data, size-specific searches may correctly return no exact match until variant attributes are populated.
+
+Soft constraints are captured as preferences for semantic ranking. They should not remove otherwise valid deterministic results.
+
+The `search_products` tool sends those fields into `ProductService`, then into the configured repository. In PostgreSQL mode, deterministic filters are translated into structured SQL predicates against `products.category`, `products.base_price`, `inventory`, `product_variants`, and SKU fields. When product embeddings are available, hybrid search ranks the filtered candidate set with keyword relevance plus pgvector similarity. In SQLite fallback mode, product search stays deterministic.
+
+Additional extracted attributes such as `size`, `color`, and `waterproof` are captured in the structured query. They are reported as captured-but-not-yet-filterable until product variants and attributes are populated enough to filter them reliably.
+
+Hybrid search is additive only:
+
+```text
+SQL hard filters
++
+keyword search
++
+vector search
+```
+
+The PostgreSQL hybrid retriever returns the top 20 candidates. `ProductService` then applies a deterministic reranker and returns the top 5 final products:
+
+```text
+Top 20
+↓
+reranker
+↓
+Top 5
+```
+
+It helps with discovery, synonym matching, and ranking, but it does not replace exact deterministic filtering for category, price, SKU, stock, availability, or size constraints.
+
+Product embeddings are stored in PostgreSQL on the `products` table. Local development uses Ollama with `nomic-embed-text` so embeddings do not require a paid API key. Only semantic fields are embedded:
+
+```text
+name
+description
+category
+brand
+country_of_origin
+variant_names
+variant_attributes
+```
+
+The embedding source intentionally excludes hard/factual fields:
+
+```text
+id
+sku
+base_price
+currency
+stock
+quantity_on_hand
+quantity_reserved
+created_at
+updated_at
+```
+
+Preview the source text before generating embeddings:
+
+```bash
+py database/embed_products.py --dry-run
+```
+
+Pull the local embedding model once:
+
+```bash
+ollama pull nomic-embed-text
+```
+
+Use the local Ollama embedding config:
+
+```bash
+EMBEDDING_API_KEY=ollama
+EMBEDDING_API_BASE=http://localhost:11434/v1
+EMBEDDING_MODEL=nomic-embed-text
+VECTOR_DIMENSION=768
+```
+
+Generate embeddings only for products that do not have one yet:
+
+```bash
+py database/embed_products.py --only-missing
+```
+
+After embeddings exist, product search can rank by meaning and keyword relevance while preserving hard filters. For example, "comfortable minimalist shoes under Rp 1,500,000" is filtered by price/category in PostgreSQL, retrieved as top 20 hybrid candidates, reranked, then returned as the top 5 products.
+
 ---
 
 ## 3. AI Agent Tools (10 Total)
@@ -121,7 +241,7 @@ Language policy: service and repository outputs remain internal/canonical. The L
 |---|---|---|---|---|
 | 1 | `check_stock` | Original | Read | Look up product availability by name |
 | 2 | `check_order_status` | Original | Read | Look up order status by order ID |
-| 3 | `search_products` | Smart Recommender | Read | Filter products by category and/or price range |
+| 3 | `search_products` | Smart Recommender | Read | Extract structured product search criteria, enforce hard filters in the database, and rank semantic matches with pgvector when embeddings are available |
 | 4 | `cancel_customer_order` | Transactional | Write | Cancel orders (only Processing/Awaiting Payment) |
 | 5 | `update_shipping_address` | Transactional | Write | Change shipping address (only before shipment) |
 | 6 | `add_product_to_cart` | Shopping Cart | Write | Add a product to the shopping cart |
@@ -171,13 +291,20 @@ Language policy: service and repository outputs remain internal/canonical. The L
 | `.gitignore` | **Git ignore rules.** Prevents `.env`, `toko.db`, and temp files from being pushed to the repository. |
 | `CAPABILITY_MATRIX.md` | **Capability inventory.** Groups all agent tools by access type (`READ`/`WRITE`) and risk level (`LOW`/`MEDIUM`/`HIGH`). |
 | `evaluation/datasets/baseline/*.jsonl` | **Baseline evaluation dataset.** Contains 41 JSONL test cases converted from manual prompts and additional baseline variants. |
+| `evaluation/datasets/product_search.jsonl` | **Product search evaluation dataset.** Defines relevant products, graded relevance, and hard constraints for retrieval/ranking metrics. |
 | `evaluation/run_baseline.py` | **Evaluation runner v1.** Runs baseline cases, traces tool calls, measures accuracy/latency/exceptions, and saves the latest report. |
+| `evaluation/run_product_search_evaluation.py` | **Product search evaluation runner.** Measures Precision@5, Recall@10, NDCG@10, and Hard Constraint Satisfaction. |
 | `evaluation/reports/baseline_report_latest.json` | **Latest evaluation report.** Generated by the runner and overwritten on each evaluation run. |
+| `evaluation/reports/product_search_report_latest.json` | **Latest product search evaluation report.** Generated by the product search runner and overwritten on each run. |
 | `database/migrations/postgres/V001__initial_schema.sql` | **PostgreSQL migration V001.** Defines the target PostgreSQL tables for Phase 5 migration. |
 | `database/migrations/postgres/V002__enable_pgvector_document_chunks.sql` | **PostgreSQL migration V002.** Enables pgvector and adds vector storage for document chunks. |
 | `database/migrations/postgres/V003__add_operational_indexes.sql` | **PostgreSQL migration V003.** Adds tenant-aware indexes for SKU, category, user, order, document metadata, and vector search access patterns. |
+| `database/migrations/postgres/V004__add_product_embeddings.sql` | **PostgreSQL migration V004.** Adds pgvector product embedding storage and vector index. |
+| `database/migrations/postgres/V005__use_ollama_embedding_dimensions.sql` | **PostgreSQL migration V005.** Changes product/document vector columns to Ollama `nomic-embed-text` dimensions. |
+| `database/migrations/postgres/V006__add_product_keyword_search_index.sql` | **PostgreSQL migration V006.** Adds the GIN full-text index used by hybrid product search. |
 | `database/migrations/README.md` | **Migration guide.** Documents naming convention and manual apply flow for versioned migrations. |
 | `database/migrate_sqlite_to_postgres.py` | **Data migration script.** Migrates SQLite data to PostgreSQL in the order: products, inventory, orders, cart, support. |
+| `database/embed_products.py` | **Product embedding script.** Builds semantic product text from relevant fields and stores pgvector embeddings in PostgreSQL. |
 | `docs/postgresql_schema.md` | **PostgreSQL schema design.** Documents table purpose, relationships, and design notes. |
 | `mvp.txt` | **Original PRD document** (in Bahasa Indonesia) outlining the initial project requirements. |
 | `README.md` | **This file.** Full project documentation in English. |
@@ -547,6 +674,12 @@ User: I'm looking for electronics under Rp 600,000
 User: What products do you have between Rp 100,000 and Rp 300,000?
 ```
 > Expected: Agent calls `search_products(min_price=100000, max_price=300000)` → returns Polarized Sunglasses (Rp 175,000) and Eau de Toilette Perfume (Rp 280,000).
+
+**Test 7A - Hybrid ranking with hard filters:**
+```
+User: Find comfortable minimalist shoes under Rp 1,500,000
+```
+> Expected: Agent calls `search_products(query="comfortable minimalist shoes under Rp 1,500,000", category="Shoes", max_price=1500000)` -> PostgreSQL applies the hard filters, then ranks matching products using keyword relevance plus pgvector similarity.
 
 ---
 

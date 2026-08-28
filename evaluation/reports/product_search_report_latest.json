@@ -1,0 +1,331 @@
+{
+  "name": "product_search_report_v1",
+  "created_at": "2026-08-28T16:20:35.315862",
+  "database_provider": "postgres",
+  "embedding_model": "nomic-embed-text",
+  "dataset": "D:\\AI-Agent Arch Prot\\evaluation\\datasets\\product_search.jsonl",
+  "summary": {
+    "total_cases": 10,
+    "evaluated_cases": 10,
+    "exceptions": 0,
+    "precision_at_5": 0.96,
+    "recall_at_10": 1.0,
+    "ndcg_at_10": 0.9957,
+    "hard_constraint_satisfaction": 1.0,
+    "avg_latency_ms": 1338.92,
+    "targets": {
+      "precision_at_5": 0.9,
+      "recall_at_10": 0.95,
+      "ndcg_at_10": 0.85,
+      "hard_constraint_satisfaction": 0.99
+    },
+    "target_pass": {
+      "precision_at_5": true,
+      "recall_at_10": true,
+      "ndcg_at_10": true,
+      "hard_constraint_satisfaction": true
+    },
+    "all_targets_pass": true
+  },
+  "results": [
+    {
+      "id": "ps_001",
+      "query": "Show me all electronics products you have",
+      "retrieval_mode": "deterministic",
+      "expected_relevant": [
+        "Logitech G502 Mouse",
+        "Galaxy Fit Smartwatch",
+        "Mechanical RGB Keyboard",
+        "Sony WH-1000 Headphone"
+      ],
+      "ranked_products": [
+        "Mechanical RGB Keyboard",
+        "Logitech G502 Mouse",
+        "Galaxy Fit Smartwatch",
+        "Sony WH-1000 Headphone"
+      ],
+      "top5": [
+        "Mechanical RGB Keyboard",
+        "Logitech G502 Mouse",
+        "Galaxy Fit Smartwatch",
+        "Sony WH-1000 Headphone"
+      ],
+      "candidate_count": 4,
+      "result_count": 4,
+      "precision_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 1.0,
+      "hard_constraint_satisfaction": 1.0,
+      "hard_constraints": {
+        "category": "Electronics"
+      },
+      "exception": null,
+      "latency_ms": 272.06
+    },
+    {
+      "id": "ps_002",
+      "query": "I'm looking for electronics under Rp 600,000",
+      "retrieval_mode": "deterministic",
+      "expected_relevant": [
+        "Mechanical RGB Keyboard"
+      ],
+      "ranked_products": [
+        "Mechanical RGB Keyboard"
+      ],
+      "top5": [
+        "Mechanical RGB Keyboard"
+      ],
+      "candidate_count": 1,
+      "result_count": 1,
+      "precision_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 1.0,
+      "hard_constraint_satisfaction": 1.0,
+      "hard_constraints": {
+        "category": "Electronics",
+        "max_price": 600000
+      },
+      "exception": null,
+      "latency_ms": 41.66
+    },
+    {
+      "id": "ps_003",
+      "query": "What products do you have between Rp 100,000 and Rp 300,000?",
+      "retrieval_mode": "deterministic",
+      "expected_relevant": [
+        "Polarized Sunglasses",
+        "Eau de Toilette Perfume"
+      ],
+      "ranked_products": [
+        "Polarized Sunglasses",
+        "Eau de Toilette Perfume"
+      ],
+      "top5": [
+        "Polarized Sunglasses",
+        "Eau de Toilette Perfume"
+      ],
+      "candidate_count": 2,
+      "result_count": 2,
+      "precision_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 1.0,
+      "hard_constraint_satisfaction": 1.0,
+      "hard_constraints": {
+        "min_price": 100000,
+        "max_price": 300000
+      },
+      "exception": null,
+      "latency_ms": 29.28
+    },
+    {
+      "id": "ps_004",
+      "query": "Rekomendasikan produk sepatu di bawah Rp 1.300.000",
+      "retrieval_mode": "hybrid_reranked",
+      "expected_relevant": [
+        "Birkenstock Sandals",
+        "Nike Air Max Shoes"
+      ],
+      "ranked_products": [
+        "Nike Air Max Shoes",
+        "Birkenstock Sandals"
+      ],
+      "top5": [
+        "Nike Air Max Shoes",
+        "Birkenstock Sandals"
+      ],
+      "candidate_count": 2,
+      "result_count": 2,
+      "precision_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 1.0,
+      "hard_constraint_satisfaction": 1.0,
+      "hard_constraints": {
+        "category": "Shoes",
+        "max_price": 1300000
+      },
+      "exception": null,
+      "latency_ms": 2200.15
+    },
+    {
+      "id": "ps_005",
+      "query": "Do you have any beauty items below Rp 500,000?",
+      "retrieval_mode": "hybrid_reranked",
+      "expected_relevant": [
+        "Premium Skincare Set",
+        "Eau de Toilette Perfume"
+      ],
+      "ranked_products": [
+        "Premium Skincare Set",
+        "Eau de Toilette Perfume"
+      ],
+      "top5": [
+        "Premium Skincare Set",
+        "Eau de Toilette Perfume"
+      ],
+      "candidate_count": 2,
+      "result_count": 2,
+      "precision_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 1.0,
+      "hard_constraint_satisfaction": 1.0,
+      "hard_constraints": {
+        "category": "Beauty",
+        "max_price": 500000
+      },
+      "exception": null,
+      "latency_ms": 2153.72
+    },
+    {
+      "id": "ps_006",
+      "query": "Show me bags around Rp 400,000 to Rp 500,000",
+      "retrieval_mode": "deterministic",
+      "expected_relevant": [
+        "Eiger Backpack"
+      ],
+      "ranked_products": [
+        "Eiger Backpack"
+      ],
+      "top5": [
+        "Eiger Backpack"
+      ],
+      "candidate_count": 1,
+      "result_count": 1,
+      "precision_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 1.0,
+      "hard_constraint_satisfaction": 1.0,
+      "hard_constraints": {
+        "category": "Bags",
+        "min_price": 400000,
+        "max_price": 500000
+      },
+      "exception": null,
+      "latency_ms": 43.76
+    },
+    {
+      "id": "ps_007",
+      "query": "Find comfortable minimalist shoes under Rp 1,500,000",
+      "retrieval_mode": "hybrid_reranked",
+      "expected_relevant": [
+        "Adidas Ultraboost Shoes",
+        "Birkenstock Sandals",
+        "Nike Air Max Shoes"
+      ],
+      "ranked_products": [
+        "Nike Air Max Shoes",
+        "Adidas Ultraboost Shoes",
+        "Birkenstock Sandals"
+      ],
+      "top5": [
+        "Nike Air Max Shoes",
+        "Adidas Ultraboost Shoes",
+        "Birkenstock Sandals"
+      ],
+      "candidate_count": 3,
+      "result_count": 3,
+      "precision_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 1.0,
+      "hard_constraint_satisfaction": 1.0,
+      "hard_constraints": {
+        "category": "Shoes",
+        "max_price": 1500000
+      },
+      "exception": null,
+      "latency_ms": 2132.04
+    },
+    {
+      "id": "ps_008",
+      "query": "Find Nike shoes under Rp 1,500,000",
+      "retrieval_mode": "hybrid_reranked",
+      "expected_relevant": [
+        "Adidas Ultraboost Shoes",
+        "Birkenstock Sandals",
+        "Nike Air Max Shoes"
+      ],
+      "ranked_products": [
+        "Nike Air Max Shoes",
+        "Adidas Ultraboost Shoes",
+        "Birkenstock Sandals"
+      ],
+      "top5": [
+        "Nike Air Max Shoes",
+        "Adidas Ultraboost Shoes",
+        "Birkenstock Sandals"
+      ],
+      "candidate_count": 3,
+      "result_count": 3,
+      "precision_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 1.0,
+      "hard_constraint_satisfaction": 1.0,
+      "hard_constraints": {
+        "category": "Shoes",
+        "max_price": 1500000
+      },
+      "exception": null,
+      "latency_ms": 2169.9
+    },
+    {
+      "id": "ps_009",
+      "query": "Cari produk premium dan stylish",
+      "retrieval_mode": "hybrid_reranked",
+      "expected_relevant": [
+        "Nike Air Max Shoes",
+        "Adidas Ultraboost Shoes",
+        "Casio Classic Watch",
+        "Polarized Sunglasses",
+        "Premium Skincare Set"
+      ],
+      "ranked_products": [
+        "Premium Skincare Set",
+        "Adidas Ultraboost Shoes",
+        "Nike Air Max Shoes",
+        "Oversize Denim Jacket",
+        "Black Plain T-Shirt",
+        "Casio Classic Watch",
+        "Polarized Sunglasses",
+        "Eau de Toilette Perfume",
+        "Birkenstock Sandals",
+        "Galaxy Fit Smartwatch"
+      ],
+      "top5": [
+        "Premium Skincare Set",
+        "Adidas Ultraboost Shoes",
+        "Nike Air Max Shoes",
+        "Oversize Denim Jacket",
+        "Black Plain T-Shirt"
+      ],
+      "candidate_count": 15,
+      "result_count": 10,
+      "precision_at_5": 0.6,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 0.9566,
+      "hard_constraint_satisfaction": 1.0,
+      "hard_constraints": {},
+      "exception": null,
+      "latency_ms": 2158.97
+    },
+    {
+      "id": "ps_010",
+      "query": "Find black waterproof hiking shoes size 42 under Rp 500,000",
+      "retrieval_mode": "deterministic",
+      "expected_relevant": [],
+      "ranked_products": [],
+      "top5": [],
+      "candidate_count": 0,
+      "result_count": 0,
+      "precision_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 1.0,
+      "hard_constraint_satisfaction": 1.0,
+      "hard_constraints": {
+        "category": "Shoes",
+        "max_price": 500000,
+        "size": 42
+      },
+      "exception": null,
+      "latency_ms": 2187.62
+    }
+  ]
+}

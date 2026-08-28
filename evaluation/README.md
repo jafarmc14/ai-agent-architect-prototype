@@ -64,6 +64,42 @@ evaluation/reports/baseline_report_latest.json
 
 The report includes the active `environment`, `provider`, and `model`, based on `APP_ENV`, `LLM_PROVIDER`, and the selected provider-specific model setting.
 
+## Run Product Search Evaluation
+
+Product search retrieval/ranking cases live in:
+
+```text
+evaluation/datasets/product_search.jsonl
+```
+
+Run the product search evaluation:
+
+```bash
+py evaluation/run_product_search_evaluation.py
+```
+
+The report is saved to:
+
+```text
+evaluation/reports/product_search_report_latest.json
+```
+
+The product search runner measures:
+
+- Precision@5
+- Recall@10
+- NDCG@10
+- Hard Constraint Satisfaction
+
+Current targets:
+
+```text
+Precision@5 >= 0.90
+Recall@10 >= 0.95
+NDCG@10 >= 0.85
+Hard constraints >= 99%
+```
+
 ## Metrics
 
 The v1 runner records:

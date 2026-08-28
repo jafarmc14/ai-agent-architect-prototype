@@ -42,18 +42,27 @@ Apply migrations in version order:
 psql "$DATABASE_URL" -f database/migrations/postgres/V001__initial_schema.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V002__enable_pgvector_document_chunks.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V003__add_operational_indexes.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V004__add_product_embeddings.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V005__use_ollama_embedding_dimensions.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V006__add_product_keyword_search_index.sql
 ```
 
 `V001__initial_schema.sql` creates a `schema_migrations` table and records itself after successful execution. Later migrations should insert their own version into `schema_migrations` at the end of the file.
 
 `V003__add_operational_indexes.sql` adds tenant-aware lookup columns and operational indexes for SKU, category, tenant, user, order, document metadata, and vector search access patterns.
 
+`V004__add_product_embeddings.sql` adds pgvector-backed product embedding storage. Product embeddings must be generated from relevant semantic fields only, excluding factual filter fields such as price, stock, SKU, IDs, currency, and timestamps.
+
+`V005__use_ollama_embedding_dimensions.sql` changes product and document vector columns to `vector(768)`, aligned with Ollama `nomic-embed-text`.
+
+`V006__add_product_keyword_search_index.sql` adds a PostgreSQL GIN full-text index for the keyword side of hybrid product search.
+
 ## Vector Storage
 
 `V002__enable_pgvector_document_chunks.sql` enables the `vector` extension and adds pgvector-backed storage to `document_chunks`:
 
 ```text
-embedding_vector vector(1536)
+embedding_vector vector(768)
 embedding_model
 embedding_dimensions
 ```
@@ -72,11 +81,13 @@ user_id joins and filters
 order_id joins and filters
 document metadata JSONB search
 document chunk vector search
+product vector search
+product keyword search
 ```
 
 ## Current Runtime
 
-The application runtime still uses SQLite. These PostgreSQL migrations define the target database structure for the Phase 5 migration path.
+The application runtime can use SQLite or PostgreSQL through `DATABASE_PROVIDER`. The current PostgreSQL path is ready for product, order, cart, support, document vector, product embedding, and hybrid product search workflows.
 
 ## SQLite to PostgreSQL Data Migration
 

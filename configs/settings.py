@@ -46,6 +46,8 @@ class AppSettings:
     postgres_database_url: str
     knowledge_base_path: Path
     embedding_model: str
+    embedding_api_base: str
+    embedding_api_key: str
     vector_dimension: int
     jwt_secret: str
     llm_provider: str
@@ -73,8 +75,10 @@ def get_settings() -> AppSettings:
         database_password=os.getenv("DB_PASSWORD", ""),
         postgres_database_url=os.getenv("DATABASE_URL", ""),
         knowledge_base_path=_path_from_env("KNOWLEDGE_BASE_PATH", PROJECT_ROOT / "knowledge_base.txt"),
-        embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
-        vector_dimension=int(os.getenv("VECTOR_DIMENSION", "1536")),
+        embedding_model=os.getenv("EMBEDDING_MODEL", "nomic-embed-text"),
+        embedding_api_base=os.getenv("EMBEDDING_API_BASE", "http://localhost:11434/v1"),
+        embedding_api_key=os.getenv("EMBEDDING_API_KEY", "ollama"),
+        vector_dimension=int(os.getenv("VECTOR_DIMENSION", "768")),
         jwt_secret=os.getenv("JWT_SECRET", ""),
         llm_provider=os.getenv("LLM_PROVIDER", "openrouter").strip().lower(),
         openrouter_api_key=os.getenv("OPENROUTER_API_KEY", "dummy"),
