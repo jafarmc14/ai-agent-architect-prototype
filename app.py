@@ -72,6 +72,7 @@ with st.sidebar:
 
     current_config = get_llm_config()
     st.caption(f"Environment: {current_config['environment']}")
+    st.caption(f"Database: {current_config['database_provider']}")
     st.caption(f"Active: {current_config['provider']} / {current_config['model']}")
 
     if selected_provider == "ollama":

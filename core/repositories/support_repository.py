@@ -1,19 +1,12 @@
-from datetime import datetime
-
-from database import get_connection
+from configs import get_settings
+from core.repositories.postgres_support_repository import PostgresSupportRepository
+from core.repositories.sqlite_support_repository import SQLiteSupportRepository
 
 
 class SupportRepository:
-    """SQLite access for support ticket data."""
+    """Repository selector for support ticket data."""
 
-    def insert_support_ticket(self, customer_message: str, agent_summary: str = "", priority: str = "Normal") -> int:
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO support_tickets (customer_message, agent_summary, priority, status, created_at) VALUES (?, ?, ?, 'Open', ?)",
-            (customer_message, agent_summary, priority, datetime.now().isoformat()),
-        )
-        ticket_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-        return ticket_id
+    def __new__(cls):
+        if get_settings().database_provider == "postgres":
+            return PostgresSupportRepository()
+        return SQLiteSupportRepository()

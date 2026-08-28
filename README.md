@@ -125,10 +125,10 @@ Language policy: service and repository outputs remain internal/canonical. The L
 | `core/services/support_service.py` | **Support service.** Handles support ticket creation for human escalation. |
 | `core/services/knowledge_service.py` | **Knowledge service.** Handles policy and FAQ lookup from `knowledge_base.txt`. |
 | `core/services/store_service.py` | **Service facade.** Keeps a compatibility wrapper around the domain-specific services. |
-| `core/repositories/product_repository.py` | **Product repository.** Encapsulates SQLite reads for product catalog data. |
-| `core/repositories/order_repository.py` | **Order repository.** Encapsulates SQLite reads and writes for order data. |
-| `core/repositories/cart_repository.py` | **Cart repository.** Encapsulates SQLite reads and writes for shopping cart data. |
-| `core/repositories/support_repository.py` | **Support repository.** Encapsulates SQLite writes for support ticket data. |
+| `core/repositories/product_repository.py` | **Product repository selector.** Chooses SQLite or PostgreSQL catalog access from config. |
+| `core/repositories/order_repository.py` | **Order repository selector.** Chooses SQLite or PostgreSQL order access from config. |
+| `core/repositories/cart_repository.py` | **Cart repository selector.** Chooses SQLite or PostgreSQL cart access from config. |
+| `core/repositories/support_repository.py` | **Support repository selector.** Chooses SQLite or PostgreSQL support ticket access from config. |
 | `core/repositories/postgres_vector_repository.py` | **PostgreSQL vector repository.** Stores and searches knowledge chunks with pgvector. |
 | `core/repositories/store_repository.py` | **Repository facade.** Keeps a compatibility wrapper around the domain-specific repositories. |
 | `core/prompts/system.py` | **System prompt.** Defines Ubichinon's identity, tone, capabilities, and tool-use rules. |
@@ -293,6 +293,7 @@ docker compose -f docker-compose.postgres.yml up -d
 Use this local database URL in `.env` or `.env.secrets`:
 
 ```bash
+DATABASE_PROVIDER=postgres
 DATABASE_URL=postgresql://postgres:password@localhost:5435/ai_agent
 POSTGRES_PASSWORD=password
 ```
@@ -304,6 +305,8 @@ Then apply the PostgreSQL schema and migrate SQLite data:
 ```bash
 py database/migrate_sqlite_to_postgres.py --apply-schema
 ```
+
+Set `DATABASE_PROVIDER=sqlite` only when you need to roll back the local runtime to the original SQLite prototype database.
 
 ### Switching LLM Providers
 

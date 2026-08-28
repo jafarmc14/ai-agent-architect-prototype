@@ -9,7 +9,8 @@ from core.tools import tools, tools_by_name
 from database import init_database
 
 
-init_database()
+if get_settings().database_provider == "sqlite":
+    init_database()
 
 LLM_PROVIDER = llm_gateway.provider_name
 LLM_MODEL = llm_gateway.model
@@ -119,6 +120,7 @@ def get_llm_config() -> dict:
     """Return the active LLM runtime configuration."""
     return {
         "environment": get_settings().app_env,
+        "database_provider": get_settings().database_provider,
         "provider": LLM_PROVIDER,
         "model": LLM_MODEL,
     }

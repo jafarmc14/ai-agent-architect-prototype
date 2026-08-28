@@ -262,24 +262,31 @@ def main() -> int:
 
     import agent
     import database
+    from configs import get_settings
 
     report_dir.mkdir(parents=True, exist_ok=True)
 
+    database_provider = get_settings().database_provider
     db_path = Path(database.DB_PATH)
-    if not db_path.exists():
+    if database_provider == "sqlite" and not db_path.exists():
         database.init_database()
 
     results = []
     with TemporaryDirectory() as tmp_dir:
-        original_backup_path = Path(tmp_dir) / "toko_original.db"
-        baseline_backup_path = Path(tmp_dir) / "toko_baseline.db"
+        if database_provider == "sqlite":
+            original_backup_path = Path(tmp_dir) / "toko_original.db"
+            baseline_backup_path = Path(tmp_dir) / "toko_baseline.db"
 
-        shutil.copy2(db_path, original_backup_path)
-        database.reset_database()
-        shutil.copy2(db_path, baseline_backup_path)
+            shutil.copy2(db_path, original_backup_path)
+            database.reset_database()
+            shutil.copy2(db_path, baseline_backup_path)
+        else:
+            original_backup_path = None
+            baseline_backup_path = None
 
         for index, case in enumerate(cases, start=1):
-            restore_database(db_path, baseline_backup_path)
+            if database_provider == "sqlite":
+                restore_database(db_path, baseline_backup_path)
             print(f"[{index}/{len(cases)}] {case['id']} - {case['query']}")
             result = evaluate_case(case, agent, database)
             results.append(result)
@@ -294,12 +301,14 @@ def main() -> int:
             if args.delay_seconds > 0 and index < len(cases):
                 time.sleep(args.delay_seconds)
 
-        restore_database(db_path, original_backup_path)
+        if database_provider == "sqlite":
+            restore_database(db_path, original_backup_path)
 
     report = {
         "name": "baseline_report_v1",
         "created_at": datetime.now().isoformat(),
         "environment": getattr(agent, "get_llm_config", lambda: {})().get("environment"),
+        "database_provider": database_provider,
         "provider": getattr(agent, "LLM_PROVIDER", None),
         "model": getattr(agent, "LLM_MODEL", getattr(agent, "OPENROUTER_MODEL", None)),
         "dataset_dir": str(dataset_dir),
