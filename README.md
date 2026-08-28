@@ -18,7 +18,7 @@ This system is a web-based chat interface powered by an AI model that supports s
 | # | Requirement | Description |
 |---|---|---|
 | 1 | **Intent Recognition** | Classify whether the user is asking about stock, orders, policies, shopping, or needs human help. |
-| 2 | **Database Interaction (Read)** | Automatically execute SQL queries against SQLite to retrieve real-time product and order data. |
+| 2 | **Database Interaction (Read)** | Automatically execute SQL queries against PostgreSQL to retrieve real-time product and order data. |
 | 3 | **Database Interaction (Write)** | Cancel orders, update shipping addresses, and manage shopping cart data in the database. |
 | 4 | **Smart Product Search** | Filter and recommend products by category, price range, or combination of both. |
 | 5 | **Shopping Cart** | Add products to cart, view cart contents, and clear cart — all via natural conversation. |
@@ -36,32 +36,48 @@ This system is a web-based chat interface powered by an AI model that supports s
 | **Frontend** | [Streamlit](https://streamlit.io/) (Python) | Web-based chat interface for user interaction. |
 | **Orchestrator** | [LangChain](https://www.langchain.com/) + Native LLM Tool Calling | Manages the AI agent loop — prompt → LLM → tool calls → reasoning → response. |
 | **LLM API** | LLM Gateway with OpenRouter by default, or local Ollama via `LLM_PROVIDER=ollama` | The large language model that powers intent recognition, reasoning, and response generation. |
-| **Database** | [SQLite](https://www.sqlite.org/) | Local database storing products, orders, shopping cart, and support tickets. |
+| **Database** | [PostgreSQL](https://www.postgresql.org/) + pgvector | Primary runtime database storing products, inventory, orders, carts, support tickets, conversations, evaluation data, and vector-ready knowledge chunks. |
+| **Legacy/Fallback DB** | [SQLite](https://www.sqlite.org/) | Preserved as rollback prototype storage and SQLite-to-PostgreSQL migration source. |
 | **Knowledge Base** | Plain text file (`knowledge_base.txt`) | Store policies and FAQ document searched by the AI agent for policy-related queries. |
 
 ### Architecture Flow
 
-```
-┌──────────────┐     ┌──────────────────┐     ┌────────────────┐
-│   Streamlit  │────▶│   LangChain      │────▶│  OpenRouter    │
-│   (Frontend) │◀────│   (Orchestrator)  │◀────│  LLM API       │
-│   app.py     │     │   agent.py        │     │  step-3.5-flash│
-└──────────────┘     └──────┬───────────┘     └────────────────┘
-                            │
-                   ┌────────┴────────┐
-                   │   10 AI Tools   │
-                   └────────┬────────┘
-                            │
-              ┌─────────────┼─────────────┐
-              ▼             ▼             ▼
-        ┌──────────┐  ┌──────────┐  ┌─────────────────┐
-        │  SQLite  │  │ Knowledge│  │  Support Ticket  │
-        │  (Data)  │  │   Base   │  │    System        │
-        │ toko.db  │  │  .txt    │  │  (in SQLite)     │
-        └──────────┘  └──────────┘  └─────────────────┘
+Current runtime architecture:
+
+```text
+Streamlit UI (`app.py`)
+  |
+  v
+Agent Runtime (`core/orchestration/runtime.py`)
+  |
+  +--> LLM Gateway (`core/llm/gateway.py`)
+  |      |
+  |      +--> OpenRouterProvider
+  |      +--> OllamaProvider
+  |
+  v
+10 AI Tools (`core/tools/store_tools.py`)
+  |
+  v
+Services (`core/services/*_service.py`)
+  |
+  v
+Repository Selectors (`core/repositories/*_repository.py`)
+  |
+  +--> PostgreSQL repositories when `DATABASE_PROVIDER=postgres`
+  |      |
+  |      +--> PostgreSQL + pgvector (`localhost:5435`)
+  |
+  +--> SQLite repositories when `DATABASE_PROVIDER=sqlite`
+         |
+         +--> `toko.db` fallback / migration source
+
+Knowledge Base:
+`knowledge_base.txt` is still used for file-based policy lookup.
+PostgreSQL `documents` and `document_chunks` are prepared for pgvector-backed retrieval.
 ```
 
-Note: The default runtime provider is OpenRouter with model `openrouter/free`, unless overridden in `.env`.
+Note: The current local runtime uses PostgreSQL when `DATABASE_PROVIDER=postgres` is set in `.env`. The LLM provider can be switched between OpenRouter and Ollama from the Streamlit sidebar or `.env`.
 
 ### Runtime Layers
 
@@ -69,20 +85,30 @@ The refactored runtime separates LLM tool adapters from business logic and persi
 
 ```text
 LLM
- ↓
+  |
+  v
 LLM Gateway (`core/llm/gateway.py`)
- ↓
+  |
+  v
 LLM Provider Interface (`core/llm/base.py`)
- ↓
+  |
+  v
 Provider Adapter (`core/llm/providers/openrouter_provider.py` or `core/llm/providers/ollama_provider.py`)
- ↓
+  |
+  v
 Tool (`core/tools/store_tools.py`)
- ↓
+  |
+  v
 Service (`core/services/*_service.py`)
- ↓
-Repository (`core/repositories/*_repository.py`)
- ↓
-Database (`database.py` / `toko.db`)
+  |
+  v
+Repository Selector (`core/repositories/*_repository.py`)
+  |
+  v
+Database Provider (`DATABASE_PROVIDER=postgres` or `sqlite`)
+  |
+  +--> PostgreSQL (`DATABASE_URL`)
+  +--> SQLite (`database.py` / `toko.db`)
 ```
 
 Language policy: service and repository outputs remain internal/canonical. The LLM is responsible for translating and rewriting final responses in the same language used by the customer.
@@ -133,7 +159,7 @@ Language policy: service and repository outputs remain internal/canonical. The L
 | `core/repositories/store_repository.py` | **Repository facade.** Keeps a compatibility wrapper around the domain-specific repositories. |
 | `core/prompts/system.py` | **System prompt.** Defines Ubichinon's identity, tone, capabilities, and tool-use rules. |
 | `core/workflows/` | **Workflow package.** Reserved for future multi-step workflows as the prototype grows. |
-| `database.py` | **Database layer.** Creates and initializes the SQLite database (`toko.db`) with schema, dummy data, and shared connection setup. |
+| `database.py` | **SQLite fallback database layer.** Creates and initializes `toko.db` only when `DATABASE_PROVIDER=sqlite`. |
 | `knowledge_base.txt` | **Store policies & FAQ.** Contains official store rules for returns, refunds, shipping, warranty, payments, operating hours, and loyalty program. Searched by the AI agent for policy-related questions. |
 | `.env` | **Local non-secret configuration.** Stores environment, provider, model, path, embedding model, vector dimension, and other non-secret runtime settings. |
 | `.env.secrets` | **Local secret configuration.** Stores API keys, DB password, JWT secret, and other sensitive values. Ignored by Git. |
@@ -141,7 +167,7 @@ Language policy: service and repository outputs remain internal/canonical. The L
 | `.env.secrets.example` | **Safe secret template.** Documents required secret keys using placeholder values only. |
 | `configs/environments/*.env.example` | **Non-secret environment templates.** Safe examples for development, testing, staging, and production config. |
 | `configs/secrets/*.secrets.env.example` | **Secret templates.** Placeholder-only examples for development, testing, staging, and production secrets. |
-| `toko.db` | **SQLite database file.** Auto-generated on first run. Contains `products`, `orders`, `shopping_cart`, and `support_tickets` tables. |
+| `toko.db` | **SQLite fallback database file.** Used only for rollback/prototype mode and as the source for SQLite-to-PostgreSQL migration. |
 | `.gitignore` | **Git ignore rules.** Prevents `.env`, `toko.db`, and temp files from being pushed to the repository. |
 | `CAPABILITY_MATRIX.md` | **Capability inventory.** Groups all agent tools by access type (`READ`/`WRITE`) and risk level (`LOW`/`MEDIUM`/`HIGH`). |
 | `evaluation/datasets/baseline/*.jsonl` | **Baseline evaluation dataset.** Contains 41 JSONL test cases converted from manual prompts and additional baseline variants. |
