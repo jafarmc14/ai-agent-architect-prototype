@@ -1,0 +1,144 @@
+# Database Migrations
+
+This folder contains versioned database migration files.
+
+## Structure
+
+```text
+database/migrations/
+└── postgres/
+    └── V001__initial_schema.sql
+    └── V002__enable_pgvector_document_chunks.sql
+```
+
+## Naming Convention
+
+Use this pattern:
+
+```text
+V<version>__<description>.sql
+```
+
+Examples:
+
+```text
+V001__initial_schema.sql
+V002__enable_pgvector_document_chunks.sql
+V003__add_operational_indexes.sql
+```
+
+Rules:
+
+- Increase the version number monotonically.
+- Do not edit migrations that have already been applied to shared/staging/production databases.
+- Add a new migration for every schema change.
+- Keep secrets out of migration files.
+
+## Manual Apply
+
+Apply migrations in version order:
+
+```bash
+psql "$DATABASE_URL" -f database/migrations/postgres/V001__initial_schema.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V002__enable_pgvector_document_chunks.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V003__add_operational_indexes.sql
+```
+
+`V001__initial_schema.sql` creates a `schema_migrations` table and records itself after successful execution. Later migrations should insert their own version into `schema_migrations` at the end of the file.
+
+`V003__add_operational_indexes.sql` adds tenant-aware lookup columns and operational indexes for SKU, category, tenant, user, order, document metadata, and vector search access patterns.
+
+## Vector Storage
+
+`V002__enable_pgvector_document_chunks.sql` enables the `vector` extension and adds pgvector-backed storage to `document_chunks`:
+
+```text
+embedding_vector vector(1536)
+embedding_model
+embedding_dimensions
+```
+
+The migration also creates an `ivfflat` cosine index for approximate nearest-neighbor search. PostgreSQL must have the pgvector extension installed before applying `V002`.
+
+## Operational Indexes
+
+`V003__add_operational_indexes.sql` covers the Phase 5 index baseline:
+
+```text
+SKU lookup
+category lookup
+tenant_id filtering
+user_id joins and filters
+order_id joins and filters
+document metadata JSONB search
+document chunk vector search
+```
+
+## Current Runtime
+
+The application runtime still uses SQLite. These PostgreSQL migrations define the target database structure for the Phase 5 migration path.
+
+## SQLite to PostgreSQL Data Migration
+
+The data migration script is:
+
+```text
+database/migrate_sqlite_to_postgres.py
+```
+
+It migrates data in this order:
+
+```text
+products
+inventory
+orders
+cart
+support
+```
+
+Install the PostgreSQL driver:
+
+```bash
+py -m pip install psycopg[binary]
+```
+
+Start the project PostgreSQL container:
+
+```bash
+docker compose -f docker-compose.postgres.yml up -d
+```
+
+The project container maps host port `5435` to PostgreSQL's internal port `5432`, so it can run alongside other local PostgreSQL containers that already use `5433` or `5434`.
+
+Set `DATABASE_URL` in `.env.secrets` or `.env`:
+
+```bash
+DATABASE_URL=postgresql://postgres:password@localhost:5435/ai_agent
+POSTGRES_PASSWORD=password
+```
+
+Docker Compose reads `POSTGRES_PASSWORD` from `.env` automatically. If the variable is not set, the local compose file uses `password` as the development default.
+
+Check the port before running migrations:
+
+```bash
+Test-NetConnection localhost -Port 5435
+```
+
+Preview source counts without writing to PostgreSQL:
+
+```bash
+py database/migrate_sqlite_to_postgres.py --dry-run
+```
+
+Apply all versioned schema migrations and migrate into an empty target database:
+
+```bash
+py database/migrate_sqlite_to_postgres.py --apply-schema
+```
+
+Clear existing migrated commerce data and migrate again:
+
+```bash
+py database/migrate_sqlite_to_postgres.py --apply-schema --clear-target
+```

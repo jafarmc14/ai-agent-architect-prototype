@@ -1,0 +1,20 @@
+services:
+  ai-agent-postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ai-agent-postgres
+    environment:
+      POSTGRES_DB: ai_agent
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    ports:
+      - "5435:5432"
+    volumes:
+      - ai_agent_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ai_agent_postgres_data:

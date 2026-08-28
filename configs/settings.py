@@ -41,7 +41,10 @@ class AppSettings:
     debug: bool
     database_path: Path
     database_password: str
+    postgres_database_url: str
     knowledge_base_path: Path
+    embedding_model: str
+    vector_dimension: int
     jwt_secret: str
     llm_provider: str
     openrouter_api_key: str
@@ -61,7 +64,10 @@ def get_settings() -> AppSettings:
         debug=os.getenv("DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"},
         database_path=_path_from_env("DATABASE_PATH", PROJECT_ROOT / "toko.db"),
         database_password=os.getenv("DB_PASSWORD", ""),
+        postgres_database_url=os.getenv("DATABASE_URL", ""),
         knowledge_base_path=_path_from_env("KNOWLEDGE_BASE_PATH", PROJECT_ROOT / "knowledge_base.txt"),
+        embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
+        vector_dimension=int(os.getenv("VECTOR_DIMENSION", "1536")),
         jwt_secret=os.getenv("JWT_SECRET", ""),
         llm_provider=os.getenv("LLM_PROVIDER", "openrouter").strip().lower(),
         openrouter_api_key=os.getenv("OPENROUTER_API_KEY", "dummy"),
