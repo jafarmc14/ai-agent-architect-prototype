@@ -23,6 +23,7 @@ class PostgresVectorRepository:
         expires_at: str | None = None,
         status: str = "active",
         superseded_by: str | None = None,
+        approval_status: str = "uploaded",
     ) -> str:
         psycopg = self._import_psycopg()
         metadata = metadata or {}
@@ -56,6 +57,7 @@ class PostgresVectorRepository:
                         expires_at = %s,
                         status = %s,
                         superseded_by = %s,
+                        approval_status = %s,
                         updated_at = now()
                     WHERE id = %s
                     """,
@@ -71,6 +73,7 @@ class PostgresVectorRepository:
                         expires_at,
                         status,
                         superseded_by,
+                        approval_status,
                         existing[0],
                     ),
                 )
@@ -89,9 +92,10 @@ class PostgresVectorRepository:
                     effective_date,
                     expires_at,
                     status,
-                    superseded_by
+                    superseded_by,
+                    approval_status
                 )
-                VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -106,6 +110,7 @@ class PostgresVectorRepository:
                     expires_at,
                     status,
                     superseded_by,
+                    approval_status,
                 ),
             ).fetchone()
             return str(row[0])
@@ -185,6 +190,7 @@ class PostgresVectorRepository:
         department: str = "public",
         access_level: str = "public",
         status: str = "active",
+        approval_status: str = "indexed",
         min_trust_level: str = "EXTERNAL",
     ) -> list[dict[str, Any]]:
         psycopg = self._import_psycopg()
@@ -229,6 +235,7 @@ class PostgresVectorRepository:
                   AND (%s::text IS NULL OR dc.embedding_model = %s)
                   AND d.tenant_id = %s
                   AND d.status = %s
+                  AND COALESCE(d.approval_status, 'uploaded') = %s
                   AND (d.effective_date IS NULL OR d.effective_date <= CURRENT_DATE)
                   AND (d.expires_at IS NULL OR d.expires_at > CURRENT_DATE)
                   AND d.superseded_by IS NULL
@@ -252,6 +259,7 @@ class PostgresVectorRepository:
                     embedding_model,
                     tenant_id,
                     status,
+                    approval_status,
                     allowed_access_levels,
                     allowed_trust_levels,
                     role,

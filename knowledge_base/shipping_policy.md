@@ -11,6 +11,7 @@ category: shipping
 tenant_id: default
 access_level: public
 trust_level: OFFICIAL
+approval_status: indexed
 ---
 
 # Shipping Policy

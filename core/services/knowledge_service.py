@@ -66,6 +66,7 @@ class KnowledgeService:
                 department=scope.department,
                 access_level=scope.access_level,
                 status="active",
+                approval_status="indexed",
                 min_trust_level="EXTERNAL",
             )
             reranked_chunks = rerank_rag_chunks(retrieved_chunks, limit=5)

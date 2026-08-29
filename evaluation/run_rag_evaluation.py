@@ -47,6 +47,7 @@ def evaluate_case(case: dict[str, Any]) -> dict[str, Any]:
             department="public",
             access_level="public",
             status="active",
+            approval_status="indexed",
             min_trust_level="EXTERNAL",
         )
         chunks = rerank_rag_chunks(retrieved, limit=5)

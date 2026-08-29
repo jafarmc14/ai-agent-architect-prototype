@@ -46,6 +46,7 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V004__add_product_embedding
 psql "$DATABASE_URL" -f database/migrations/postgres/V005__use_ollama_embedding_dimensions.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V006__add_product_keyword_search_index.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V007__add_document_freshness_fields.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V008__add_document_approval_status.sql
 ```
 
 `V001__initial_schema.sql` creates a `schema_migrations` table and records itself after successful execution. Later migrations should insert their own version into `schema_migrations` at the end of the file.
@@ -59,6 +60,8 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V007__add_document_freshnes
 `V006__add_product_keyword_search_index.sql` adds a PostgreSQL GIN full-text index for the keyword side of hybrid product search.
 
 `V007__add_document_freshness_fields.sql` adds document freshness columns: `effective_date`, `expires_at`, `status`, and `superseded_by`.
+
+`V008__add_document_approval_status.sql` adds the document approval lifecycle column used by secure knowledge ingestion: `uploaded`, `reviewed`, `approved`, and `indexed`.
 
 ## Vector Storage
 
@@ -84,6 +87,7 @@ user_id joins and filters
 order_id joins and filters
 document metadata JSONB search
 document freshness filtering
+document approval filtering
 document chunk vector search
 product vector search
 product keyword search

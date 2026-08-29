@@ -68,6 +68,7 @@ The initial PostgreSQL schema covers:
 - `V005__use_ollama_embedding_dimensions.sql` changes product and document vector columns to `vector(768)`, aligned with Ollama `nomic-embed-text`.
 - `V006__add_product_keyword_search_index.sql` adds the GIN full-text index used by hybrid product search.
 - `V007__add_document_freshness_fields.sql` adds queryable document freshness fields for RAG retrieval.
+- `V008__add_document_approval_status.sql` adds approval lifecycle status for secure knowledge ingestion.
 - The vector dimension defaults to `768` through `VECTOR_DIMENSION`, aligned with local Ollama `nomic-embed-text`.
 - `llm_requests` stores provider/model, latency, token usage, response text, tool calls, and errors for observability.
 - `evaluation_runs` and `evaluation_results` mirror the current JSON baseline report shape.
@@ -216,6 +217,7 @@ category
 tenant_id
 access_level
 trust_level
+approval_status
 ```
 
 `tenant_id` is also written to the native `documents.tenant_id` and `document_chunks.tenant_id` columns. The full metadata object is copied into both `documents.metadata` and each chunk's `document_chunks.metadata` so retrieval can enforce status, access, trust, tenant, and source filters in later RAG phases.
@@ -230,6 +232,32 @@ superseded_by
 ```
 
 Vector chunk retrieval filters out inactive, expired, future-effective, and superseded documents.
+
+Uploaded documents are untrusted by default. Documents without explicit approval metadata are assigned:
+
+```text
+trust_level = USER_GENERATED
+approval_status = uploaded
+```
+
+The ingestion pipeline only accepts `.md` and `.txt` sources, enforces a maximum file size, and scans content for malicious instructions, unexpected scripts, possible secret leakage, and suspicious executable content. Documents that fail validation or scanning are not embedded and are not stored as searchable chunks.
+
+Approval is separate from document freshness:
+
+```text
+uploaded
+|
+v
+reviewed
+|
+v
+approved
+|
+v
+indexed
+```
+
+Only `approved` and `indexed` documents are indexable. A successful store operation records the document as `indexed`.
 
 ## Knowledge Retrieval
 
@@ -257,7 +285,7 @@ v
 context
 ```
 
-The PostgreSQL retrieval query applies tenant, role, department, access level, document status, freshness, supersession, and trust-level filters before vector retrieval. Unauthorized chunks are not retrieved first and filtered later.
+The PostgreSQL retrieval query applies tenant, role, department, access level, document status, approval status, freshness, supersession, and trust-level filters before vector retrieval. Unauthorized or unapproved chunks are not retrieved first and filtered later.
 
 Default retrieval scope:
 
@@ -292,6 +320,7 @@ database/migrations/postgres/V004__add_product_embeddings.sql
 database/migrations/postgres/V005__use_ollama_embedding_dimensions.sql
 database/migrations/postgres/V006__add_product_keyword_search_index.sql
 database/migrations/postgres/V007__add_document_freshness_fields.sql
+database/migrations/postgres/V008__add_document_approval_status.sql
 ```
 
 SQLite source data is migrated with:

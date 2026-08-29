@@ -98,6 +98,7 @@ def test_knowledge_service_uses_authorized_retrieval_and_citations():
     assert repository.calls[0]["department"] == "public"
     assert repository.calls[0]["access_level"] == "public"
     assert repository.calls[0]["status"] == "active"
+    assert repository.calls[0]["approval_status"] == "indexed"
 
 
 if __name__ == "__main__":

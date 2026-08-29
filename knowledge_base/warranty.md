@@ -11,6 +11,7 @@ category: warranty
 tenant_id: default
 access_level: public
 trust_level: OFFICIAL
+approval_status: indexed
 ---
 
 # Warranty

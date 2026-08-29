@@ -1,6 +1,6 @@
 {
   "name": "rag_report_v1",
-  "created_at": "2026-08-29T14:56:17.837167",
+  "created_at": "2026-08-29T19:04:19.481774",
   "dataset": "D:\\AI-Agent Arch Prot\\evaluation\\datasets\\rag.jsonl",
   "summary": {
     "total_cases": 6,
@@ -13,7 +13,7 @@
     "completeness": 1.0,
     "correct_abstention": 1.0,
     "freshness_correctness": 1.0,
-    "avg_latency_ms": 2194.84
+    "avg_latency_ms": 2230.77
   },
   "results": [
     {
@@ -68,7 +68,7 @@
       "correct_abstention": 1.0,
       "freshness_correctness": 1.0,
       "exception": null,
-      "latency_ms": 2414.44
+      "latency_ms": 2424.16
     },
     {
       "id": "rag_002",
@@ -110,7 +110,7 @@
       "correct_abstention": 1.0,
       "freshness_correctness": 1.0,
       "exception": null,
-      "latency_ms": 2136.64
+      "latency_ms": 2172.53
     },
     {
       "id": "rag_003",
@@ -140,7 +140,7 @@
       "correct_abstention": 1.0,
       "freshness_correctness": 1.0,
       "exception": null,
-      "latency_ms": 2181.24
+      "latency_ms": 2161.64
     },
     {
       "id": "rag_004",
@@ -182,7 +182,7 @@
       "correct_abstention": 1.0,
       "freshness_correctness": 1.0,
       "exception": null,
-      "latency_ms": 2149.71
+      "latency_ms": 2208.38
     },
     {
       "id": "rag_005",
@@ -212,7 +212,7 @@
       "correct_abstention": 1.0,
       "freshness_correctness": 1.0,
       "exception": null,
-      "latency_ms": 2154.72
+      "latency_ms": 2191.97
     },
     {
       "id": "rag_006",
@@ -228,7 +228,7 @@
       "correct_abstention": 1.0,
       "freshness_correctness": 1.0,
       "exception": null,
-      "latency_ms": 2132.31
+      "latency_ms": 2225.95
     }
   ]
 }
