@@ -1,6 +1,6 @@
 # PostgreSQL Schema Design
 
-Phase 5 introduces the target PostgreSQL schema for the AI commerce agent. This is a design artifact first; the application runtime still uses SQLite until the repository layer is migrated.
+Phase 5 introduced the target PostgreSQL schema for the AI commerce agent. The application runtime can now use PostgreSQL through `DATABASE_PROVIDER=postgres`, with SQLite preserved as a rollback and migration source.
 
 ## Scope
 
@@ -67,6 +67,7 @@ The initial PostgreSQL schema covers:
 - `V004__add_product_embeddings.sql` adds pgvector-backed product embedding storage and vector search indexing.
 - `V005__use_ollama_embedding_dimensions.sql` changes product and document vector columns to `vector(768)`, aligned with Ollama `nomic-embed-text`.
 - `V006__add_product_keyword_search_index.sql` adds the GIN full-text index used by hybrid product search.
+- `V007__add_document_freshness_fields.sql` adds queryable document freshness fields for RAG retrieval.
 - The vector dimension defaults to `768` through `VECTOR_DIMENSION`, aligned with local Ollama `nomic-embed-text`.
 - `llm_requests` stores provider/model, latency, token usage, response text, tool calls, and errors for observability.
 - `evaluation_runs` and `evaluation_results` mirror the current JSON baseline report shape.
@@ -173,6 +174,112 @@ updated_at
 
 Hard constraints such as price, stock, SKU, availability, and size must stay in SQL filters. Product embeddings are for semantic discovery and ranking only. Local development uses Ollama `nomic-embed-text` embeddings with 768 dimensions.
 
+## Knowledge Document Ingestion
+
+Proper RAG ingestion uses split Markdown policy documents from `knowledge_base/*.md`:
+
+```text
+return_policy
+refund_policy
+shipping_policy
+warranty
+payments
+faq
+```
+
+The ingestion pipeline is:
+
+```text
+parse
+clean
+chunk
+embed
+store
+```
+
+`database/ingest_knowledge_base.py` runs the pipeline. It upserts each source document into `documents`, replaces that document's old chunks, embeds each cleaned chunk with the configured embedding provider, and stores the result in `document_chunks.embedding_vector`.
+
+Current local ingestion uses Ollama `nomic-embed-text` and stores `vector(768)` chunks in PostgreSQL.
+
+Each source document carries front matter metadata:
+
+```text
+document_id
+title
+version
+effective_date
+expires_at
+status
+superseded_by
+source
+category
+tenant_id
+access_level
+trust_level
+```
+
+`tenant_id` is also written to the native `documents.tenant_id` and `document_chunks.tenant_id` columns. The full metadata object is copied into both `documents.metadata` and each chunk's `document_chunks.metadata` so retrieval can enforce status, access, trust, tenant, and source filters in later RAG phases.
+
+Freshness fields are also written to native `documents` columns:
+
+```text
+effective_date
+expires_at
+status
+superseded_by
+```
+
+Vector chunk retrieval filters out inactive, expired, future-effective, and superseded documents.
+
+## Knowledge Retrieval
+
+Policy retrieval is authorization-first:
+
+```text
+query
+|
+v
+authorization scope
+|
+v
+embedding
+|
+v
+metadata filter
+|
+v
+vector retrieval
+|
+v
+trust-aware reranker
+|
+v
+context
+```
+
+The PostgreSQL retrieval query applies tenant, role, department, access level, document status, freshness, supersession, and trust-level filters before vector retrieval. Unauthorized chunks are not retrieved first and filtered later.
+
+Default retrieval scope:
+
+```text
+tenant_id = default
+role = customer
+department = public
+access_level = public
+```
+
+Supported trust levels:
+
+```text
+OFFICIAL
+INTERNAL_APPROVED
+INTERNAL_DRAFT
+USER_GENERATED
+EXTERNAL
+```
+
+Retrieval ranking combines vector similarity and trust weight so official policy evidence is preferred over lower-trust content when relevance is close. The RAG workflow then builds context with citation metadata and abstains when there is not enough authorized, fresh evidence.
+
 ## SQL Artifact
 
 The versioned migration schema is stored at:
@@ -184,6 +291,7 @@ database/migrations/postgres/V003__add_operational_indexes.sql
 database/migrations/postgres/V004__add_product_embeddings.sql
 database/migrations/postgres/V005__use_ollama_embedding_dimensions.sql
 database/migrations/postgres/V006__add_product_keyword_search_index.sql
+database/migrations/postgres/V007__add_document_freshness_fields.sql
 ```
 
 SQLite source data is migrated with:

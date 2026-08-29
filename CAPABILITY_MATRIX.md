@@ -17,7 +17,7 @@ Inventory of existing agent capabilities in the `prototype-v2` baseline.
 | `check_stock` | READ | LOW | `ProductService.check_stock` | `ProductRepository` / `products` | Searches product availability by partial product name. |
 | `check_order_status` | READ | LOW | `OrderService.check_order_status` | `OrderRepository` / `orders`, `products` | Retrieves order status, customer, product, shipping address, order date, and ETA. |
 | `search_products` | READ | LOW | `ProductService.search_products` | `ProductRepository` / `products` | Filters and lists products by category and/or price range. |
-| `search_knowledge_base` | READ | LOW | `KnowledgeService.search_knowledge_base` | `knowledge_base.txt` | Searches policy and FAQ content for returns, refunds, shipping, warranty, payments, hours, loyalty, and contact info. |
+| `search_knowledge_base` | READ | LOW | `KnowledgeService.search_knowledge_base` | `knowledge_base/*.md`, fallback `knowledge_base.txt` | Searches split policy and FAQ documents for returns, refunds, shipping, warranty, payments, hours, loyalty, and contact info. |
 | `view_shopping_cart` | READ | LOW | `CartService.view_cart` | `CartRepository` / `shopping_cart`, `products` | Displays current cart items, quantities, subtotals, and grand total. |
 | `add_product_to_cart` | WRITE | MEDIUM | `CartService.add_to_cart` | `ProductRepository`, `CartRepository` / `shopping_cart`, `products` | Adds a product to the cart or increases existing cart quantity after stock validation. |
 | `clear_shopping_cart` | WRITE | MEDIUM | `CartService.clear_cart` | `CartRepository` / `shopping_cart` | Removes all items from the current cart session. |

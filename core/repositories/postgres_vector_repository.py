@@ -18,13 +18,80 @@ class PostgresVectorRepository:
         version: str | None = None,
         language: str | None = None,
         metadata: dict[str, Any] | None = None,
+        tenant_id: str = "default",
+        effective_date: str | None = None,
+        expires_at: str | None = None,
+        status: str = "active",
+        superseded_by: str | None = None,
     ) -> str:
         psycopg = self._import_psycopg()
+        metadata = metadata or {}
+        document_id = metadata.get("document_id")
         with psycopg.connect(self._required_database_url()) as conn:
+            existing = conn.execute(
+                """
+                SELECT id
+                FROM documents
+                WHERE tenant_id = %s
+                  AND (
+                      source = %s
+                      OR (%s::text IS NOT NULL AND metadata->>'document_id' = %s)
+                  )
+                LIMIT 1
+                """,
+                (tenant_id, source, document_id, document_id),
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    """
+                    UPDATE documents
+                    SET title = %s,
+                        source = %s,
+                        source_type = %s,
+                        version = %s,
+                        language = %s,
+                        metadata = %s::jsonb,
+                        tenant_id = %s,
+                        effective_date = %s,
+                        expires_at = %s,
+                        status = %s,
+                        superseded_by = %s,
+                        updated_at = now()
+                    WHERE id = %s
+                    """,
+                    (
+                        title,
+                        source,
+                        source_type,
+                        version,
+                        language,
+                        psycopg.types.json.Jsonb(metadata),
+                        tenant_id,
+                        effective_date,
+                        expires_at,
+                        status,
+                        superseded_by,
+                        existing[0],
+                    ),
+                )
+                return str(existing[0])
+
             row = conn.execute(
                 """
-                INSERT INTO documents (title, source, source_type, version, language, metadata)
-                VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+                INSERT INTO documents (
+                    title,
+                    source,
+                    source_type,
+                    version,
+                    language,
+                    metadata,
+                    tenant_id,
+                    effective_date,
+                    expires_at,
+                    status,
+                    superseded_by
+                )
+                VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -33,10 +100,24 @@ class PostgresVectorRepository:
                     source_type,
                     version,
                     language,
-                    psycopg.types.json.Jsonb(metadata or {}),
+                    psycopg.types.json.Jsonb(metadata),
+                    tenant_id,
+                    effective_date,
+                    expires_at,
+                    status,
+                    superseded_by,
                 ),
             ).fetchone()
             return str(row[0])
+
+    def delete_document_chunks(self, document_id: str) -> int:
+        psycopg = self._import_psycopg()
+        with psycopg.connect(self._required_database_url()) as conn:
+            result = conn.execute(
+                "DELETE FROM document_chunks WHERE document_id = %s",
+                (document_id,),
+            )
+            return result.rowcount or 0
 
     def upsert_chunk(
         self,
@@ -47,8 +128,13 @@ class PostgresVectorRepository:
         token_count: int | None = None,
         metadata: dict[str, Any] | None = None,
         embedding_model: str | None = None,
+        tenant_id: str = "default",
     ) -> str:
         psycopg = self._import_psycopg()
+        if len(embedding) != self.settings.vector_dimension:
+            raise ValueError(
+                f"Embedding dimension mismatch. Expected {self.settings.vector_dimension}, got {len(embedding)}."
+            )
         embedding_literal = self._embedding_literal(embedding)
         with psycopg.connect(self._required_database_url()) as conn:
             row = conn.execute(
@@ -61,16 +147,18 @@ class PostgresVectorRepository:
                     embedding_vector,
                     embedding_model,
                     embedding_dimensions,
-                    metadata
+                    metadata,
+                    tenant_id
                 )
-                VALUES (%s, %s, %s, %s, %s::vector, %s, %s, %s::jsonb)
+                VALUES (%s, %s, %s, %s, %s::vector, %s, %s, %s::jsonb, %s)
                 ON CONFLICT (document_id, chunk_index) DO UPDATE SET
                     content = EXCLUDED.content,
                     token_count = EXCLUDED.token_count,
                     embedding_vector = EXCLUDED.embedding_vector,
                     embedding_model = EXCLUDED.embedding_model,
                     embedding_dimensions = EXCLUDED.embedding_dimensions,
-                    metadata = EXCLUDED.metadata
+                    metadata = EXCLUDED.metadata,
+                    tenant_id = EXCLUDED.tenant_id
                 RETURNING id
                 """,
                 (
@@ -82,6 +170,7 @@ class PostgresVectorRepository:
                     embedding_model or self.settings.embedding_model,
                     len(embedding),
                     psycopg.types.json.Jsonb(metadata or {}),
+                    tenant_id,
                 ),
             ).fetchone()
             return str(row[0])
@@ -91,9 +180,17 @@ class PostgresVectorRepository:
         query_embedding: list[float],
         limit: int = 5,
         embedding_model: str | None = None,
+        tenant_id: str = "default",
+        role: str = "customer",
+        department: str = "public",
+        access_level: str = "public",
+        status: str = "active",
+        min_trust_level: str = "EXTERNAL",
     ) -> list[dict[str, Any]]:
         psycopg = self._import_psycopg()
         embedding_literal = self._embedding_literal(query_embedding)
+        allowed_access_levels = self._allowed_access_levels(access_level)
+        allowed_trust_levels = self._allowed_trust_levels(min_trust_level)
         with psycopg.connect(self._required_database_url()) as conn:
             rows = conn.execute(
                 """
@@ -105,18 +202,60 @@ class PostgresVectorRepository:
                     dc.chunk_index,
                     dc.content,
                     dc.embedding_model,
-                    1 - (dc.embedding_vector <=> %s::vector) AS similarity
+                    d.metadata AS document_metadata,
+                    dc.metadata AS chunk_metadata,
+                    d.tenant_id,
+                    1 - (dc.embedding_vector <=> %s::vector) AS similarity,
+                    CASE UPPER(COALESCE(d.metadata->>'trust_level', 'EXTERNAL'))
+                        WHEN 'OFFICIAL' THEN 1.0
+                        WHEN 'INTERNAL_APPROVED' THEN 0.9
+                        WHEN 'INTERNAL_DRAFT' THEN 0.55
+                        WHEN 'USER_GENERATED' THEN 0.35
+                        ELSE 0.25
+                    END AS trust_weight,
+                    (
+                        0.75 * (1 - (dc.embedding_vector <=> %s::vector))
+                        + 0.25 * CASE UPPER(COALESCE(d.metadata->>'trust_level', 'EXTERNAL'))
+                            WHEN 'OFFICIAL' THEN 1.0
+                            WHEN 'INTERNAL_APPROVED' THEN 0.9
+                            WHEN 'INTERNAL_DRAFT' THEN 0.55
+                            WHEN 'USER_GENERATED' THEN 0.35
+                            ELSE 0.25
+                        END
+                    ) AS retrieval_score
                 FROM document_chunks dc
                 JOIN documents d ON d.id = dc.document_id
                 WHERE dc.embedding_vector IS NOT NULL
-                  AND (%s IS NULL OR dc.embedding_model = %s)
-                ORDER BY dc.embedding_vector <=> %s::vector
+                  AND (%s::text IS NULL OR dc.embedding_model = %s)
+                  AND d.tenant_id = %s
+                  AND d.status = %s
+                  AND (d.effective_date IS NULL OR d.effective_date <= CURRENT_DATE)
+                  AND (d.expires_at IS NULL OR d.expires_at > CURRENT_DATE)
+                  AND d.superseded_by IS NULL
+                  AND COALESCE(d.metadata->>'access_level', 'public') = ANY(%s)
+                  AND COALESCE(d.metadata->>'trust_level', 'EXTERNAL') = ANY(%s)
+                  AND (
+                      COALESCE(d.metadata->>'role', 'customer') IN ('any', %s)
+                      OR COALESCE(d.metadata->>'access_level', 'public') = 'public'
+                  )
+                  AND (
+                      COALESCE(d.metadata->>'department', 'public') IN ('any', 'public', %s)
+                      OR COALESCE(d.metadata->>'access_level', 'public') = 'public'
+                  )
+                ORDER BY retrieval_score DESC, dc.embedding_vector <=> %s::vector
                 LIMIT %s
                 """,
                 (
                     embedding_literal,
+                    embedding_literal,
                     embedding_model,
                     embedding_model,
+                    tenant_id,
+                    status,
+                    allowed_access_levels,
+                    allowed_trust_levels,
+                    role,
+                    department,
                     embedding_literal,
                     limit,
                 ),
@@ -131,7 +270,12 @@ class PostgresVectorRepository:
                 "chunk_index": row[4],
                 "content": row[5],
                 "embedding_model": row[6],
-                "similarity": float(row[7]),
+                "document_metadata": row[7],
+                "chunk_metadata": row[8],
+                "tenant_id": row[9],
+                "similarity": float(row[10]),
+                "trust_weight": float(row[11]),
+                "retrieval_score": float(row[12]),
             }
             for row in rows
         ]
@@ -155,3 +299,19 @@ class PostgresVectorRepository:
                 "Missing PostgreSQL driver. Install it with: py -m pip install psycopg[binary]"
             ) from exc
         return psycopg
+
+    @staticmethod
+    def _allowed_access_levels(access_level: str) -> list[str]:
+        hierarchy = ["public", "internal", "restricted"]
+        normalized = access_level.lower()
+        if normalized not in hierarchy:
+            normalized = "public"
+        return hierarchy[: hierarchy.index(normalized) + 1]
+
+    @staticmethod
+    def _allowed_trust_levels(min_trust_level: str) -> list[str]:
+        ordered = ["EXTERNAL", "USER_GENERATED", "INTERNAL_DRAFT", "INTERNAL_APPROVED", "OFFICIAL"]
+        normalized = min_trust_level.upper()
+        if normalized not in ordered:
+            normalized = "EXTERNAL"
+        return ordered[ordered.index(normalized) :]

@@ -100,6 +100,38 @@ NDCG@10 >= 0.85
 Hard constraints >= 99%
 ```
 
+## Run RAG Evaluation
+
+RAG retrieval cases live in:
+
+```text
+evaluation/datasets/rag.jsonl
+```
+
+Run the RAG evaluation:
+
+```bash
+py evaluation/run_rag_evaluation.py
+```
+
+The report is saved to:
+
+```text
+evaluation/reports/rag_report_latest.json
+```
+
+The RAG runner measures:
+
+- Recall@5
+- Precision@5
+- Faithfulness
+- Citation correctness
+- Completeness
+- Correct abstention
+- Freshness correctness
+
+The evaluation uses PostgreSQL RAG retrieval with tenant/access authorization, active-document freshness filters, trust-aware reranking, citation generation, and abstain behavior.
+
 ## Metrics
 
 The v1 runner records:

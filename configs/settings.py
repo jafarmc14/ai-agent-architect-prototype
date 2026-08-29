@@ -45,6 +45,7 @@ class AppSettings:
     database_password: str
     postgres_database_url: str
     knowledge_base_path: Path
+    knowledge_base_dir: Path
     embedding_model: str
     embedding_api_base: str
     embedding_api_key: str
@@ -75,6 +76,7 @@ def get_settings() -> AppSettings:
         database_password=os.getenv("DB_PASSWORD", ""),
         postgres_database_url=os.getenv("DATABASE_URL", ""),
         knowledge_base_path=_path_from_env("KNOWLEDGE_BASE_PATH", PROJECT_ROOT / "knowledge_base.txt"),
+        knowledge_base_dir=_path_from_env("KNOWLEDGE_BASE_DIR", PROJECT_ROOT / "knowledge_base"),
         embedding_model=os.getenv("EMBEDDING_MODEL", "nomic-embed-text"),
         embedding_api_base=os.getenv("EMBEDDING_API_BASE", "http://localhost:11434/v1"),
         embedding_api_key=os.getenv("EMBEDDING_API_KEY", "ollama"),

@@ -38,7 +38,7 @@ This system is a web-based chat interface powered by an AI model that supports s
 | **LLM API** | LLM Gateway with OpenRouter by default, or local Ollama via `LLM_PROVIDER=ollama` | The large language model that powers intent recognition, reasoning, and response generation. |
 | **Database** | [PostgreSQL](https://www.postgresql.org/) + pgvector | Primary runtime database storing products, inventory, orders, carts, support tickets, conversations, evaluation data, and vector-ready knowledge chunks. |
 | **Legacy/Fallback DB** | [SQLite](https://www.sqlite.org/) | Preserved as rollback prototype storage and SQLite-to-PostgreSQL migration source. |
-| **Knowledge Base** | Plain text file (`knowledge_base.txt`) | Store policies and FAQ document searched by the AI agent for policy-related queries. |
+| **Knowledge Base** | Split Markdown documents (`knowledge_base/*.md`) with legacy fallback (`knowledge_base.txt`) | Store policies and FAQ documents searched by the AI agent for policy-related queries. |
 
 ### Architecture Flow
 
@@ -73,8 +73,10 @@ Repository Selectors (`core/repositories/*_repository.py`)
          +--> `toko.db` fallback / migration source
 
 Knowledge Base:
-`knowledge_base.txt` is still used for file-based policy lookup.
-PostgreSQL `documents` and `document_chunks` are prepared for pgvector-backed retrieval.
+`knowledge_base/` contains split policy documents for file-based lookup:
+`return_policy`, `refund_policy`, `shipping_policy`, `warranty`, `payments`, and `faq`.
+`knowledge_base.txt` remains as a legacy fallback.
+PostgreSQL `documents` and `document_chunks` store ingested, embedded chunks for pgvector-backed retrieval.
 ```
 
 Note: The current local runtime uses PostgreSQL when `DATABASE_PROVIDER=postgres` is set in `.env`. The LLM provider can be switched between OpenRouter and Ollama from the Streamlit sidebar or `.env`.
@@ -233,6 +235,109 @@ py database/embed_products.py --only-missing
 
 After embeddings exist, product search can rank by meaning and keyword relevance while preserving hard filters. For example, "comfortable minimalist shoes under Rp 1,500,000" is filtered by price/category in PostgreSQL, retrieved as top 20 hybrid candidates, reranked, then returned as the top 5 products.
 
+### Knowledge Ingestion Pipeline
+
+Proper RAG starts with a document ingestion pipeline:
+
+```text
+parse
+↓
+clean
+↓
+chunk
+↓
+embed
+↓
+store
+```
+
+The source documents live in `knowledge_base/*.md`. The ingestion script embeds chunks with the configured local Ollama embedding model and stores them in PostgreSQL `documents` and `document_chunks`.
+
+Each document includes front matter metadata:
+
+```text
+document_id
+title
+version
+effective_date
+expires_at
+status
+superseded_by
+source
+category
+tenant_id
+access_level
+trust_level
+```
+
+Preview ingestion without embedding or writing to PostgreSQL:
+
+```bash
+py database/ingest_knowledge_base.py --dry-run
+```
+
+Run ingestion:
+
+```bash
+py database/ingest_knowledge_base.py
+```
+
+The current split knowledge base produces 6 documents and 7 chunks with the default chunk settings.
+
+Retrieval from PostgreSQL only returns fresh documents by default:
+
+```text
+status = active
+effective_date <= current date
+expires_at is null or in the future
+superseded_by is null
+```
+
+Knowledge retrieval now uses an authorization-first RAG pipeline:
+
+```text
+query
+|
+v
+authorization scope
+|
+v
+embedding
+|
+v
+metadata filter
+|
+v
+vector retrieval
+|
+v
+trust-aware reranker
+|
+v
+context + citations
+```
+
+Authorization and freshness are applied inside the PostgreSQL retrieval query before vector ranking. The retriever does not fetch unauthorized chunks and filter them later. The default retrieval scope is:
+
+```text
+tenant_id = default
+role = customer
+department = public
+access_level = public
+```
+
+Supported trust levels:
+
+```text
+OFFICIAL
+INTERNAL_APPROVED
+INTERNAL_DRAFT
+USER_GENERATED
+EXTERNAL
+```
+
+Ranking combines vector similarity with trust weight, so official policy evidence is preferred over lower-trust text when relevance is similar. Factual RAG answers include citation metadata such as document ID, title, version, effective date, and source. If the retriever cannot find enough authorized and fresh evidence, it abstains instead of guessing.
+
 ---
 
 ## 3. AI Agent Tools (10 Total)
@@ -269,7 +374,7 @@ After embeddings exist, product search can rank by meaning and keyword relevance
 | `core/services/order_service.py` | **Order service.** Handles order status lookup, cancellation rules, and address update rules. |
 | `core/services/cart_service.py` | **Cart service.** Handles add/view/clear cart behavior and stock validation for cart additions. |
 | `core/services/support_service.py` | **Support service.** Handles support ticket creation for human escalation. |
-| `core/services/knowledge_service.py` | **Knowledge service.** Handles policy and FAQ lookup from `knowledge_base.txt`. |
+| `core/services/knowledge_service.py` | **Knowledge service.** Handles policy and FAQ lookup through PostgreSQL RAG retrieval, with split documents and legacy file lookup as fallback. |
 | `core/services/store_service.py` | **Service facade.** Keeps a compatibility wrapper around the domain-specific services. |
 | `core/repositories/product_repository.py` | **Product repository selector.** Chooses SQLite or PostgreSQL catalog access from config. |
 | `core/repositories/order_repository.py` | **Order repository selector.** Chooses SQLite or PostgreSQL order access from config. |
@@ -278,9 +383,12 @@ After embeddings exist, product search can rank by meaning and keyword relevance
 | `core/repositories/postgres_vector_repository.py` | **PostgreSQL vector repository.** Stores and searches knowledge chunks with pgvector. |
 | `core/repositories/store_repository.py` | **Repository facade.** Keeps a compatibility wrapper around the domain-specific repositories. |
 | `core/prompts/system.py` | **System prompt.** Defines Ubichinon's identity, tone, capabilities, and tool-use rules. |
-| `core/workflows/` | **Workflow package.** Reserved for future multi-step workflows as the prototype grows. |
+| `core/workflows/document_ingestion.py` | **Document ingestion pipeline.** Parses, cleans, chunks, embeds, and stores knowledge documents for RAG. |
+| `core/workflows/rag_retrieval.py` | **RAG retrieval pipeline.** Applies trust-aware reranking, evidence gating, citation building, and abstain behavior. |
+| `core/workflows/` | **Workflow package.** Contains product search extraction/reranking, document ingestion, and RAG retrieval workflows. |
 | `database.py` | **SQLite fallback database layer.** Creates and initializes `toko.db` only when `DATABASE_PROVIDER=sqlite`. |
-| `knowledge_base.txt` | **Store policies & FAQ.** Contains official store rules for returns, refunds, shipping, warranty, payments, operating hours, and loyalty program. Searched by the AI agent for policy-related questions. |
+| `knowledge_base/*.md` | **Split store policy documents.** Contains `return_policy`, `refund_policy`, `shipping_policy`, `warranty`, `payments`, and `faq` documents for policy lookup. |
+| `knowledge_base.txt` | **Legacy store policies & FAQ.** Preserved as fallback/reference for the original single-file knowledge base. |
 | `.env` | **Local non-secret configuration.** Stores environment, provider, model, path, embedding model, vector dimension, and other non-secret runtime settings. |
 | `.env.secrets` | **Local secret configuration.** Stores API keys, DB password, JWT secret, and other sensitive values. Ignored by Git. |
 | `.env.example` | **Safe non-secret template.** Documents required non-secret configuration keys. |
@@ -292,19 +400,24 @@ After embeddings exist, product search can rank by meaning and keyword relevance
 | `CAPABILITY_MATRIX.md` | **Capability inventory.** Groups all agent tools by access type (`READ`/`WRITE`) and risk level (`LOW`/`MEDIUM`/`HIGH`). |
 | `evaluation/datasets/baseline/*.jsonl` | **Baseline evaluation dataset.** Contains 41 JSONL test cases converted from manual prompts and additional baseline variants. |
 | `evaluation/datasets/product_search.jsonl` | **Product search evaluation dataset.** Defines relevant products, graded relevance, and hard constraints for retrieval/ranking metrics. |
+| `evaluation/datasets/rag.jsonl` | **RAG evaluation dataset.** Defines relevant policy documents, required terms, and abstention cases. |
 | `evaluation/run_baseline.py` | **Evaluation runner v1.** Runs baseline cases, traces tool calls, measures accuracy/latency/exceptions, and saves the latest report. |
 | `evaluation/run_product_search_evaluation.py` | **Product search evaluation runner.** Measures Precision@5, Recall@10, NDCG@10, and Hard Constraint Satisfaction. |
+| `evaluation/run_rag_evaluation.py` | **RAG evaluation runner.** Measures Recall@5, Precision@5, Faithfulness, Citation Correctness, Completeness, Correct Abstention, and Freshness Correctness. |
 | `evaluation/reports/baseline_report_latest.json` | **Latest evaluation report.** Generated by the runner and overwritten on each evaluation run. |
 | `evaluation/reports/product_search_report_latest.json` | **Latest product search evaluation report.** Generated by the product search runner and overwritten on each run. |
+| `evaluation/reports/rag_report_latest.json` | **Latest RAG evaluation report.** Generated by the RAG runner and overwritten on each run. |
 | `database/migrations/postgres/V001__initial_schema.sql` | **PostgreSQL migration V001.** Defines the target PostgreSQL tables for Phase 5 migration. |
 | `database/migrations/postgres/V002__enable_pgvector_document_chunks.sql` | **PostgreSQL migration V002.** Enables pgvector and adds vector storage for document chunks. |
 | `database/migrations/postgres/V003__add_operational_indexes.sql` | **PostgreSQL migration V003.** Adds tenant-aware indexes for SKU, category, user, order, document metadata, and vector search access patterns. |
 | `database/migrations/postgres/V004__add_product_embeddings.sql` | **PostgreSQL migration V004.** Adds pgvector product embedding storage and vector index. |
 | `database/migrations/postgres/V005__use_ollama_embedding_dimensions.sql` | **PostgreSQL migration V005.** Changes product/document vector columns to Ollama `nomic-embed-text` dimensions. |
 | `database/migrations/postgres/V006__add_product_keyword_search_index.sql` | **PostgreSQL migration V006.** Adds the GIN full-text index used by hybrid product search. |
+| `database/migrations/postgres/V007__add_document_freshness_fields.sql` | **PostgreSQL migration V007.** Adds queryable document freshness fields for RAG retrieval. |
 | `database/migrations/README.md` | **Migration guide.** Documents naming convention and manual apply flow for versioned migrations. |
 | `database/migrate_sqlite_to_postgres.py` | **Data migration script.** Migrates SQLite data to PostgreSQL in the order: products, inventory, orders, cart, support. |
 | `database/embed_products.py` | **Product embedding script.** Builds semantic product text from relevant fields and stores pgvector embeddings in PostgreSQL. |
+| `database/ingest_knowledge_base.py` | **Knowledge ingestion script.** Runs parse-clean-chunk-embed-store for split knowledge documents. |
 | `docs/postgresql_schema.md` | **PostgreSQL schema design.** Documents table purpose, relationships, and design notes. |
 | `mvp.txt` | **Original PRD document** (in Bahasa Indonesia) outlining the initial project requirements. |
 | `README.md` | **This file.** Full project documentation in English. |
@@ -612,6 +725,38 @@ evaluation/reports/baseline_report_latest.json
 The report file is overwritten on each run to avoid report folder growth.
 
 The runner uses a clean dummy-data snapshot for each case and restores the user's original `toko.db` after the run, so write-tool tests remain repeatable.
+
+### RAG Evaluation
+
+RAG evaluation cases are stored in:
+
+```text
+evaluation/datasets/rag.jsonl
+```
+
+Run the RAG evaluation:
+
+```bash
+py evaluation/run_rag_evaluation.py
+```
+
+The runner measures:
+
+| Metric | Description |
+|---|---|
+| `recall_at_5` | Whether expected source documents are retrieved in the top evidence set. |
+| `precision_at_5` | How much retrieved evidence belongs to the expected source documents. |
+| `faithfulness` | Whether the answer context is grounded in cited evidence. |
+| `citation_correctness` | Whether citations reference the expected documents. |
+| `completeness` | Whether required answer terms appear in the evidence context. |
+| `correct_abstention` | Whether no-answer cases abstain instead of guessing. |
+| `freshness_correctness` | Whether returned evidence is active and not superseded. |
+
+Reports are saved to:
+
+```text
+evaluation/reports/rag_report_latest.json
+```
 
 ### Free-Tier Rate Limit Note
 

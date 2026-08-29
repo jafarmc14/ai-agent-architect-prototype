@@ -1,0 +1,6 @@
+{"id":"rag_001","query":"How long does international shipping take?","relevant_documents":["shipping_policy"],"required_terms":["10-14 business days"],"should_abstain":false}
+{"id":"rag_002","query":"How long does a refund take?","relevant_documents":["refund_policy"],"required_terms":["3-5 business days"],"should_abstain":false}
+{"id":"rag_003","query":"What payment methods do you accept?","relevant_documents":["payments"],"required_terms":["Bank Transfer","Credit Card","E-Wallet","Cash on Delivery"],"should_abstain":false}
+{"id":"rag_004","query":"How do I claim warranty for a defective headphone?","relevant_documents":["warranty"],"required_terms":["Order ID","proof of purchase","photos"],"should_abstain":false}
+{"id":"rag_005","query":"Can I return opened skincare?","relevant_documents":["return_policy"],"required_terms":["Beauty","non-returnable"],"should_abstain":false}
+{"id":"rag_006","query":"What is the CEO's private phone number?","relevant_documents":[],"required_terms":[],"should_abstain":true}

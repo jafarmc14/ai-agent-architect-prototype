@@ -1,0 +1,234 @@
+{
+  "name": "rag_report_v1",
+  "created_at": "2026-08-29T14:56:17.837167",
+  "dataset": "D:\\AI-Agent Arch Prot\\evaluation\\datasets\\rag.jsonl",
+  "summary": {
+    "total_cases": 6,
+    "evaluated_cases": 6,
+    "exceptions": 0,
+    "recall_at_5": 1.0,
+    "precision_at_5": 0.7222,
+    "faithfulness": 1.0,
+    "citation_correctness": 1.0,
+    "completeness": 1.0,
+    "correct_abstention": 1.0,
+    "freshness_correctness": 1.0,
+    "avg_latency_ms": 2194.84
+  },
+  "results": [
+    {
+      "id": "rag_001",
+      "query": "How long does international shipping take?",
+      "retrieved_documents": [
+        "shipping_policy",
+        "refund_policy",
+        "return_policy"
+      ],
+      "citations": [
+        {
+          "citation_id": "C1",
+          "document_id": "shipping_policy",
+          "title": "Shipping Policy",
+          "source": "knowledge_base/shipping_policy.md",
+          "version": "v1",
+          "effective_date": "2026-08-29",
+          "trust_level": "OFFICIAL",
+          "chunk_index": 0,
+          "similarity": 0.7473
+        },
+        {
+          "citation_id": "C2",
+          "document_id": "refund_policy",
+          "title": "Refund Policy",
+          "source": "knowledge_base/refund_policy.md",
+          "version": "v1",
+          "effective_date": "2026-08-29",
+          "trust_level": "OFFICIAL",
+          "chunk_index": 0,
+          "similarity": 0.5562
+        },
+        {
+          "citation_id": "C3",
+          "document_id": "return_policy",
+          "title": "Return Policy",
+          "source": "knowledge_base/return_policy.md",
+          "version": "v1",
+          "effective_date": "2026-08-29",
+          "trust_level": "OFFICIAL",
+          "chunk_index": 0,
+          "similarity": 0.503
+        }
+      ],
+      "abstained": false,
+      "recall_at_5": 1.0,
+      "precision_at_5": 0.3333,
+      "faithfulness": 1.0,
+      "citation_correctness": 1.0,
+      "completeness": 1.0,
+      "correct_abstention": 1.0,
+      "freshness_correctness": 1.0,
+      "exception": null,
+      "latency_ms": 2414.44
+    },
+    {
+      "id": "rag_002",
+      "query": "How long does a refund take?",
+      "retrieved_documents": [
+        "refund_policy",
+        "return_policy"
+      ],
+      "citations": [
+        {
+          "citation_id": "C1",
+          "document_id": "refund_policy",
+          "title": "Refund Policy",
+          "source": "knowledge_base/refund_policy.md",
+          "version": "v1",
+          "effective_date": "2026-08-29",
+          "trust_level": "OFFICIAL",
+          "chunk_index": 0,
+          "similarity": 0.7779
+        },
+        {
+          "citation_id": "C2",
+          "document_id": "return_policy",
+          "title": "Return Policy",
+          "source": "knowledge_base/return_policy.md",
+          "version": "v1",
+          "effective_date": "2026-08-29",
+          "trust_level": "OFFICIAL",
+          "chunk_index": 0,
+          "similarity": 0.6509
+        }
+      ],
+      "abstained": false,
+      "recall_at_5": 1.0,
+      "precision_at_5": 0.5,
+      "faithfulness": 1.0,
+      "citation_correctness": 1.0,
+      "completeness": 1.0,
+      "correct_abstention": 1.0,
+      "freshness_correctness": 1.0,
+      "exception": null,
+      "latency_ms": 2136.64
+    },
+    {
+      "id": "rag_003",
+      "query": "What payment methods do you accept?",
+      "retrieved_documents": [
+        "payments"
+      ],
+      "citations": [
+        {
+          "citation_id": "C1",
+          "document_id": "payments",
+          "title": "Payments",
+          "source": "knowledge_base/payments.md",
+          "version": "v1",
+          "effective_date": "2026-08-29",
+          "trust_level": "OFFICIAL",
+          "chunk_index": 0,
+          "similarity": 0.7294
+        }
+      ],
+      "abstained": false,
+      "recall_at_5": 1.0,
+      "precision_at_5": 1.0,
+      "faithfulness": 1.0,
+      "citation_correctness": 1.0,
+      "completeness": 1.0,
+      "correct_abstention": 1.0,
+      "freshness_correctness": 1.0,
+      "exception": null,
+      "latency_ms": 2181.24
+    },
+    {
+      "id": "rag_004",
+      "query": "How do I claim warranty for a defective headphone?",
+      "retrieved_documents": [
+        "warranty",
+        "return_policy"
+      ],
+      "citations": [
+        {
+          "citation_id": "C1",
+          "document_id": "warranty",
+          "title": "Warranty",
+          "source": "knowledge_base/warranty.md",
+          "version": "v1",
+          "effective_date": "2026-08-29",
+          "trust_level": "OFFICIAL",
+          "chunk_index": 0,
+          "similarity": 0.7257
+        },
+        {
+          "citation_id": "C2",
+          "document_id": "return_policy",
+          "title": "Return Policy",
+          "source": "knowledge_base/return_policy.md",
+          "version": "v1",
+          "effective_date": "2026-08-29",
+          "trust_level": "OFFICIAL",
+          "chunk_index": 0,
+          "similarity": 0.5777
+        }
+      ],
+      "abstained": false,
+      "recall_at_5": 1.0,
+      "precision_at_5": 0.5,
+      "faithfulness": 1.0,
+      "citation_correctness": 1.0,
+      "completeness": 1.0,
+      "correct_abstention": 1.0,
+      "freshness_correctness": 1.0,
+      "exception": null,
+      "latency_ms": 2149.71
+    },
+    {
+      "id": "rag_005",
+      "query": "Can I return opened skincare?",
+      "retrieved_documents": [
+        "return_policy"
+      ],
+      "citations": [
+        {
+          "citation_id": "C1",
+          "document_id": "return_policy",
+          "title": "Return Policy",
+          "source": "knowledge_base/return_policy.md",
+          "version": "v1",
+          "effective_date": "2026-08-29",
+          "trust_level": "OFFICIAL",
+          "chunk_index": 0,
+          "similarity": 0.7134
+        }
+      ],
+      "abstained": false,
+      "recall_at_5": 1.0,
+      "precision_at_5": 1.0,
+      "faithfulness": 1.0,
+      "citation_correctness": 1.0,
+      "completeness": 1.0,
+      "correct_abstention": 1.0,
+      "freshness_correctness": 1.0,
+      "exception": null,
+      "latency_ms": 2154.72
+    },
+    {
+      "id": "rag_006",
+      "query": "What is the CEO's private phone number?",
+      "retrieved_documents": [],
+      "citations": [],
+      "abstained": true,
+      "recall_at_5": 1.0,
+      "precision_at_5": 1.0,
+      "faithfulness": 1.0,
+      "citation_correctness": 1.0,
+      "completeness": 1.0,
+      "correct_abstention": 1.0,
+      "freshness_correctness": 1.0,
+      "exception": null,
+      "latency_ms": 2132.31
+    }
+  ]
+}
