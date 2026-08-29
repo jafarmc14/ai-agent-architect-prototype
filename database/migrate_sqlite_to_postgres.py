@@ -110,6 +110,29 @@ def clear_target(pg_conn) -> None:
     )
 
 
+def ensure_demo_user(pg_conn, customer_name: str | None):
+    if not customer_name:
+        return None, None
+    row = pg_conn.execute(
+        """
+        INSERT INTO users (external_id, name, email, metadata)
+        VALUES (
+            'demo-' || lower(regexp_replace(%s, '[^a-zA-Z0-9]+', '-', 'g')),
+            %s,
+            lower(regexp_replace(%s, '[^a-zA-Z0-9]+', '.', 'g')) || '@example.local',
+            jsonb_build_object('role', 'customer', 'tenant_id', 'default', 'source', 'demo_seed')
+        )
+        ON CONFLICT (email) DO UPDATE SET
+            name = EXCLUDED.name,
+            metadata = users.metadata || EXCLUDED.metadata,
+            updated_at = now()
+        RETURNING id, email
+        """,
+        (customer_name, customer_name, customer_name),
+    ).fetchone()
+    return row[0], row[1]
+
+
 def migrate_products(pg_conn, sqlite_path: Path) -> dict[int, str]:
     product_id_map = {}
     rows = sqlite_rows(
@@ -206,15 +229,18 @@ def migrate_orders(pg_conn, sqlite_path: Path, product_id_map: dict[int, str]) -
 
     for row in rows:
         status = ORDER_STATUS_MAP.get(row["status"], "processing")
+        user_id, customer_email = ensure_demo_user(pg_conn, row["customer_name"])
         result = pg_conn.execute(
             """
             INSERT INTO orders (
-                order_number, customer_name, status, shipping_address, subtotal,
+                order_number, user_id, customer_name, customer_email, status, shipping_address, subtotal,
                 grand_total, currency, order_date, estimated_arrival, metadata
             )
-            VALUES (%s, %s, %s::order_status, %s, %s, %s, 'IDR', %s, %s, %s::jsonb)
+            VALUES (%s, %s, %s, %s, %s::order_status, %s, %s, %s, 'IDR', %s, %s, %s::jsonb)
             ON CONFLICT (order_number) DO UPDATE SET
+                user_id = EXCLUDED.user_id,
                 customer_name = EXCLUDED.customer_name,
+                customer_email = EXCLUDED.customer_email,
                 status = EXCLUDED.status,
                 shipping_address = EXCLUDED.shipping_address,
                 subtotal = EXCLUDED.subtotal,
@@ -227,7 +253,9 @@ def migrate_orders(pg_conn, sqlite_path: Path, product_id_map: dict[int, str]) -
             """,
             (
                 row["id"],
+                user_id,
                 row["customer_name"],
+                customer_email,
                 status,
                 row["shipping_address"],
                 row["total_price"],

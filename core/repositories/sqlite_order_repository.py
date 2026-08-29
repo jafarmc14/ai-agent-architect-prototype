@@ -4,7 +4,7 @@ from database import get_connection
 class SQLiteOrderRepository:
     """SQLite access for order data."""
 
-    def find_order_with_product(self, order_id: str):
+    def find_order_with_product(self, order_id: str, user_id: str | None = None):
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -19,7 +19,7 @@ class SQLiteOrderRepository:
         conn.close()
         return row
 
-    def find_order_for_update(self, order_id: str):
+    def find_order_for_update(self, order_id: str, user_id: str | None = None):
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -30,7 +30,7 @@ class SQLiteOrderRepository:
         conn.close()
         return row
 
-    def update_order_status(self, order_id: str, status: str) -> None:
+    def update_order_status(self, order_id: str, status: str, user_id: str | None = None) -> None:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -40,7 +40,7 @@ class SQLiteOrderRepository:
         conn.commit()
         conn.close()
 
-    def update_order_shipping_address(self, order_id: str, new_address: str) -> None:
+    def update_order_shipping_address(self, order_id: str, new_address: str, user_id: str | None = None) -> None:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(

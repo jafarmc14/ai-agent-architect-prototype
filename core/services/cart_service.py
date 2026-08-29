@@ -1,4 +1,5 @@
 from core.repositories import CartRepository, ProductRepository
+from core.auth import get_request_context
 from core.services.product_service import normalize_product_query
 
 
@@ -14,6 +15,8 @@ class CartService:
         self.product_repository = product_repository or ProductRepository()
 
     def add_to_cart(self, product_name: str, quantity: int = 1, session_id: str = "default") -> str:
+        context = get_request_context()
+        session_id = f"user:{context.user_id}" if context.user_id else (context.session_id or session_id)
         search_term = normalize_product_query(product_name)
         rows = self.product_repository.find_products_by_name(search_term)
 
@@ -28,18 +31,20 @@ class CartService:
         if quantity > product["stock"]:
             return f"❌ Insufficient stock for '{product['name']}'. Requested: {quantity}, Available: {product['stock']} units."
 
-        existing = self.cart_repository.find_cart_item(session_id, product["id"])
+        existing = self.cart_repository.find_cart_item(session_id, product["id"], user_id=context.user_id)
         if existing:
             new_quantity = existing["quantity"] + quantity
             self.cart_repository.update_cart_quantity(existing["id"], new_quantity)
         else:
-            self.cart_repository.insert_cart_item(session_id, product["id"], quantity)
+            self.cart_repository.insert_cart_item(session_id, product["id"], quantity, user_id=context.user_id)
 
         total = product["price"] * quantity
         return f"🛒 Added to cart: {product['name']} x{quantity} (Rp{total:,.0f})"
 
     def view_cart(self, session_id: str = "default") -> str:
-        rows = self.cart_repository.list_cart_items(session_id)
+        context = get_request_context()
+        session_id = f"user:{context.user_id}" if context.user_id else (context.session_id or session_id)
+        rows = self.cart_repository.list_cart_items(session_id, user_id=context.user_id)
 
         if not rows:
             return "🛒 Your shopping cart is empty."
@@ -53,7 +58,9 @@ class CartService:
         return "\n".join(results)
 
     def clear_cart(self, session_id: str = "default") -> str:
-        deleted = self.cart_repository.delete_cart_items(session_id)
+        context = get_request_context()
+        session_id = f"user:{context.user_id}" if context.user_id else (context.session_id or session_id)
+        deleted = self.cart_repository.delete_cart_items(session_id, user_id=context.user_id)
 
         if deleted == 0:
             return "🛒 Cart is already empty, nothing to clear."

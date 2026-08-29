@@ -47,6 +47,7 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V005__use_ollama_embedding_
 psql "$DATABASE_URL" -f database/migrations/postgres/V006__add_product_keyword_search_index.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V007__add_document_freshness_fields.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V008__add_document_approval_status.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V009__seed_demo_users_and_bind_orders.sql
 ```
 
 `V001__initial_schema.sql` creates a `schema_migrations` table and records itself after successful execution. Later migrations should insert their own version into `schema_migrations` at the end of the file.
@@ -62,6 +63,8 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V008__add_document_approval
 `V007__add_document_freshness_fields.sql` adds document freshness columns: `effective_date`, `expires_at`, `status`, and `superseded_by`.
 
 `V008__add_document_approval_status.sql` adds the document approval lifecycle column used by secure knowledge ingestion: `uploaded`, `reviewed`, `approved`, and `indexed`.
+
+`V009__seed_demo_users_and_bind_orders.sql` creates demo customer identities from migrated orders and binds `orders.user_id` for authenticated request-context filtering.
 
 ## Vector Storage
 

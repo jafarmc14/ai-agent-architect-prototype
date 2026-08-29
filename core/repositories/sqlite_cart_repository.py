@@ -6,7 +6,7 @@ from database import get_connection
 class SQLiteCartRepository:
     """SQLite access for shopping cart data."""
 
-    def find_cart_item(self, session_id: str, product_id: int):
+    def find_cart_item(self, session_id: str, product_id: int, user_id: str | None = None):
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -24,7 +24,7 @@ class SQLiteCartRepository:
         conn.commit()
         conn.close()
 
-    def insert_cart_item(self, session_id: str, product_id: int, quantity: int) -> None:
+    def insert_cart_item(self, session_id: str, product_id: int, quantity: int, user_id: str | None = None) -> None:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -34,7 +34,7 @@ class SQLiteCartRepository:
         conn.commit()
         conn.close()
 
-    def list_cart_items(self, session_id: str):
+    def list_cart_items(self, session_id: str, user_id: str | None = None):
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -48,7 +48,7 @@ class SQLiteCartRepository:
         conn.close()
         return rows
 
-    def delete_cart_items(self, session_id: str) -> int:
+    def delete_cart_items(self, session_id: str, user_id: str | None = None) -> int:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM shopping_cart WHERE session_id = ?", (session_id,))

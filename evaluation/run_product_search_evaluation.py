@@ -15,6 +15,8 @@ REPORT_DIR = PROJECT_ROOT / "evaluation" / "reports"
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from core.privacy import redact_for_logs  # noqa: E402
+
 
 TARGETS = {
     "precision_at_5": 0.90,
@@ -151,7 +153,7 @@ def evaluate_case(case: dict[str, Any]) -> dict[str, Any]:
             final_rows = [dict(row) for row in candidates[:10]]
             retrieval_mode = "deterministic"
     except Exception as exc:  # noqa: BLE001 - report evaluation failures without hiding the case.
-        exception = repr(exc)
+        exception = redact_for_logs(repr(exc))
 
     latency_ms = round((time.perf_counter() - start) * 1000, 2)
     ranked_names = [row["name"] for row in final_rows]
@@ -173,7 +175,7 @@ def evaluate_case(case: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "id": case["id"],
-        "query": case["query"],
+        "query": redact_for_logs(case["query"]),
         "retrieval_mode": retrieval_mode,
         "expected_relevant": list(relevant_names),
         "ranked_products": ranked_names,

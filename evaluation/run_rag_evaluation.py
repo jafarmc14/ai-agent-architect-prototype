@@ -14,6 +14,8 @@ REPORT_DIR = PROJECT_ROOT / "evaluation" / "reports"
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from core.privacy import redact_for_logs  # noqa: E402
+
 
 def load_cases(path: Path) -> list[dict[str, Any]]:
     cases = []
@@ -53,7 +55,7 @@ def evaluate_case(case: dict[str, Any]) -> dict[str, Any]:
         chunks = rerank_rag_chunks(retrieved, limit=5)
         context = build_rag_context(chunks, query=case["query"])
     except Exception as exc:  # noqa: BLE001
-        exception = repr(exc)
+        exception = redact_for_logs(repr(exc))
 
     latency_ms = round((time.perf_counter() - start) * 1000, 2)
     relevant = set(case.get("relevant_documents", []))
@@ -82,7 +84,7 @@ def evaluate_case(case: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "id": case["id"],
-        "query": case["query"],
+        "query": redact_for_logs(case["query"]),
         "retrieved_documents": retrieved_doc_ids,
         "citations": citations,
         "abstained": abstained,

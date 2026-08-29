@@ -5,6 +5,7 @@ from .postgres_product_embedding_repository import PostgresProductEmbeddingRepos
 from .product_repository import ProductRepository
 from .store_repository import StoreRepository
 from .support_repository import SupportRepository
+from .user_repository import UserRepository
 
 __all__ = [
     "CartRepository",
@@ -14,4 +15,5 @@ __all__ = [
     "ProductRepository",
     "StoreRepository",
     "SupportRepository",
+    "UserRepository",
 ]

@@ -1,5 +1,6 @@
 from langchain.tools import tool
 
+from core.auth import authorize_tool, get_request_context, unauthorized_message
 from core.services import (
     cart_service,
     knowledge_service,
@@ -9,15 +10,28 @@ from core.services import (
 )
 
 
+def _tool_authorized(tool_name: str) -> str | None:
+    result = authorize_tool(tool_name, get_request_context())
+    if result.allowed:
+        return None
+    return unauthorized_message(result.reason)
+
+
 @tool
 def check_stock(product_name: str) -> str:
     """Use this when the user asks about stock or availability of a product. Input can be a full name, partial name, or common Indonesian product alias."""
+    denied = _tool_authorized("check_stock")
+    if denied:
+        return denied
     return product_service.check_stock(product_name)
 
 
 @tool
 def check_order_status(order_id: str) -> str:
     """Use this when the user asks about order status or shipping tracking. Input: order ID (e.g. ORD001)."""
+    denied = _tool_authorized("check_order_status")
+    if denied:
+        return denied
     return order_service.check_order_status(order_id)
 
 
@@ -50,6 +64,9 @@ def search_products(
     - soft_preferences: comma-separated preferences like 'comfortable, minimalist, good for winter' (optional, soft constraints)
     Examples: user says 'show me cheap electronics under 600000' -> category='Electronics', max_price=600000.
     User says 'black waterproof hiking shoes size 42 under Rp500000' -> query='black waterproof hiking shoes size 42 under Rp500000', category='Shoes', size=42, color='black', waterproof=true, max_price=500000."""
+    denied = _tool_authorized("search_products")
+    if denied:
+        return denied
     normalized_size = size if size and size > 0 else None
     return product_service.search_products(
         category=category,
@@ -69,30 +86,45 @@ def search_products(
 @tool
 def cancel_customer_order(order_id: str) -> str:
     """Use this when the user wants to cancel an order. Only works for orders with 'Processing' or 'Awaiting Payment' status. Input: order ID (e.g. ORD002)."""
+    denied = _tool_authorized("cancel_customer_order")
+    if denied:
+        return denied
     return order_service.cancel_order(order_id)
 
 
 @tool
 def update_shipping_address(order_id: str, new_address: str) -> str:
     """Use this when the user wants to change/update the shipping address of an order. Only works for orders not yet shipped. Input: order ID and the new full address."""
+    denied = _tool_authorized("update_shipping_address")
+    if denied:
+        return denied
     return order_service.update_order_address(order_id, new_address)
 
 
 @tool
 def add_product_to_cart(product_name: str, quantity: int = 1) -> str:
     """Use this when the user wants to add a product to their shopping cart. Input can be a full name, partial name, or common Indonesian product alias. Call this tool before asking for clarification unless the product is truly ambiguous."""
+    denied = _tool_authorized("add_product_to_cart")
+    if denied:
+        return denied
     return cart_service.add_to_cart(product_name, quantity)
 
 
 @tool
 def view_shopping_cart() -> str:
     """Use this when the user wants to see what is currently in their shopping cart."""
+    denied = _tool_authorized("view_shopping_cart")
+    if denied:
+        return denied
     return cart_service.view_cart()
 
 
 @tool
 def clear_shopping_cart() -> str:
     """Use this when the user wants to empty/clear their entire shopping cart."""
+    denied = _tool_authorized("clear_shopping_cart")
+    if denied:
+        return denied
     return cart_service.clear_cart()
 
 
@@ -101,6 +133,9 @@ def search_knowledge_base(query: str) -> str:
     """Use this when the user asks about store policies, return/refund rules, shipping info, warranty, payment methods, operating hours, loyalty program, or any general FAQ.
     Input: the user's question or keywords about store policy.
     This searches the store's official knowledge base document."""
+    denied = _tool_authorized("search_knowledge_base")
+    if denied:
+        return denied
     return knowledge_service.search_knowledge_base(query)
 
 
@@ -111,6 +146,9 @@ def escalate_to_human(customer_message: str, reason: str = "", priority: str = "
     - customer_message: the original message or complaint from the user
     - reason: brief summary of why escalation is needed (written by the AI agent)
     - priority: 'Low', 'Normal', 'High', or 'Urgent'"""
+    denied = _tool_authorized("escalate_to_human")
+    if denied:
+        return denied
     return support_service.create_support_ticket(customer_message, reason, priority)
 
 

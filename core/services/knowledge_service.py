@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from configs import get_settings
+from core.auth import get_request_context, knowledge_access_level, knowledge_department, role_from_context
 from core.embeddings import OpenAICompatibleEmbeddingProvider
 from core.repositories.postgres_vector_repository import PostgresVectorRepository
 from core.workflows import RetrievalScope, build_rag_context, rerank_rag_chunks
@@ -52,7 +53,14 @@ class KnowledgeService:
         return self._search_file_knowledge_base(query)
 
     def _search_postgres_rag(self, query: str, scope: RetrievalScope | None = None) -> str:
-        scope = scope or RetrievalScope()
+        if scope is None:
+            context = get_request_context()
+            scope = RetrievalScope(
+                tenant_id=context.tenant_id,
+                role=role_from_context(context).value,
+                department=knowledge_department(context),
+                access_level=knowledge_access_level(context),
+            )
         try:
             embedding_provider = self.embedding_provider or OpenAICompatibleEmbeddingProvider()
             vector_repository = self.vector_repository or PostgresVectorRepository()

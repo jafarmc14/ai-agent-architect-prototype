@@ -69,6 +69,7 @@ The initial PostgreSQL schema covers:
 - `V006__add_product_keyword_search_index.sql` adds the GIN full-text index used by hybrid product search.
 - `V007__add_document_freshness_fields.sql` adds queryable document freshness fields for RAG retrieval.
 - `V008__add_document_approval_status.sql` adds approval lifecycle status for secure knowledge ingestion.
+- `V009__seed_demo_users_and_bind_orders.sql` seeds demo customer users and binds migrated orders to `orders.user_id` for authenticated request filtering.
 - The vector dimension defaults to `768` through `VECTOR_DIMENSION`, aligned with local Ollama `nomic-embed-text`.
 - `llm_requests` stores provider/model, latency, token usage, response text, tool calls, and errors for observability.
 - `evaluation_runs` and `evaluation_results` mirror the current JSON baseline report shape.
@@ -321,6 +322,7 @@ database/migrations/postgres/V005__use_ollama_embedding_dimensions.sql
 database/migrations/postgres/V006__add_product_keyword_search_index.sql
 database/migrations/postgres/V007__add_document_freshness_fields.sql
 database/migrations/postgres/V008__add_document_approval_status.sql
+database/migrations/postgres/V009__seed_demo_users_and_bind_orders.sql
 ```
 
 SQLite source data is migrated with:

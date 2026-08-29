@@ -1,6 +1,9 @@
 import streamlit as st
+from uuid import uuid4
 
 from agent import configure_llm_provider, get_agent_response, get_llm_config
+from core.auth import create_session_token, verify_session_token
+from core.repositories.user_repository import UserRepository
 
 
 PROVIDER_OPTIONS = {
@@ -43,6 +46,9 @@ active_provider_label = next(
 )
 active_provider_index = provider_labels.index(active_provider_label)
 
+if "session_id" not in st.session_state:
+    st.session_state.session_id = f"streamlit-{uuid4()}"
+
 with st.sidebar:
     st.header("LLM Provider")
 
@@ -78,6 +84,42 @@ with st.sidebar:
     if selected_provider == "ollama":
         st.caption("Make sure Ollama is running at http://localhost:11434.")
 
+    st.header("Session")
+    demo_users = []
+    try:
+        if current_config["database_provider"] == "postgres":
+            demo_users = UserRepository().list_customer_users()
+    except Exception:
+        demo_users = []
+
+    if demo_users:
+        user_labels = [f"{user['name']} ({user['email']})" for user in demo_users]
+        selected_user_label = st.selectbox("Authenticated user", options=user_labels)
+        selected_user = demo_users[user_labels.index(selected_user_label)]
+        auth_user_key = str(selected_user["id"])
+        if st.session_state.get("auth_user_key") != auth_user_key:
+            st.session_state.auth_token = create_session_token(
+                user_id=str(selected_user["id"]),
+                email=selected_user.get("email") or "",
+                name=selected_user.get("name") or "",
+                role="customer",
+                tenant_id=(selected_user.get("metadata") or {}).get("tenant_id", "default"),
+            )
+            st.session_state.auth_user_key = auth_user_key
+            reset_ui_chat()
+        st.caption(f"Signed in as: {selected_user['name']}")
+    else:
+        st.session_state.auth_token = None
+        st.caption("No authenticated user loaded. Running anonymous session.")
+
+    if st.session_state.get("auth_token"):
+        try:
+            verify_session_token(st.session_state.auth_token)
+            st.caption("Authenticated session active.")
+        except Exception:
+            st.session_state.auth_token = None
+            st.caption("Session token is invalid. Running anonymous session.")
+
 if "messages" not in st.session_state:
     reset_ui_chat()
 
@@ -91,7 +133,11 @@ if prompt := st.chat_input("Type your message here..."):
         st.markdown(prompt)
 
     with st.spinner("Agent is thinking..."):
-        response = get_agent_response(prompt)
+        response = get_agent_response(
+            prompt,
+            auth_token=st.session_state.get("auth_token"),
+            session_id=st.session_state.session_id,
+        )
 
     st.session_state.messages.append({"role": "assistant", "content": response})
     with st.chat_message("assistant"):

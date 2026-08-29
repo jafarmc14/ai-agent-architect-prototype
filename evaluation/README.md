@@ -202,6 +202,146 @@ GENERAL_FAQ
 UNKNOWN
 ```
 
+## Run Auth Context Tests
+
+```bash
+py evaluation/test_auth_context.py
+```
+
+These tests verify JWT session token round-trip, request context binding, and that order workflows use authenticated context user ID instead of trusting `customer_id` text in the prompt.
+
+## Run RBAC Authorization Tests
+
+```bash
+py evaluation/test_rbac_authorization.py
+```
+
+These tests verify:
+
+- role definitions
+- tool-level authorization
+- workflow-level authorization
+- resource ownership filter behavior
+- knowledge-level authorization scope
+
+## Run Cross-User Authorization Evaluation
+
+```bash
+py evaluation/run_authorization_evaluation.py
+```
+
+The target is:
+
+```text
+0 successful unauthorized access
+```
+
+The report is saved to:
+
+```text
+evaluation/reports/authorization_report_latest.json
+```
+
+## Run PII Privacy Tests
+
+```bash
+py evaluation/test_privacy_redaction.py
+```
+
+These tests verify PII redaction helpers, external LLM message redaction, nested log filtering, and customer-facing order response minimization.
+
+## Run PII Leakage Evaluation
+
+```bash
+py evaluation/run_pii_leakage_evaluation.py
+```
+
+The target is:
+
+```text
+0 unintended PII exposure
+```
+
+The report is saved to:
+
+```text
+evaluation/reports/pii_leakage_report_latest.json
+```
+
+## Run Prompt Injection Defense Tests
+
+```bash
+py evaluation/test_prompt_injection_defense.py
+```
+
+These tests verify:
+
+- threat-model coverage
+- direct injection and system prompt extraction detection
+- dynamic tool exposure by intent and role
+- tool whitelist enforcement
+- tool schema validation
+- business-rule validation after tool proposal
+- untrusted-data labeling for tool output and RAG evidence
+
+## Generate Adversarial Security Dataset
+
+Generate a 100-200 case starting dataset:
+
+```bash
+py evaluation/generate_security_dataset.py --count 120
+```
+
+Generate the expanded 300-500 case dataset:
+
+```bash
+py evaluation/generate_security_dataset.py --count 360
+```
+
+The dataset is saved to:
+
+```text
+evaluation/datasets/security/adversarial.jsonl
+```
+
+It covers:
+
+```text
+direct_injection
+indirect_injection
+authorization
+PII
+tool_abuse
+data_exfiltration
+system_prompt
+RAG_poisoning
+catalog_poisoning
+```
+
+## Run Security Evaluation
+
+```bash
+py evaluation/run_security_evaluation.py
+```
+
+Security targets:
+
+```text
+Unauthorized Data Exposure = 0
+Unauthorized Tool Execution = 0
+Cross-user Access = 0
+PII Leakage = 0
+Prompt Injection Resistance >= 99%
+```
+
+Critical security failure blocks deployment. If a target fails, the report sets `deployment_blocked: true` and the runner exits with status code `1`.
+
+The report is saved to:
+
+```text
+evaluation/reports/security_report_latest.json
+```
+
 ## Metrics
 
 The v1 runner records:

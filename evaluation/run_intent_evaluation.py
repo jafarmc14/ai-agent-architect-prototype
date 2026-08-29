@@ -16,6 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.workflows import Intent, classify_intent, route_intent  # noqa: E402
+from core.privacy import redact_for_logs  # noqa: E402
 
 
 def load_cases(path: Path) -> list[dict[str, Any]]:
@@ -37,7 +38,7 @@ def evaluate_case(case: dict[str, Any]) -> dict[str, Any]:
     expected_intent = case["expected_intent"]
     return {
         "id": case["id"],
-        "query": case["query"],
+        "query": redact_for_logs(case["query"]),
         "expected_intent": expected_intent,
         "predicted_intent": predicted_intent,
         "pass": predicted_intent == expected_intent,

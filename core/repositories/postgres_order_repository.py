@@ -24,7 +24,7 @@ END
 class PostgresOrderRepository:
     """PostgreSQL access for order data."""
 
-    def find_order_with_product(self, order_id: str):
+    def find_order_with_product(self, order_id: str, user_id: str | None = None):
         with get_postgres_connection() as conn:
             return conn.execute(
                 f"""
@@ -47,11 +47,12 @@ class PostgresOrderRepository:
                     LIMIT 1
                 ) oi ON true
                 WHERE upper(o.order_number) = upper(%s)
+                  AND (%s::uuid IS NULL OR o.user_id = %s::uuid)
                 """,
-                (order_id,),
+                (order_id, user_id, user_id),
             ).fetchone()
 
-    def find_order_for_update(self, order_id: str):
+    def find_order_for_update(self, order_id: str, user_id: str | None = None):
         with get_postgres_connection() as conn:
             return conn.execute(
                 f"""
@@ -62,11 +63,12 @@ class PostgresOrderRepository:
                     o.shipping_address
                 FROM orders o
                 WHERE upper(o.order_number) = upper(%s)
+                  AND (%s::uuid IS NULL OR o.user_id = %s::uuid)
                 """,
-                (order_id,),
+                (order_id, user_id, user_id),
             ).fetchone()
 
-    def update_order_status(self, order_id: str, status: str) -> None:
+    def update_order_status(self, order_id: str, status: str, user_id: str | None = None) -> None:
         postgres_status = STATUS_TO_POSTGRES.get(status, status.lower().replace(" ", "_"))
         with get_postgres_connection() as conn:
             conn.execute(
@@ -75,11 +77,12 @@ class PostgresOrderRepository:
                 SET status = %s::order_status,
                     updated_at = now()
                 WHERE upper(order_number) = upper(%s)
+                  AND (%s::uuid IS NULL OR user_id = %s::uuid)
                 """,
-                (postgres_status, order_id),
+                (postgres_status, order_id, user_id, user_id),
             )
 
-    def update_order_shipping_address(self, order_id: str, new_address: str) -> None:
+    def update_order_shipping_address(self, order_id: str, new_address: str, user_id: str | None = None) -> None:
         with get_postgres_connection() as conn:
             conn.execute(
                 """
@@ -87,6 +90,7 @@ class PostgresOrderRepository:
                 SET shipping_address = %s,
                     updated_at = now()
                 WHERE upper(order_number) = upper(%s)
+                  AND (%s::uuid IS NULL OR user_id = %s::uuid)
                 """,
-                (new_address, order_id),
+                (new_address, order_id, user_id, user_id),
             )

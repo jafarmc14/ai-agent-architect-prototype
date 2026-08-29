@@ -6,7 +6,14 @@ from database import get_connection
 class SQLiteSupportRepository:
     """SQLite access for support ticket data."""
 
-    def insert_support_ticket(self, customer_message: str, agent_summary: str = "", priority: str = "Normal") -> int:
+    def insert_support_ticket(
+        self,
+        customer_message: str,
+        agent_summary: str = "",
+        priority: str = "Normal",
+        user_id: str | None = None,
+        tenant_id: str = "default",
+    ) -> int:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(

@@ -15,6 +15,8 @@ REPORT_DIR = PROJECT_ROOT / "evaluation" / "reports"
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from core.privacy import redact_for_logs  # noqa: E402
+
 
 def load_cases(dataset_dir: Path) -> list[dict]:
     cases = []
@@ -118,7 +120,11 @@ def evaluate_case(case: dict, agent_module, database_module) -> dict:
     agent_module.reset_chat_history()
 
     start = time.perf_counter()
-    result = agent_module.get_agent_response_with_trace(case["query"])
+    result = agent_module.get_agent_response_with_trace(
+        case["query"],
+        auth_token=evaluation_auth_token(),
+        session_id="baseline-evaluation",
+    )
     latency_ms = round((time.perf_counter() - start) * 1000, 2)
 
     actual_calls = result["tool_calls"]
@@ -151,15 +157,15 @@ def evaluate_case(case: dict, agent_module, database_module) -> dict:
     return {
         "id": case["id"],
         "dataset_file": case["dataset_file"],
-        "query": case["query"],
+        "query": redact_for_logs(case["query"]),
         "expected_tool": case.get("expected_tool"),
-        "expected_arguments": case.get("expected_arguments"),
+        "expected_arguments": redact_for_logs(case.get("expected_arguments")),
         "actual_tools": actual_tools,
         "actual_tool_calls": [
             {
                 "name": call["name"],
-                "args": call["args"],
-                "output_preview": call["output"][:500],
+                "args": redact_for_logs(call["args"]),
+                "output_preview": redact_for_logs(call["output"])[:500],
             }
             for call in actual_calls
         ],
@@ -167,8 +173,8 @@ def evaluate_case(case: dict, agent_module, database_module) -> dict:
         "argument_accuracy_pass": argument_accuracy_pass,
         "argument_mismatches": argument_mismatches,
         "response_returned": response_returned,
-        "response_preview": result["response"][:1000],
-        "exception": exception,
+        "response_preview": redact_for_logs(result["response"])[:1000],
+        "exception": redact_for_logs(exception),
         "latency_ms": latency_ms,
         "access": case.get("access"),
         "risk": case.get("risk"),
@@ -177,13 +183,25 @@ def evaluate_case(case: dict, agent_module, database_module) -> dict:
     }
 
 
+def evaluation_auth_token() -> str:
+    from core.auth import create_session_token
+
+    return create_session_token(
+        user_id="00000000-0000-0000-0000-000000000001",
+        email="baseline.evaluator@example.local",
+        name="Baseline Evaluator",
+        role="manager",
+        tenant_id="default",
+    )
+
+
 def skipped_case(case: dict, reason: str) -> dict:
     return {
         "id": case["id"],
         "dataset_file": case["dataset_file"],
-        "query": case["query"],
+        "query": redact_for_logs(case["query"]),
         "expected_tool": case.get("expected_tool"),
-        "expected_arguments": case.get("expected_arguments"),
+        "expected_arguments": redact_for_logs(case.get("expected_arguments")),
         "actual_tools": [],
         "actual_tool_calls": [],
         "tool_selection_pass": False,
