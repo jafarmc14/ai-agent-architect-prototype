@@ -1,0 +1,363 @@
+{
+  "name": "intent_router_report_v1",
+  "created_at": "2026-08-29T19:16:49.387110",
+  "dataset": "D:\\AI-Agent Arch Prot\\evaluation\\datasets\\intent.jsonl",
+  "summary": {
+    "total_cases": 28,
+    "passed": 28,
+    "accuracy": 1.0,
+    "macro_f1": 1.0,
+    "target_macro_f1": 0.95,
+    "target_pass": true,
+    "by_intent": {
+      "PRODUCT_SEARCH": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 3
+      },
+      "PRODUCT_INFO": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 3
+      },
+      "PRODUCT_COMPARE": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 2
+      },
+      "ORDER_STATUS": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 3
+      },
+      "RETURN_POLICY": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 4
+      },
+      "CART": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 3
+      },
+      "TRANSACTION": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 2
+      },
+      "COMPLAINT": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 2
+      },
+      "ESCALATION": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 2
+      },
+      "GENERAL_FAQ": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 2
+      },
+      "UNKNOWN": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 2
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "intent_001",
+      "query": "Find comfortable running shoes under Rp 1,500,000",
+      "expected_intent": "PRODUCT_SEARCH",
+      "predicted_intent": "PRODUCT_SEARCH",
+      "pass": true,
+      "workflow": "product_search",
+      "use_agent_loop": false,
+      "route_reason": "simple product search can use structured product workflow"
+    },
+    {
+      "id": "intent_002",
+      "query": "Show me all electronics products",
+      "expected_intent": "PRODUCT_SEARCH",
+      "predicted_intent": "PRODUCT_SEARCH",
+      "pass": true,
+      "workflow": "product_search",
+      "use_agent_loop": false,
+      "route_reason": "simple product search can use structured product workflow"
+    },
+    {
+      "id": "intent_003",
+      "query": "Cari sepatu hitam tahan air",
+      "expected_intent": "PRODUCT_SEARCH",
+      "predicted_intent": "PRODUCT_SEARCH",
+      "pass": true,
+      "workflow": "product_search",
+      "use_agent_loop": false,
+      "route_reason": "simple product search can use structured product workflow"
+    },
+    {
+      "id": "intent_004",
+      "query": "Do you have Nike shoes in stock?",
+      "expected_intent": "PRODUCT_INFO",
+      "predicted_intent": "PRODUCT_INFO",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_005",
+      "query": "What is the price of Sony headphones?",
+      "expected_intent": "PRODUCT_INFO",
+      "predicted_intent": "PRODUCT_INFO",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_006",
+      "query": "Stok kaos hitam masih ada?",
+      "expected_intent": "PRODUCT_INFO",
+      "predicted_intent": "PRODUCT_INFO",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_007",
+      "query": "Compare Nike Air Max and Adidas Ultraboost",
+      "expected_intent": "PRODUCT_COMPARE",
+      "predicted_intent": "PRODUCT_COMPARE",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_008",
+      "query": "Which is better between Birkenstock and Nike shoes?",
+      "expected_intent": "PRODUCT_COMPARE",
+      "predicted_intent": "PRODUCT_COMPARE",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_009",
+      "query": "What is the status of order ORD001?",
+      "expected_intent": "ORDER_STATUS",
+      "predicted_intent": "ORDER_STATUS",
+      "pass": true,
+      "workflow": "order_status",
+      "use_agent_loop": false,
+      "route_reason": "simple order-status request has an explicit order id"
+    },
+    {
+      "id": "intent_010",
+      "query": "Track my order ORD006",
+      "expected_intent": "ORDER_STATUS",
+      "predicted_intent": "ORDER_STATUS",
+      "pass": true,
+      "workflow": "order_status",
+      "use_agent_loop": false,
+      "route_reason": "simple order-status request has an explicit order id"
+    },
+    {
+      "id": "intent_011",
+      "query": "Tolong cek pesanan ORD005",
+      "expected_intent": "ORDER_STATUS",
+      "predicted_intent": "ORDER_STATUS",
+      "pass": true,
+      "workflow": "order_status",
+      "use_agent_loop": false,
+      "route_reason": "simple order-status request has an explicit order id"
+    },
+    {
+      "id": "intent_012",
+      "query": "How long does international shipping take?",
+      "expected_intent": "RETURN_POLICY",
+      "predicted_intent": "RETURN_POLICY",
+      "pass": true,
+      "workflow": "rag_policy",
+      "use_agent_loop": false,
+      "route_reason": "simple policy/FAQ question can use direct RAG workflow"
+    },
+    {
+      "id": "intent_013",
+      "query": "What is your refund policy?",
+      "expected_intent": "RETURN_POLICY",
+      "predicted_intent": "RETURN_POLICY",
+      "pass": true,
+      "workflow": "rag_policy",
+      "use_agent_loop": false,
+      "route_reason": "simple policy/FAQ question can use direct RAG workflow"
+    },
+    {
+      "id": "intent_014",
+      "query": "Bagaimana cara klaim garansi?",
+      "expected_intent": "RETURN_POLICY",
+      "predicted_intent": "RETURN_POLICY",
+      "pass": true,
+      "workflow": "rag_policy",
+      "use_agent_loop": false,
+      "route_reason": "simple policy/FAQ question can use direct RAG workflow"
+    },
+    {
+      "id": "intent_015",
+      "query": "Add 2 Nike shoes to my cart",
+      "expected_intent": "CART",
+      "predicted_intent": "CART",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_016",
+      "query": "What's in my cart right now?",
+      "expected_intent": "CART",
+      "predicted_intent": "CART",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_017",
+      "query": "Please clear my cart",
+      "expected_intent": "CART",
+      "predicted_intent": "CART",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_018",
+      "query": "Cancel my order ORD002",
+      "expected_intent": "TRANSACTION",
+      "predicted_intent": "TRANSACTION",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_019",
+      "query": "Change the address for ORD005 to Jl. Sudirman No. 100",
+      "expected_intent": "TRANSACTION",
+      "predicted_intent": "TRANSACTION",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_020",
+      "query": "My product arrived damaged and I want a replacement",
+      "expected_intent": "COMPLAINT",
+      "predicted_intent": "COMPLAINT",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_021",
+      "query": "I am very frustrated because nobody is helping me",
+      "expected_intent": "COMPLAINT",
+      "predicted_intent": "COMPLAINT",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_022",
+      "query": "I want to speak to a human agent",
+      "expected_intent": "ESCALATION",
+      "predicted_intent": "ESCALATION",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_023",
+      "query": "Tolong hubungkan saya ke customer service manusia",
+      "expected_intent": "ESCALATION",
+      "predicted_intent": "ESCALATION",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_024",
+      "query": "What payment methods do you accept?",
+      "expected_intent": "RETURN_POLICY",
+      "predicted_intent": "RETURN_POLICY",
+      "pass": true,
+      "workflow": "rag_policy",
+      "use_agent_loop": false,
+      "route_reason": "simple policy/FAQ question can use direct RAG workflow"
+    },
+    {
+      "id": "intent_025",
+      "query": "What are your store operating hours?",
+      "expected_intent": "GENERAL_FAQ",
+      "predicted_intent": "GENERAL_FAQ",
+      "pass": true,
+      "workflow": "rag_policy",
+      "use_agent_loop": false,
+      "route_reason": "simple documented FAQ question can use direct RAG workflow"
+    },
+    {
+      "id": "intent_026",
+      "query": "Hello, what can you help me with?",
+      "expected_intent": "GENERAL_FAQ",
+      "predicted_intent": "GENERAL_FAQ",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_027",
+      "query": "Tell me a joke about space",
+      "expected_intent": "UNKNOWN",
+      "predicted_intent": "UNKNOWN",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    },
+    {
+      "id": "intent_028",
+      "query": "What is quantum gravity?",
+      "expected_intent": "UNKNOWN",
+      "predicted_intent": "UNKNOWN",
+      "pass": true,
+      "workflow": "agent_loop",
+      "use_agent_loop": true,
+      "route_reason": "complex or write-capable request needs the agent loop"
+    }
+  ]
+}

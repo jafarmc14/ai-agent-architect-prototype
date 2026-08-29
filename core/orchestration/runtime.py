@@ -5,7 +5,9 @@ from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from configs import get_settings
 from core.llm import llm_gateway
 from core.prompts import SYSTEM_PROMPT
+from core.services import knowledge_service, order_service, product_service
 from core.tools import tools, tools_by_name
+from core.workflows import route_intent
 from database import init_database
 
 
@@ -194,9 +196,82 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
     return cleaned_content
 
 
+def _execute_routed_workflow(user_input: str, trace: dict | None = None) -> str | None:
+    decision = route_intent(user_input)
+    if trace is not None:
+        trace["intent"] = decision.intent.value
+        trace["workflow"] = decision.workflow
+        trace["use_agent_loop"] = decision.use_agent_loop
+        trace["route_reason"] = decision.reason
+
+    if decision.use_agent_loop:
+        return None
+
+    tool_name = ""
+    tool_args = {}
+    if decision.workflow == "rag_policy":
+        tool_name = "search_knowledge_base"
+        tool_args = {"query": user_input}
+        tool_output = knowledge_service.search_knowledge_base(user_input)
+    elif decision.workflow == "order_status":
+        order_match = re.search(r"\bORD\d+\b", user_input, re.IGNORECASE)
+        if not order_match:
+            return None
+        order_id = order_match.group(0).upper()
+        tool_name = "check_order_status"
+        tool_args = {"order_id": order_id}
+        tool_output = order_service.check_order_status(order_id)
+    elif decision.workflow == "product_search":
+        tool_name = "search_products"
+        tool_args = {"query": user_input}
+        tool_output = product_service.search_products(query=user_input)
+    else:
+        return None
+
+    if trace is not None:
+        trace.setdefault("tool_calls", []).append({
+            "name": tool_name,
+            "args": tool_args,
+            "output": str(tool_output),
+            "routed": True,
+        })
+
+    return _finalize_workflow_response(user_input, tool_name, str(tool_output))
+
+
+def _finalize_workflow_response(user_input: str, tool_name: str, tool_output: str) -> str:
+    messages = [
+        SystemMessage(content=SYSTEM_PROMPT),
+        SystemMessage(content=_response_language_instruction(user_input)),
+        SystemMessage(
+            content=(
+                "Answer the user using only the workflow output below. "
+                "Do not add facts that are not present in the workflow output. "
+                "If the workflow output says abstain or not enough evidence, preserve that no-answer behavior."
+            )
+        ),
+        HumanMessage(
+            content=(
+                f"User message:\n{user_input}\n\n"
+                f"Workflow: {tool_name}\n"
+                f"Workflow output:\n{tool_output}"
+            )
+        ),
+    ]
+    try:
+        llm_response = llm_gateway.generate_sync(messages)
+        content = llm_response.text or getattr(llm_response.raw, "content", "")
+        return _clean_ai_response(content)
+    except Exception:
+        return _clean_ai_response(tool_output)
+
+
 def get_agent_response(user_input: str) -> str:
     """Standalone executor function using native LLM tool calling."""
     try:
+        routed_response = _execute_routed_workflow(user_input)
+        if routed_response is not None:
+            return routed_response
         return _execute_agent(user_input)
     except Exception as e:
         return f"*(System Message)* Sorry, an error occurred while contacting the AI model: {str(e)}"
@@ -206,10 +281,14 @@ def get_agent_response_with_trace(user_input: str) -> dict:
     """Run the agent and return response, tool calls, and exception details."""
     trace = {"tool_calls": []}
     try:
-        response = _execute_agent(user_input, trace=trace)
+        routed_response = _execute_routed_workflow(user_input, trace=trace)
+        response = routed_response if routed_response is not None else _execute_agent(user_input, trace=trace)
         return {
             "response": response,
             "tool_calls": trace["tool_calls"],
+            "intent": trace.get("intent"),
+            "workflow": trace.get("workflow"),
+            "use_agent_loop": trace.get("use_agent_loop"),
             "exception": None,
         }
     except Exception as e:
