@@ -1,0 +1,108 @@
+{
+  "name": "regression_report_v1",
+  "created_at": "2026-08-31T19:14:10.198430",
+  "summary": {
+    "selected_areas": [
+      "model"
+    ],
+    "bug_dataset_valid": true,
+    "bug_cases_total": 6,
+    "bug_cases_selected": 1,
+    "commands_total": 5,
+    "commands_passed": 5,
+    "llm_regression_enabled": false,
+    "llm_cases_total": 0,
+    "llm_cases_passed": 0,
+    "pass": true
+  },
+  "bug_dataset_validation": {
+    "total_cases": 6,
+    "selected_cases": 1,
+    "coverage": {
+      "prompt": 4,
+      "model": 1,
+      "embedding": 0,
+      "retrieval": 0,
+      "reranker": 0,
+      "chunking": 0,
+      "tools": 4,
+      "business_rules": 4,
+      "authorization": 0
+    },
+    "errors": [],
+    "pass": true
+  },
+  "commands": [
+    {
+      "command": [
+        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+        "evaluation/test_model_governance.py"
+      ],
+      "returncode": 0,
+      "passed": true,
+      "latency_ms": 2952.07,
+      "stdout_tail": "Model governance tests passed.\n",
+      "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
+    },
+    {
+      "command": [
+        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+        "evaluation/test_prompt_versioning.py"
+      ],
+      "returncode": 0,
+      "passed": true,
+      "latency_ms": 3318.32,
+      "stdout_tail": "Prompt versioning tests passed.\n",
+      "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
+    },
+    {
+      "command": [
+        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+        "evaluation/test_structured_outputs.py"
+      ],
+      "returncode": 0,
+      "passed": true,
+      "latency_ms": 315.2,
+      "stdout_tail": "Structured output tests passed.\n",
+      "stderr_tail": ""
+    },
+    {
+      "command": [
+        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+        "evaluation/test_full_evaluation_framework.py"
+      ],
+      "returncode": 0,
+      "passed": true,
+      "latency_ms": 74.42,
+      "stdout_tail": "Full evaluation framework tests passed.\n",
+      "stderr_tail": ""
+    },
+    {
+      "command": [
+        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+        "evaluation/test_regression_framework.py"
+      ],
+      "returncode": 0,
+      "passed": true,
+      "latency_ms": 68.79,
+      "stdout_tail": "Regression framework tests passed.\n",
+      "stderr_tail": ""
+    }
+  ],
+  "llm_bug_results": [],
+  "policy": {
+    "every_bug_becomes_regression_case": true,
+    "run_on_change_areas": [
+      "prompt",
+      "model",
+      "embedding",
+      "retrieval",
+      "reranker",
+      "chunking",
+      "tools",
+      "business_rules",
+      "authorization"
+    ],
+    "default_mode": "deterministic/no external LLM calls"
+  }
+}

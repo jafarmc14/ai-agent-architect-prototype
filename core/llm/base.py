@@ -27,6 +27,8 @@ class LLMResponse:
     raw: Any = None
     usage: dict[str, Any] | None = None
     model: str | None = None
+    model_version: str | None = None
+    model_metadata: dict[str, Any] | None = None
 
 
 class LLMProvider(ABC):

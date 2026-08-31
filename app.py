@@ -80,6 +80,9 @@ with st.sidebar:
     st.caption(f"Environment: {current_config['environment']}")
     st.caption(f"Database: {current_config['database_provider']}")
     st.caption(f"Active: {current_config['provider']} / {current_config['model']}")
+    model_governance = current_config.get("model_governance", {})
+    st.caption(f"Model version: {current_config.get('model_version') or 'unknown'}")
+    st.caption("Model pinned: yes" if model_governance.get("pinned") else "Model pinned: no (alias observed)")
 
     if selected_provider == "ollama":
         st.caption("Make sure Ollama is running at http://localhost:11434.")

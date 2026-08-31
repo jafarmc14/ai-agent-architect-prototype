@@ -1,0 +1,125 @@
+{
+  "name": "full_evaluation_framework_v1",
+  "created_at": "2026-08-31T18:47:48.673519",
+  "report_dir": "D:\\AI-Agent Arch Prot\\evaluation\\reports",
+  "source_reports": [
+    "authorization",
+    "baseline",
+    "golden_validation",
+    "hallucination",
+    "multiturn",
+    "pii_leakage",
+    "product_search",
+    "rag",
+    "security",
+    "structured_output"
+  ],
+  "deterministic": {
+    "dimensions": [
+      "price",
+      "stock",
+      "sku",
+      "tool",
+      "arguments",
+      "authorization",
+      "citation",
+      "schema",
+      "latency"
+    ],
+    "price": {
+      "source": "product_search.hard_constraint_satisfaction",
+      "rate": 1.0,
+      "pass": true,
+      "note": "Price is evaluated as a database-enforced hard product-search constraint."
+    },
+    "stock": {
+      "source": "product_search.hard_constraint_satisfaction",
+      "rate": 1.0,
+      "pass": true,
+      "note": "Availability and minimum stock are evaluated as database-enforced hard constraints."
+    },
+    "sku": {
+      "source": "product_search.hard_constraint_satisfaction",
+      "rate": 1.0,
+      "pass": true,
+      "note": "SKU is treated as a hard SQL/repository constraint when present."
+    },
+    "tool": {
+      "source": "baseline.tool_selection_rate",
+      "rate": 1.0,
+      "passed": 3,
+      "total": 3,
+      "pass": true
+    },
+    "arguments": {
+      "source": "baseline.argument_accuracy_rate",
+      "rate": 0.6667,
+      "passed": 2,
+      "total": 3,
+      "pass": false
+    },
+    "authorization": {
+      "source": "authorization.unauthorized_successes",
+      "unauthorized_successes": 0,
+      "pass": true
+    },
+    "citation": {
+      "source": "rag.citation_correctness",
+      "rate": 1.0,
+      "pass": true
+    },
+    "schema": {
+      "source": "structured_output.schema_validity_rate",
+      "rate": 1.0,
+      "pass": true
+    },
+    "latency": {
+      "source": "baseline/product_search/rag/multiturn average latency",
+      "avg_latency_ms": 3196.78,
+      "pass": true,
+      "note": "Latency is measured deterministically and threshold-free in this phase."
+    },
+    "all_available_targets_pass": false,
+    "missing_sources": []
+  },
+  "subjective": {
+    "summary": {
+      "enabled": false,
+      "dimensions": [
+        "clarity",
+        "relevance",
+        "helpfulness",
+        "completeness"
+      ],
+      "reason": "LLM-as-a-Judge is optional and only used for subjective dimensions."
+    },
+    "results": []
+  },
+  "calibration": {
+    "method": "signal_based_calibration_v1",
+    "do_not_use": [
+      "self_reported_llm_confidence"
+    ],
+    "signals": {
+      "retrieval_score": 0.9356,
+      "tool_result_availability": 1.0,
+      "validation_outcome": 1.0,
+      "evidence_quality": 1.0
+    },
+    "weights": {
+      "retrieval_score": 0.25,
+      "tool_result_availability": 0.25,
+      "validation_outcome": 0.25,
+      "evidence_quality": 0.25
+    },
+    "calibrated_confidence": 0.9839,
+    "confidence_band": "high",
+    "interpretation": "Confidence is derived from retrieval/ranking metrics, tool result availability, schema/security validation outcomes, and evidence quality."
+  },
+  "summary": {
+    "deterministic_targets_pass": false,
+    "subjective_judge_enabled": false,
+    "calibrated_confidence": 0.9839,
+    "confidence_band": "high"
+  }
+}

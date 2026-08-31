@@ -51,6 +51,8 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V009__seed_demo_users_and_b
 psql "$DATABASE_URL" -f database/migrations/postgres/V010__add_write_controls_and_audit_logs.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V011__upgrade_support_escalations.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V012__add_conversation_structured_state.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V013__add_prompt_versioning.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V014__add_model_version_governance.sql
 ```
 
 `V001__initial_schema.sql` creates a `schema_migrations` table and records itself after successful execution. Later migrations should insert their own version into `schema_migrations` at the end of the file.
@@ -74,6 +76,10 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V012__add_conversation_stru
 `V011__upgrade_support_escalations.sql` adds escalation metadata to support tickets.
 
 `V012__add_conversation_structured_state.sql` adds compact structured conversation state and message ordering indexes for multi-turn continuity.
+
+`V013__add_prompt_versioning.sql` adds prompt version metadata storage and prompt version columns on LLM request logs.
+
+`V014__add_model_version_governance.sql` adds provider/model/model_version observability columns on LLM request logs.
 
 ## Vector Storage
 
@@ -107,7 +113,7 @@ product keyword search
 
 ## Current Runtime
 
-The application runtime can use SQLite or PostgreSQL through `DATABASE_PROVIDER`. The current PostgreSQL path is ready for product, order, cart, support, conversation state, document vector, product embedding, and hybrid product search workflows.
+The application runtime can use SQLite or PostgreSQL through `DATABASE_PROVIDER`. The current PostgreSQL path is ready for product, order, cart, support, conversation state, prompt version metadata, model version governance, document vector, product embedding, and hybrid product search workflows.
 
 ## SQLite to PostgreSQL Data Migration
 

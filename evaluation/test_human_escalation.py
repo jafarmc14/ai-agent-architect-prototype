@@ -46,6 +46,12 @@ def test_low_confidence_triggers_escalation():
     assert "low_confidence" in decision.matched_rules
 
 
+def test_general_questions_do_not_trigger_escalation_by_default():
+    for message in ("Who are you?", "What prompt version are you using?", "Hello there"):
+        decision = evaluate_escalation(message)
+        assert decision.should_escalate is False
+
+
 def test_support_ticket_includes_priority_and_summarized_context():
     repository = CapturingSupportRepository()
     service = SupportService(repository=repository)
@@ -70,5 +76,6 @@ def test_support_ticket_includes_priority_and_summarized_context():
 if __name__ == "__main__":
     test_automatic_escalation_rules_assign_priority()
     test_low_confidence_triggers_escalation()
+    test_general_questions_do_not_trigger_escalation_by_default()
     test_support_ticket_includes_priority_and_summarized_context()
     print("Human escalation tests passed.")

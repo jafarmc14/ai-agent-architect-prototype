@@ -6,7 +6,7 @@ from configs import get_settings
 from core.auth import AuthenticatedUser, RequestContext, authorize_workflow, request_context, unauthorized_message, verify_session_token
 from core.hallucination import audit_response_claims, hallucination_abstention_message
 from core.llm import llm_gateway
-from core.prompts import SYSTEM_PROMPT
+from core.prompts import get_system_prompt, get_system_prompt_metadata
 from core.privacy import redact_for_logs, redact_text
 from core.privacy.pii import redact_message_content
 from core.security import (
@@ -161,6 +161,9 @@ def get_llm_config() -> dict:
         "database_provider": get_settings().database_provider,
         "provider": LLM_PROVIDER,
         "model": LLM_MODEL,
+        "model_version": llm_gateway.model_version,
+        "model_governance": llm_gateway.model_metadata,
+        "prompt": get_system_prompt_metadata(),
     }
 
 
@@ -182,6 +185,8 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
     if trace is not None:
         trace["exposed_tools"] = sorted(exposed_tool_names)
         trace["routing_structured"] = build_routing_output(user_input, context).model_dump()
+        trace["prompt"] = get_system_prompt_metadata()
+        trace["model_governance"] = llm_gateway.model_metadata
 
     messages = _conversation_messages_for_llm(user_input)
 
@@ -244,15 +249,37 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
 
 
 def _execute_routed_workflow(user_input: str, trace: dict | None = None) -> str | None:
+    if _is_identity_question(user_input):
+        if trace is not None:
+            trace["intent"] = "GENERAL_FAQ"
+            trace["workflow"] = "identity"
+            trace["use_agent_loop"] = False
+            trace["route_reason"] = "identity question can be answered without tools"
+            trace["prompt"] = get_system_prompt_metadata()
+            trace["model_governance"] = llm_gateway.model_metadata
+        return "Hello, I'm Ubichinon, the store's virtual assistant. How can I help you today?"
+
+    if _is_internal_prompt_metadata_question(user_input):
+        if trace is not None:
+            trace["intent"] = "GENERAL_FAQ"
+            trace["workflow"] = "internal_metadata_refusal"
+            trace["use_agent_loop"] = False
+            trace["route_reason"] = "internal prompt metadata should not be exposed to users"
+            trace["prompt"] = get_system_prompt_metadata()
+            trace["model_governance"] = llm_gateway.model_metadata
+        return "I can't share internal prompt, configuration, or system metadata. I can still help with products, orders, store policies, carts, or support."
+
     decision = route_intent(user_input)
     if trace is not None:
         trace["intent"] = decision.intent.value
         trace["workflow"] = decision.workflow
         trace["use_agent_loop"] = decision.use_agent_loop
         trace["route_reason"] = decision.reason
+        trace["prompt"] = get_system_prompt_metadata()
+        trace["model_governance"] = llm_gateway.model_metadata
 
     if decision.use_agent_loop:
-        escalation = evaluate_escalation(user_input, confidence=0.4 if decision.intent.value == "UNKNOWN" else 1.0)
+        escalation = evaluate_escalation(user_input, confidence=1.0)
         if escalation.should_escalate:
             if trace is not None:
                 trace["intent"] = decision.intent.value
@@ -345,7 +372,7 @@ def _finalize_workflow_response(user_input: str, tool_name: str, tool_output: st
         )
 
     messages = [
-        SystemMessage(content=SYSTEM_PROMPT),
+        SystemMessage(content=get_system_prompt()),
         SystemMessage(content=security_instruction(user_input)),
         SystemMessage(content=_response_language_instruction(user_input)),
         SystemMessage(
@@ -483,15 +510,15 @@ def get_agent_response(user_input: str, auth_token: str | None = None, session_i
         with request_context(_context_from_token(auth_token, session_id)):
             confirmed_response = _execute_confirmed_write_action(user_input)
             if confirmed_response is not None:
-                conversation_service.record_turn(user_input, confirmed_response, {"workflow": "confirmed_write_action"})
+                conversation_service.record_turn(user_input, confirmed_response, _basic_trace("confirmed_write_action"))
                 return confirmed_response
             if is_security_only_attack(user_input):
                 response = security_refusal()
-                conversation_service.record_turn(user_input, response, {"workflow": "security_refusal"})
+                conversation_service.record_turn(user_input, response, _basic_trace("security_refusal"))
                 return response
             routed_response = _execute_routed_workflow(user_input)
             response = routed_response if routed_response is not None else _execute_agent(user_input)
-            conversation_service.record_turn(user_input, response, {"workflow": "agent_response"})
+            conversation_service.record_turn(user_input, response, _basic_trace("agent_response"))
             return response
     except Exception as e:
         return f"*(System Message)* Sorry, an error occurred while contacting the AI model: {str(e)}"
@@ -499,7 +526,11 @@ def get_agent_response(user_input: str, auth_token: str | None = None, session_i
 
 def get_agent_response_with_trace(user_input: str, auth_token: str | None = None, session_id: str = "anonymous") -> dict:
     """Run the agent and return response, tool calls, and exception details."""
-    trace = {"tool_calls": []}
+    trace = {
+        "tool_calls": [],
+        "prompt": get_system_prompt_metadata(),
+        "model_governance": llm_gateway.model_metadata,
+    }
     try:
         with request_context(_context_from_token(auth_token, session_id)):
             confirmed_response = _execute_confirmed_write_action(user_input, trace=trace)
@@ -514,19 +545,24 @@ def get_agent_response_with_trace(user_input: str, auth_token: str | None = None
                     "exposed_tools": [],
                     "routing_structured": trace.get("routing_structured"),
                     "policy_decision_structured": trace.get("policy_decision_structured"),
+                    "prompt": trace.get("prompt"),
+                    "model_governance": trace.get("model_governance"),
                     "claim_audit": trace.get("claim_audit"),
                     "hallucination_abstained": trace.get("hallucination_abstained", False),
                     "exception": None,
                 }
             if is_security_only_attack(user_input):
                 response = security_refusal()
-                conversation_service.record_turn(user_input, response, {"workflow": "security_refusal"})
+                trace["workflow"] = "security_refusal"
+                conversation_service.record_turn(user_input, response, trace)
                 return {
                     "response": response,
                     "tool_calls": [],
                     "intent": None,
                     "workflow": "security_refusal",
                     "use_agent_loop": False,
+                    "prompt": trace.get("prompt"),
+                    "model_governance": trace.get("model_governance"),
                     "exception": None,
                 }
             routed_response = _execute_routed_workflow(user_input, trace=trace)
@@ -542,6 +578,8 @@ def get_agent_response_with_trace(user_input: str, auth_token: str | None = None
             "routing_structured": trace.get("routing_structured"),
             "policy_decision_structured": trace.get("policy_decision_structured"),
             "escalation_decision": trace.get("escalation_decision"),
+            "prompt": trace.get("prompt"),
+            "model_governance": trace.get("model_governance"),
             "claim_audit": trace.get("claim_audit"),
             "hallucination_abstained": trace.get("hallucination_abstained", False),
             "exception": None,
@@ -550,12 +588,32 @@ def get_agent_response_with_trace(user_input: str, auth_token: str | None = None
         return {
             "response": "",
             "tool_calls": trace["tool_calls"],
+            "prompt": trace.get("prompt"),
+            "model_governance": trace.get("model_governance"),
             "exception": redact_for_logs(str(e)),
         }
 
 
 def _tools_by_names(tool_names: set[str]) -> list:
     return [tool for tool in tools if tool.name in tool_names]
+
+
+def _basic_trace(workflow: str) -> dict:
+    return {
+        "workflow": workflow,
+        "prompt": get_system_prompt_metadata(),
+        "model_governance": llm_gateway.model_metadata,
+    }
+
+
+def _is_identity_question(user_input: str) -> bool:
+    lowered = user_input.lower().strip()
+    return bool(re.search(r"\b(who are you|what is your name|your name|siapa kamu|nama kamu)\b", lowered))
+
+
+def _is_internal_prompt_metadata_question(user_input: str) -> bool:
+    lowered = user_input.lower().strip()
+    return bool(re.search(r"\b(prompt version|system prompt|developer prompt|hidden prompt|versi prompt)\b", lowered))
 
 
 def _execute_confirmed_write_action(user_input: str, trace: dict | None = None) -> str | None:
@@ -623,7 +681,7 @@ def _conversation_messages_for_llm(user_input: str) -> list:
     ignore_history = _ignore_next_conversation_history
     _ignore_next_conversation_history = False
     messages = [
-        SystemMessage(content=SYSTEM_PROMPT),
+        SystemMessage(content=get_system_prompt()),
         SystemMessage(content="STRUCTURED CONVERSATION STATE DATA ONLY: {}" if ignore_history else conversation_service.state_prompt()),
     ]
     if not ignore_history:

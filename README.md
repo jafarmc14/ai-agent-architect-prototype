@@ -474,6 +474,7 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `agent.py` | **Compatibility facade.** Re-exports the public agent API so existing imports from `app.py` and evaluation code continue to work. |
 | `core/llm/base.py` | **LLM provider interface.** Defines the async provider contract with `generate()` and `generate_structured()`. |
 | `core/llm/gateway.py` | **LLM gateway.** Application-facing LLM entry point that hides provider-specific client details from orchestration. |
+| `core/llm/model_governance.py` | **Model version governance.** Normalizes provider/model/model_version metadata and marks alias vs pinned model usage. |
 | `core/llm/providers/openrouter_provider.py` | **OpenRouter provider adapter.** Wraps LangChain `ChatOpenAI` configured for OpenRouter and implements the provider contract. |
 | `core/llm/providers/ollama_provider.py` | **Ollama provider adapter.** Wraps Ollama's local OpenAI-compatible API for local development with `LLM_PROVIDER=ollama`. |
 | `core/auth/jwt.py` | **JWT session helper.** Creates and verifies signed HS256 session tokens for authenticated chat sessions. |
@@ -509,6 +510,8 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `core/workflows/rag_retrieval.py` | **RAG retrieval pipeline.** Applies trust-aware reranking, evidence gating, citation building, and abstain behavior. |
 | `core/workflows/` | **Workflow package.** Contains product search extraction/reranking, document ingestion, and RAG retrieval workflows. |
 | `database.py` | **SQLite fallback database layer.** Creates and initializes `toko.db` only when `DATABASE_PROVIDER=sqlite`. |
+| `core/prompts/registry.py` | **Prompt version registry.** Defines prompt IDs, versions, status, evaluation score metadata, and rollback support. |
+| `core/prompts/system.py` | **System prompt accessor.** Exposes the active system prompt and metadata for runtime use. |
 | `knowledge_base/*.md` | **Split store policy documents.** Contains `return_policy`, `refund_policy`, `shipping_policy`, `warranty`, `payments`, and `faq` documents for policy lookup. |
 | `knowledge_base.txt` | **Legacy store policies & FAQ.** Preserved as fallback/reference for the original single-file knowledge base. |
 | `.env` | **Local non-secret configuration.** Stores environment, provider, model, path, embedding model, vector dimension, and other non-secret runtime settings. |
@@ -521,12 +524,17 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `.gitignore` | **Git ignore rules.** Prevents `.env`, `toko.db`, and temp files from being pushed to the repository. |
 | `CAPABILITY_MATRIX.md` | **Capability inventory.** Groups all agent tools by access type (`READ`/`WRITE`) and risk level (`LOW`/`MEDIUM`/`HIGH`). |
 | `evaluation/datasets/baseline/*.jsonl` | **Baseline evaluation dataset.** Contains 41 JSONL test cases converted from manual prompts and additional baseline variants. |
+| `evaluation/datasets/golden/*.jsonl` | **Golden functional dataset.** Contains 525 deterministic functional cases covering standard, ambiguous, multilingual, noisy, no-answer, and cross-turn scenarios. |
+| `evaluation/datasets/regression/bugs.jsonl` | **Bug regression dataset.** Every fixed bug gets a permanent regression case. |
 | `evaluation/datasets/product_search.jsonl` | **Product search evaluation dataset.** Defines relevant products, graded relevance, and hard constraints for retrieval/ranking metrics. |
 | `evaluation/datasets/rag.jsonl` | **RAG evaluation dataset.** Defines relevant policy documents, required terms, and abstention cases. |
 | `evaluation/datasets/hallucination.jsonl` | **Hallucination evaluation dataset.** Covers supported and unsupported database/RAG factual claims. |
 | `evaluation/datasets/conversation_state.jsonl` | **Multi-turn evaluation dataset.** Covers context retention, product constraint retention, and cross-turn factual consistency. |
 | `evaluation/datasets/intent.jsonl` | **Intent router evaluation dataset.** Covers the explicit taxonomy used by the runtime router. |
 | `evaluation/datasets/security/adversarial.jsonl` | **Adversarial security dataset.** Contains expanded security cases for injection, authorization, PII, tool abuse, exfiltration, RAG poisoning, and catalog poisoning. |
+| `evaluation/generate_golden_dataset.py` | **Golden dataset generator.** Builds the Phase 20 functional golden set at approximately 500 cases. |
+| `evaluation/validate_golden_dataset.py` | **Golden dataset validator.** Verifies case count, required files, unique IDs, and schema shape. |
+| `evaluation/add_regression_case.py` | **Regression case helper.** Appends a new fixed bug to the regression dataset. |
 | `evaluation/generate_security_dataset.py` | **Security dataset generator.** Builds deterministic adversarial datasets at 100-500 case scale. |
 | `evaluation/run_baseline.py` | **Evaluation runner v1.** Runs baseline cases, traces tool calls, measures accuracy/latency/exceptions, and saves the latest report. |
 | `evaluation/run_product_search_evaluation.py` | **Product search evaluation runner.** Measures Precision@5, Recall@10, NDCG@10, and Hard Constraint Satisfaction. |
@@ -538,6 +546,8 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `evaluation/run_structured_output_evaluation.py` | **Structured output evaluation runner.** Measures schema validity for internal structured tasks and controlled invalid-output repair. |
 | `evaluation/run_hallucination_evaluation.py` | **Hallucination evaluation runner.** Measures unsupported claim rate and critical business factual grounding. |
 | `evaluation/run_multiturn_evaluation.py` | **Multi-turn evaluation runner.** Measures context retention, constraint retention, and cross-turn factual consistency. |
+| `evaluation/run_full_evaluation.py` | **Full evaluation framework runner.** Aggregates deterministic metrics, optional LLM-as-a-Judge subjective scores, and signal-based calibration. |
+| `evaluation/run_regression.py` | **Regression runner.** Runs change-area regression checks for prompt, model, embedding, retrieval, reranker, chunking, tools, business rules, and authorization. |
 | `evaluation/test_privacy_redaction.py` | **Privacy regression tests.** Checks redaction helpers, external LLM message redaction, nested log filtering, and order response minimization. |
 | `evaluation/test_prompt_injection_defense.py` | **Prompt injection defense tests.** Checks threat-model coverage, detection, dynamic tool exposure, tool schema validation, business-rule validation, and RAG/tool-output data labeling. |
 | `evaluation/test_structured_outputs.py` | **Structured output tests.** Checks schema validation, JSON Schema generation, runtime adapters, and controlled retry behavior. |
@@ -545,6 +555,9 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `evaluation/test_conversation_state.py` | **Conversation state tests.** Checks transcript storage, separate structured state, bounded recent history, and retained product constraints. |
 | `evaluation/test_controlled_write_actions.py` | **Controlled write-action tests.** Checks confirmation gating, idempotency, high-risk write disablement, and audit-log payloads. |
 | `evaluation/test_human_escalation.py` | **Human escalation tests.** Checks escalation rules, priority assignment, summarized context, and support ticket payloads. |
+| `evaluation/test_full_evaluation_framework.py` | **Full evaluation framework tests.** Checks deterministic/subjective separation and observable-signal calibration. |
+| `evaluation/test_regression_framework.py` | **Regression framework tests.** Checks bug dataset validity, change-area coverage, and response assertions. |
+| `evaluation/test_prompt_versioning.py` | **Prompt versioning tests.** Checks active prompt metadata, rollback support, and LLM request prompt logging. |
 | `evaluation/reports/baseline_report_latest.json` | **Latest evaluation report.** Generated by the runner and overwritten on each evaluation run. |
 | `evaluation/reports/product_search_report_latest.json` | **Latest product search evaluation report.** Generated by the product search runner and overwritten on each run. |
 | `evaluation/reports/rag_report_latest.json` | **Latest RAG evaluation report.** Generated by the RAG runner and overwritten on each run. |
@@ -555,6 +568,9 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `evaluation/reports/structured_output_report_latest.json` | **Latest structured output report.** Generated by the structured output runner and overwritten on each run. |
 | `evaluation/reports/hallucination_report_latest.json` | **Latest hallucination report.** Generated by the hallucination runner and overwritten on each run. |
 | `evaluation/reports/multiturn_report_latest.json` | **Latest multi-turn report.** Generated by the multi-turn runner and overwritten on each run. |
+| `evaluation/reports/golden_dataset_validation_latest.json` | **Latest golden dataset validation report.** Generated by the golden dataset validator and overwritten on each run. |
+| `evaluation/reports/full_evaluation_report_latest.json` | **Latest full evaluation framework report.** Aggregates deterministic, subjective, and calibration sections. |
+| `evaluation/reports/regression_report_latest.json` | **Latest regression report.** Generated by the regression runner and overwritten on each run. |
 | `database/migrations/postgres/V001__initial_schema.sql` | **PostgreSQL migration V001.** Defines the target PostgreSQL tables for Phase 5 migration. |
 | `database/migrations/postgres/V002__enable_pgvector_document_chunks.sql` | **PostgreSQL migration V002.** Enables pgvector and adds vector storage for document chunks. |
 | `database/migrations/postgres/V003__add_operational_indexes.sql` | **PostgreSQL migration V003.** Adds tenant-aware indexes for SKU, category, user, order, document metadata, and vector search access patterns. |
@@ -567,8 +583,11 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `database/migrations/postgres/V010__add_write_controls_and_audit_logs.sql` | **PostgreSQL migration V010.** Adds idempotency records and audit logs for controlled write actions. |
 | `database/migrations/postgres/V011__upgrade_support_escalations.sql` | **PostgreSQL migration V011.** Adds escalation type, reason, summarized context, and metadata to support tickets. |
 | `database/migrations/postgres/V012__add_conversation_structured_state.sql` | **PostgreSQL migration V012.** Adds structured conversation state and message ordering indexes for multi-turn continuity. |
+| `database/migrations/postgres/V013__add_prompt_versioning.sql` | **PostgreSQL migration V013.** Adds prompt version metadata storage and prompt version columns on LLM request logs. |
+| `database/migrations/postgres/V014__add_model_version_governance.sql` | **PostgreSQL migration V014.** Adds model version governance columns on LLM request logs. |
 | `database/migrations/README.md` | **Migration guide.** Documents naming convention and manual apply flow for versioned migrations. |
 | `database/migrate_sqlite_to_postgres.py` | **Data migration script.** Migrates SQLite data to PostgreSQL in the order: products, inventory, orders, cart, support. |
+| `database/sync_prompt_versions.py` | **Prompt metadata sync script.** Upserts prompt version metadata into PostgreSQL. |
 | `database/embed_products.py` | **Product embedding script.** Builds semantic product text from relevant fields and stores pgvector embeddings in PostgreSQL. |
 | `database/ingest_knowledge_base.py` | **Knowledge ingestion script.** Runs parse-clean-chunk-embed-store for split knowledge documents. |
 | `docs/postgresql_schema.md` | **PostgreSQL schema design.** Documents table purpose, relationships, and design notes. |
@@ -1307,6 +1326,108 @@ The latest report is saved to:
 
 ```text
 evaluation/reports/multiturn_report_latest.json
+```
+
+### Prompt Versioning
+
+Prompts are versioned in code and synchronized to PostgreSQL for auditability.
+
+Current prompt registry:
+
+```text
+system_v1  archived
+system_v2  active
+```
+
+Prompt metadata includes:
+
+```text
+prompt_id
+version
+created_at
+status
+evaluation_score
+previous_version
+```
+
+Runtime uses the active prompt through:
+
+```text
+core/prompts/registry.py
+core/prompts/system.py
+```
+
+PostgreSQL stores prompt metadata in:
+
+```text
+prompt_versions
+```
+
+Every LLM provider request is logged best-effort in:
+
+```text
+llm_requests.prompt_id
+llm_requests.prompt_version
+llm_requests.prompt_key
+llm_requests.metadata.prompt
+```
+
+Apply migrations and sync prompt metadata:
+
+```bash
+py database/migrate_sqlite_to_postgres.py --apply-schema
+py database/sync_prompt_versions.py
+```
+
+Rollback is supported by activating a previous prompt version in the prompt registry/runtime:
+
+```python
+from core.prompts import rollback_prompt_version
+
+rollback_prompt_version("system", "v1")
+```
+
+Run prompt versioning tests:
+
+```bash
+py evaluation/test_prompt_versioning.py
+```
+
+### Model Version Governance
+
+Every LLM request records model governance metadata:
+
+```text
+provider
+model
+model_version
+model_key
+model_pinned
+```
+
+If a provider/model supports a stable pinned version or digest, configure it explicitly:
+
+```bash
+OPENROUTER_MODEL=provider/model-slug
+OPENROUTER_MODEL_VERSION=stable-provider-version
+
+OLLAMA_MODEL=llama3.1
+OLLAMA_MODEL_VERSION=sha256-or-local-digest
+```
+
+If `*_MODEL_VERSION` is empty, the runtime still logs the model alias as observable but unpinned:
+
+```text
+model_version=alias:openrouter/free
+model_pinned=false
+```
+
+This means aliases such as `openrouter/free` or `llama3.1` are allowed for local/prototype work, but they are no longer invisible. Evaluation reports and LLM request logs can show exactly which alias or pinned model was used.
+
+Run model governance tests:
+
+```bash
+py evaluation/test_model_governance.py
 ```
 
 ### Switching LLM Providers

@@ -54,9 +54,11 @@ class AppSettings:
     llm_provider: str
     openrouter_api_key: str
     openrouter_model: str
+    openrouter_model_version: str
     openrouter_api_base: str
     ollama_api_key: str
     ollama_model: str
+    ollama_model_version: str
     ollama_api_base: str
     high_risk_write_actions_enabled: bool
 
@@ -86,9 +88,11 @@ def get_settings() -> AppSettings:
         llm_provider=os.getenv("LLM_PROVIDER", "openrouter").strip().lower(),
         openrouter_api_key=os.getenv("OPENROUTER_API_KEY", "dummy"),
         openrouter_model=os.getenv("OPENROUTER_MODEL", "openrouter/free"),
+        openrouter_model_version=os.getenv("OPENROUTER_MODEL_VERSION", "").strip(),
         openrouter_api_base=os.getenv("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1"),
         ollama_api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
         ollama_model=os.getenv("OLLAMA_MODEL", "llama3.1"),
+        ollama_model_version=os.getenv("OLLAMA_MODEL_VERSION", "").strip(),
         ollama_api_base=os.getenv("OLLAMA_API_BASE", "http://localhost:11434/v1"),
         high_risk_write_actions_enabled=os.getenv("HIGH_RISK_WRITE_ACTIONS_ENABLED", "false").strip().lower()
         in {"1", "true", "yes", "on"},

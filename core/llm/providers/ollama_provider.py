@@ -4,6 +4,7 @@ from langchain_openai import ChatOpenAI
 
 from configs import get_settings
 from core.llm.base import LLMProvider, LLMResponse, LLMToolCall, Message, StructuredSchema, ToolDefinition
+from core.llm.model_governance import build_model_governance
 
 
 DEFAULT_OLLAMA_MODEL = "llama3.1"
@@ -27,6 +28,12 @@ class OllamaProvider(LLMProvider):
         self.api_base = api_base or settings.ollama_api_base or DEFAULT_OLLAMA_API_BASE
         self.api_key = api_key or settings.ollama_api_key
         self.temperature = temperature
+        self.model_governance = build_model_governance(
+            provider=self.provider_name,
+            model=self.model,
+            configured_version=settings.ollama_model_version,
+        )
+        self.model_version = self.model_governance.model_version
         self.client = self._build_client(temperature)
 
     async def generate(
@@ -106,4 +113,6 @@ class OllamaProvider(LLMProvider):
             raw=raw_response,
             usage=getattr(raw_response, "usage_metadata", None),
             model=self.model,
+            model_version=self.model_version,
+            model_metadata=self.model_governance.metadata(),
         )

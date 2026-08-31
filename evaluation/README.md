@@ -64,6 +64,214 @@ evaluation/reports/baseline_report_latest.json
 
 The report includes the active `environment`, `provider`, and `model`, based on `APP_ENV`, `LLM_PROVIDER`, and the selected provider-specific model setting.
 
+## Golden Functional Dataset
+
+Phase 20 expands the functional golden set to approximately 500 cases:
+
+```text
+evaluation/datasets/golden/
+```
+
+Coverage:
+
+- standard functional cases
+- ambiguous cases
+- multilingual cases
+- typo/noisy-input cases
+- no-answer cases
+- cross-turn consistency cases
+
+Generate the deterministic dataset:
+
+```bash
+py evaluation/generate_golden_dataset.py
+```
+
+Validate count, required files, unique IDs, and schema shape:
+
+```bash
+py evaluation/validate_golden_dataset.py
+```
+
+The validation report is saved to:
+
+```text
+evaluation/reports/golden_dataset_validation_latest.json
+```
+
+## Full Evaluation Framework
+
+Phase 21 separates deterministic checks from subjective judging.
+
+Deterministic dimensions:
+
+```text
+price
+stock
+SKU
+tool
+arguments
+authorization
+citation
+schema
+latency
+```
+
+Subjective dimensions are evaluated only by optional LLM-as-a-Judge:
+
+```text
+clarity
+relevance
+helpfulness
+completeness
+```
+
+Run the framework aggregator without LLM judge:
+
+```bash
+py evaluation/run_full_evaluation.py
+```
+
+Run optional subjective judging on a small sample:
+
+```bash
+py evaluation/run_full_evaluation.py --llm-judge --judge-limit 5
+```
+
+Use CI-style failure when deterministic targets fail:
+
+```bash
+py evaluation/run_full_evaluation.py --fail-on-target
+```
+
+Calibration does not use self-reported model confidence. It uses:
+
+```text
+retrieval score
+tool result availability
+validation outcome
+evidence quality
+```
+
+The report is saved to:
+
+```text
+evaluation/reports/full_evaluation_report_latest.json
+```
+
+## Regression Testing
+
+Phase 22 makes fixed bugs permanent regression cases.
+
+Bug cases live in:
+
+```text
+evaluation/datasets/regression/bugs.jsonl
+```
+
+Each regression case records:
+
+```text
+id
+title
+query
+expected_tool
+expected_arguments
+assertions
+change_areas
+access
+risk
+notes
+```
+
+Add a new bug regression case:
+
+```bash
+py evaluation/add_regression_case.py --id bug_006_example --title "Short bug title" --query "User prompt that failed" --expected-tool search_products --expected-arguments "{\"category\":\"Shoes\"}" --change-areas tools,business_rules --must-contain-any "shoes|products" --must-not-contain "error"
+```
+
+Run quick deterministic regression before/after most changes:
+
+```bash
+py evaluation/run_regression.py --quick
+```
+
+Run regression for specific change areas:
+
+```bash
+py evaluation/run_regression.py --quick --areas prompt model
+py evaluation/run_regression.py --quick --areas embedding retrieval reranker chunking
+py evaluation/run_regression.py --quick --areas tools business_rules authorization
+```
+
+Run heavier deterministic regression, including retrieval/RAG runners:
+
+```bash
+py evaluation/run_regression.py
+```
+
+Run optional agent/LLM bug regression cases:
+
+```bash
+py evaluation/run_regression.py --include-llm
+```
+
+The report is saved to:
+
+```text
+evaluation/reports/regression_report_latest.json
+```
+
+## Prompt Versioning Tests
+
+Phase 23 versions every runtime prompt and records prompt metadata on LLM requests.
+
+Prompt metadata:
+
+```text
+prompt_id
+version
+created_at
+status
+evaluation_score
+```
+
+Run prompt versioning tests:
+
+```bash
+py evaluation/test_prompt_versioning.py
+```
+
+Sync prompt metadata into PostgreSQL:
+
+```bash
+py database/sync_prompt_versions.py
+```
+
+Prompt changes are covered by regression:
+
+```bash
+py evaluation/run_regression.py --quick --areas prompt
+```
+
+## Model Governance Tests
+
+Phase 24 logs provider, model, and model version for every LLM request.
+
+Run model governance tests:
+
+```bash
+py evaluation/test_model_governance.py
+```
+
+Model changes are covered by regression:
+
+```bash
+py evaluation/run_regression.py --quick --areas model
+```
+
+When `OPENROUTER_MODEL_VERSION` or `OLLAMA_MODEL_VERSION` is empty, the runtime records the selected model as an observed alias instead of pretending it is pinned.
+
 ## Run Product Search Evaluation
 
 Product search retrieval/ranking cases live in:

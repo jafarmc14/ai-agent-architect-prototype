@@ -1,0 +1,21 @@
+{
+  "name": "golden_functional_dataset_v1",
+  "target_case_count": "approximately 500",
+  "total_cases": 525,
+  "files": {
+    "standard.jsonl": 45,
+    "ambiguous.jsonl": 80,
+    "multilingual.jsonl": 120,
+    "noisy.jsonl": 120,
+    "no_answer.jsonl": 80,
+    "cross_turn.jsonl": 80
+  },
+  "coverage": [
+    "standard functional cases",
+    "ambiguous cases",
+    "multilingual cases",
+    "typo/noisy-input cases",
+    "no-answer cases",
+    "cross-turn consistency cases"
+  ]
+}
