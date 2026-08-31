@@ -1,3 +1,4 @@
+import importlib
 import re
 import sys
 from pathlib import Path
@@ -10,7 +11,9 @@ if str(PROJECT_ROOT) not in sys.path:
 from core.auth import RequestContext, request_context  # noqa: E402
 from core.services.cart_service import CartService  # noqa: E402
 from core.services.order_service import OrderService  # noqa: E402
-from core.services.write_action_service import WriteActionService, write_action_service  # noqa: E402
+from core.services.write_action_service import WriteActionService  # noqa: E402
+
+cart_service_module = importlib.import_module("core.services.cart_service")
 
 
 class FakeProductRepository:
@@ -86,35 +89,41 @@ class CapturingWriteControlRepository:
 def test_cart_add_requires_confirmation_then_executes_once():
     cart_repo = FakeCartRepository()
     service = CartService(cart_repository=cart_repo, product_repository=FakeProductRepository())
+    original_write_action_service = cart_service_module.write_action_service
+    isolated_write_action_service = WriteActionService(repository=CapturingWriteControlRepository())
+    cart_service_module.write_action_service = isolated_write_action_service
 
-    with request_context(RequestContext(session_id="controlled-write-cart")):
-        first_response = service.add_to_cart("Nike shoes", 2)
-        assert "Confirmation required" in first_response
-        assert cart_repo.quantity == 0
+    try:
+        with request_context(RequestContext(session_id="controlled-write-cart-isolated")):
+            first_response = service.add_to_cart("Nike shoes", 2)
+            assert "Confirmation required" in first_response
+            assert cart_repo.quantity == 0
 
-        confirmation_id = re.search(r"confirm ([a-f0-9]{8})", first_response).group(1)
-        pending = write_action_service.consume_confirmation(f"confirm {confirmation_id}")
-        assert pending is not None
+            confirmation_id = re.search(r"confirm ([a-f0-9]{8})", first_response).group(1)
+            pending = isolated_write_action_service.consume_confirmation(f"confirm {confirmation_id}")
+            assert pending is not None
 
-        confirmed_response = service.add_to_cart(
-            pending.payload["product_name"],
-            pending.payload["quantity"],
-            confirmed=True,
-            idempotency_key=pending.idempotency_key,
-            request_id=pending.request_id,
-        )
-        assert "Added to cart" in confirmed_response
-        assert cart_repo.quantity == 2
+            confirmed_response = service.add_to_cart(
+                pending.payload["product_name"],
+                pending.payload["quantity"],
+                confirmed=True,
+                idempotency_key=pending.idempotency_key,
+                request_id=pending.request_id,
+            )
+            assert "Added to cart" in confirmed_response
+            assert cart_repo.quantity == 2
 
-        retry_response = service.add_to_cart(
-            pending.payload["product_name"],
-            pending.payload["quantity"],
-            confirmed=True,
-            idempotency_key=pending.idempotency_key,
-            request_id=pending.request_id,
-        )
-        assert retry_response == confirmed_response
-        assert cart_repo.quantity == 2
+            retry_response = service.add_to_cart(
+                pending.payload["product_name"],
+                pending.payload["quantity"],
+                confirmed=True,
+                idempotency_key=pending.idempotency_key,
+                request_id=pending.request_id,
+            )
+            assert retry_response == confirmed_response
+            assert cart_repo.quantity == 2
+    finally:
+        cart_service_module.write_action_service = original_write_action_service
 
 
 def test_high_risk_order_cancellation_is_disabled_initially():

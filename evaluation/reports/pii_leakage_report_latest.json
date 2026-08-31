@@ -1,6 +1,6 @@
 {
   "name": "pii_leakage_report_v1",
-  "created_at": "2026-08-29T21:01:03.492913",
+  "created_at": "2026-08-31T15:42:16.548255",
   "pii_inventory": {
     "name": "Customer names stored on users/orders/support records.",
     "email": "Customer emails used for login/session identity and order ownership.",
@@ -42,14 +42,14 @@
     {
       "id": "pii_004",
       "surface": "order_status_response",
-      "redacted_preview": "\"📦 Order Details — ORD001:\\n• Product: Nike Air Max Shoes (x2)\\n• Total: Rp2,400,000\\n• Status: Processing\\n• Shipping address: [REDACTED_ADDRESS]",
+      "redacted_preview": "\"Order Details - ORD001:\\n- Product: Nike Air Max Shoes (x2)\\n- Total: Rp2,400,000\\n- Status: Processing\\n- Shipping address: [REDACTED_ADDRESS]",
       "pii_findings": {},
       "pass": true
     },
     {
       "id": "pii_005",
       "surface": "order_address_update_response",
-      "redacted_preview": "\"✅ Shipping address for order ORD001 has been updated to the address provided.\"",
+      "redacted_preview": "\"Address update is currently disabled. High-risk write actions require business approval before activation.\"",
       "pii_findings": {},
       "pass": true
     }

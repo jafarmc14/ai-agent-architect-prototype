@@ -1,6 +1,6 @@
 {
   "name": "multiturn_report_v1",
-  "created_at": "2026-08-31T11:11:42.844609",
+  "created_at": "2026-08-31T15:46:13.808614",
   "dataset": "D:\\AI-Agent Arch Prot\\evaluation\\datasets\\conversation_state.jsonl",
   "summary": {
     "total_cases": 5,
@@ -10,9 +10,9 @@
     "constraint_retention_rate": 1.0,
     "cross_turn_factual_consistency_passed": 5,
     "cross_turn_factual_consistency_rate": 1.0,
-    "avg_latency_ms": 1.04,
-    "max_latency_ms": 3.62,
-    "min_latency_ms": 0.32
+    "avg_latency_ms": 2.05,
+    "max_latency_ms": 6.53,
+    "min_latency_ms": 0.64
   },
   "results": [
     {
@@ -38,7 +38,7 @@
       "context_mismatches": [],
       "constraint_mismatches": [],
       "consistency_mismatches": [],
-      "latency_ms": 3.62
+      "latency_ms": 6.53
     },
     {
       "id": "constraints_001",
@@ -81,7 +81,7 @@
       "context_mismatches": [],
       "constraint_mismatches": [],
       "consistency_mismatches": [],
-      "latency_ms": 0.39
+      "latency_ms": 0.65
     },
     {
       "id": "constraints_002",
@@ -127,7 +127,7 @@
       "context_mismatches": [],
       "constraint_mismatches": [],
       "consistency_mismatches": [],
-      "latency_ms": 0.41
+      "latency_ms": 1.48
     },
     {
       "id": "consistency_001",
@@ -171,7 +171,7 @@
       "context_mismatches": [],
       "constraint_mismatches": [],
       "consistency_mismatches": [],
-      "latency_ms": 0.48
+      "latency_ms": 0.96
     },
     {
       "id": "cart_ctx_001",
@@ -209,7 +209,7 @@
       "context_mismatches": [],
       "constraint_mismatches": [],
       "consistency_mismatches": [],
-      "latency_ms": 0.32
+      "latency_ms": 0.64
     }
   ]
 }
