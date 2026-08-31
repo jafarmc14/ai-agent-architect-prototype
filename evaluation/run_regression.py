@@ -55,6 +55,8 @@ CHANGE_AREA_COMMANDS = {
         ["evaluation/test_controlled_write_actions.py"],
         ["evaluation/test_human_escalation.py"],
         ["evaluation/test_hallucination_control.py"],
+        ["evaluation/test_quality_gate.py"],
+        ["evaluation/test_ci_pipeline.py"],
     ],
     "authorization": [
         ["evaluation/test_auth_context.py"],

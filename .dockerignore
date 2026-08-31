@@ -1,0 +1,15 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+!.env.secrets.example
+.venv
+venv
+__pycache__
+*.py[cod]
+*.db
+evaluation/reports/*.json
+out.txt
+err*.txt
+install_log.txt

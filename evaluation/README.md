@@ -705,3 +705,29 @@ The v1 runner records:
 The runner resets `toko.db` to the original dummy data before creating the evaluation baseline snapshot, restores that clean snapshot before each case, then restores the user's original `toko.db` after the run. This keeps write-tool evaluations repeatable without permanently mutating the local database.
 
 When OpenRouter free-tier rate limits are reached, the runner stops early by default and marks the remaining cases as skipped. This keeps rate-limit failures from being counted as agent accuracy failures. Use `--continue-on-rate-limit` only when you intentionally want to keep retrying after rate-limit errors.
+
+## CI/CD Quality Gate
+
+GitHub Actions runs the following dependency chain for pull requests and pushes to `main`:
+
+```text
+unit -> integration -> quality -> security -> regression -> build
+```
+
+The quality baseline is stored in:
+
+```text
+evaluation/baselines/quality_baseline.json
+```
+
+Generate deterministic candidate reports and enforce the pinned thresholds:
+
+```powershell
+py evaluation/run_product_search_evaluation.py --deterministic-only --report-dir ci_quality_reports
+py evaluation/run_intent_evaluation.py --report-dir ci_quality_reports
+py evaluation/run_structured_output_evaluation.py --report-dir ci_quality_reports
+py evaluation/run_hallucination_evaluation.py --report-dir ci_quality_reports
+py evaluation/run_quality_gate.py --baseline evaluation/baselines/quality_baseline.json --report-dir ci_quality_reports
+```
+
+The quality gate fails when a metric drops below its absolute target, regresses beyond its allowed tolerance, or a required report is unavailable. Security evaluation is a hard blocker: critical exposure, unauthorized actions, cross-user access, or PII leakage must remain zero.

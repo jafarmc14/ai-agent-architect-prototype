@@ -42,6 +42,7 @@ This system is a web-based chat interface powered by an AI model that supports s
 | **Database** | [PostgreSQL](https://www.postgresql.org/) + pgvector | Primary runtime database storing products, inventory, orders, carts, support tickets, conversations, evaluation data, and vector-ready knowledge chunks. |
 | **Legacy/Fallback DB** | [SQLite](https://www.sqlite.org/) | Preserved as rollback prototype storage and SQLite-to-PostgreSQL migration source. |
 | **Knowledge Base** | Split Markdown documents (`knowledge_base/*.md`) with legacy fallback (`knowledge_base.txt`) | Store policies and FAQ documents searched by the AI agent for policy-related queries. |
+| **CI/CD** | GitHub Actions + Docker | Runs deterministic quality and security gates on pull requests before building the application image. |
 
 ### Architecture Flow
 
@@ -101,6 +102,45 @@ PostgreSQL `documents` and `document_chunks` store ingested, embedded chunks for
 ```
 
 Note: The current local runtime uses PostgreSQL when `DATABASE_PROVIDER=postgres` is set in `.env`. The LLM provider can be switched between OpenRouter and Ollama from the Streamlit sidebar or `.env`.
+
+### CI/CD Quality Gate
+
+Pull requests and pushes to `main` run [`.github/workflows/ci-quality-gate.yml`](.github/workflows/ci-quality-gate.yml) in this fixed order:
+
+```text
+unit
+  -> PostgreSQL integration
+  -> quality evaluation
+  -> security evaluation
+  -> regression
+  -> Docker build
+```
+
+Every job depends on the preceding job. A failed security evaluation is therefore a hard deployment blocker, and regression or build will not run. The security gate requires zero unauthorized data exposure, unauthorized tool execution, cross-user access, and PII leakage, with prompt-injection resistance of at least 99%.
+
+The quality job compares deterministic candidate reports with [`evaluation/baselines/quality_baseline.json`](evaluation/baselines/quality_baseline.json). It enforces both absolute targets and maximum allowed regression from the pinned baseline. A missing or malformed report also fails the gate. Current key minimums are:
+
+| Metric | Minimum |
+|---|---:|
+| Product Precision@5 | 0.90 |
+| Product Recall@10 | 0.95 |
+| Product NDCG@10 | 0.85 |
+| Hard Constraint Satisfaction | 0.99 |
+| Intent Macro F1 | 0.95 |
+| Structured Schema Validity | 0.999 |
+| Unsupported Critical Claims | 0 |
+
+CI uses deterministic fixtures and does not call OpenRouter or Ollama. Reports are uploaded as GitHub Actions artifacts for inspection. The final `6 - Build` status can be configured as a required branch-protection check because its dependency chain proves that all earlier gates passed.
+
+Run the quality gate locally after generating candidate reports:
+
+```powershell
+py evaluation/run_product_search_evaluation.py --deterministic-only --report-dir ci_quality_reports
+py evaluation/run_intent_evaluation.py --report-dir ci_quality_reports
+py evaluation/run_structured_output_evaluation.py --report-dir ci_quality_reports
+py evaluation/run_hallucination_evaluation.py --report-dir ci_quality_reports
+py evaluation/run_quality_gate.py --baseline evaluation/baselines/quality_baseline.json --report-dir ci_quality_reports
+```
 
 ### Runtime Layers
 

@@ -1,3 +1,4 @@
+import argparse
 import json
 import sys
 from datetime import datetime
@@ -121,6 +122,10 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Run deterministic PII leakage evaluation.")
+    parser.add_argument("--report-dir", default=str(REPORT_DIR))
+    args = parser.parse_args()
+
     cases = raw_cases() + order_service_cases()
     results = [evaluate_case(case) for case in cases]
     report = {
@@ -131,8 +136,9 @@ def main() -> int:
         "results": results,
     }
 
-    REPORT_DIR.mkdir(parents=True, exist_ok=True)
-    latest_path = REPORT_DIR / "pii_leakage_report_latest.json"
+    report_dir = Path(args.report_dir)
+    report_dir.mkdir(parents=True, exist_ok=True)
+    latest_path = report_dir / "pii_leakage_report_latest.json"
     latest_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print("PII leakage evaluation complete.")

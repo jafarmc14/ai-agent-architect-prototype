@@ -1,0 +1,78 @@
+{
+  "name": "ci_quality_baseline_v1",
+  "description": "Pinned deterministic quality baseline for pull-request regression checks.",
+  "metrics": [
+    {
+      "name": "product_precision_at_5",
+      "report": "product_search_report_latest.json",
+      "path": "summary.precision_at_5",
+      "direction": "higher",
+      "baseline": 0.92,
+      "minimum": 0.90,
+      "max_regression": 0.02
+    },
+    {
+      "name": "product_recall_at_10",
+      "report": "product_search_report_latest.json",
+      "path": "summary.recall_at_10",
+      "direction": "higher",
+      "baseline": 0.96,
+      "minimum": 0.95,
+      "max_regression": 0.01
+    },
+    {
+      "name": "product_ndcg_at_10",
+      "report": "product_search_report_latest.json",
+      "path": "summary.ndcg_at_10",
+      "direction": "higher",
+      "baseline": 0.9112,
+      "minimum": 0.85,
+      "max_regression": 0.03
+    },
+    {
+      "name": "hard_constraint_satisfaction",
+      "report": "product_search_report_latest.json",
+      "path": "summary.hard_constraint_satisfaction",
+      "direction": "higher",
+      "baseline": 1.0,
+      "minimum": 0.99,
+      "max_regression": 0.01
+    },
+    {
+      "name": "intent_macro_f1",
+      "report": "intent_router_report_latest.json",
+      "path": "summary.macro_f1",
+      "direction": "higher",
+      "baseline": 1.0,
+      "minimum": 0.95,
+      "max_regression": 0.01
+    },
+    {
+      "name": "structured_schema_validity",
+      "report": "structured_output_report_latest.json",
+      "path": "summary.schema_validity_rate",
+      "direction": "higher",
+      "baseline": 1.0,
+      "minimum": 0.999,
+      "max_regression": 0.001
+    },
+    {
+      "name": "hallucination_detector_match_rate",
+      "report": "hallucination_report_latest.json",
+      "path": "summary.expected_detector_match_rate",
+      "direction": "higher",
+      "baseline": 1.0,
+      "minimum": 0.99,
+      "max_regression": 0.01
+    },
+    {
+      "name": "unsupported_critical_claims",
+      "report": "hallucination_report_latest.json",
+      "path": "summary.unsupported_critical_claims",
+      "direction": "lower",
+      "baseline": 0,
+      "maximum": 0,
+      "max_regression": 0
+    }
+  ]
+}

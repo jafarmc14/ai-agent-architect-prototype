@@ -1,3 +1,4 @@
+import argparse
 import json
 import sys
 from datetime import datetime
@@ -17,6 +18,10 @@ from core.services.order_service import OrderService  # noqa: E402
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Run deterministic authorization evaluation.")
+    parser.add_argument("--report-dir", default=str(REPORT_DIR))
+    args = parser.parse_args()
+
     users = UserRepository().list_customer_users()
     users_by_name = {user["name"]: user for user in users}
     cases = [
@@ -74,8 +79,9 @@ def main() -> int:
         "summary": summary,
         "results": results,
     }
-    REPORT_DIR.mkdir(parents=True, exist_ok=True)
-    latest_path = REPORT_DIR / "authorization_report_latest.json"
+    report_dir = Path(args.report_dir)
+    report_dir.mkdir(parents=True, exist_ok=True)
+    latest_path = report_dir / "authorization_report_latest.json"
     latest_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print("Authorization evaluation complete.")

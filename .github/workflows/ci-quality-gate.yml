@@ -1,0 +1,224 @@
+name: CI Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  APP_ENV: testing
+  DEBUG: "false"
+  JWT_SECRET: ci-only-jwt-secret
+  LLM_PROVIDER: openrouter
+  OPENROUTER_API_KEY: dummy
+  OPENROUTER_MODEL: openrouter/free
+  HIGH_RISK_WRITE_ACTIONS_ENABLED: "false"
+
+jobs:
+  unit:
+    name: 1 - Unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_PROVIDER: sqlite
+      DATABASE_PATH: ci_unit.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile source
+        run: python -m compileall -q core configs database evaluation agent.py app.py
+      - name: Run unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test_file in evaluation/test_*.py; do
+            echo "[unit] ${test_file}"
+            python "${test_file}"
+          done
+
+  integration:
+    name: 2 - PostgreSQL Integration
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: ai_agent
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ai_agent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_PROVIDER: postgres
+      DATABASE_PATH: ci_seed.db
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ai_agent
+      POSTGRES_PASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Create deterministic SQLite source fixture
+        env:
+          DATABASE_PROVIDER: sqlite
+        run: python -c "from database import init_database; init_database()"
+      - name: Apply migrations and migrate fixture
+        run: python database/migrate_sqlite_to_postgres.py --apply-schema
+      - name: Run PostgreSQL integration checks
+        run: python evaluation/integration_postgres.py
+      - name: Run authorization integration evaluation
+        run: python evaluation/run_authorization_evaluation.py --report-dir ci_integration_reports
+      - name: Upload integration reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-reports
+          path: ci_integration_reports
+          if-no-files-found: warn
+
+  quality:
+    name: 3 - Quality Evaluation
+    needs: integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: ai_agent
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ai_agent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_PROVIDER: postgres
+      DATABASE_PATH: ci_seed.db
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ai_agent
+      POSTGRES_PASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Prepare PostgreSQL fixture
+        env:
+          DATABASE_PROVIDER: sqlite
+        run: python -c "from database import init_database; init_database()"
+      - name: Apply migrations and migrate fixture
+        run: python database/migrate_sqlite_to_postgres.py --apply-schema
+      - name: Generate candidate quality reports
+        run: |
+          python evaluation/run_product_search_evaluation.py --deterministic-only --report-dir ci_quality_reports
+          python evaluation/run_intent_evaluation.py --report-dir ci_quality_reports
+          python evaluation/run_structured_output_evaluation.py --report-dir ci_quality_reports
+          python evaluation/run_hallucination_evaluation.py --report-dir ci_quality_reports
+      - name: Enforce quality regression threshold
+        run: >-
+          python evaluation/run_quality_gate.py
+          --baseline evaluation/baselines/quality_baseline.json
+          --report-dir ci_quality_reports
+          --output ci_quality_reports/quality_gate_report_latest.json
+      - name: Upload quality reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports
+          path: ci_quality_reports
+          if-no-files-found: error
+
+  security:
+    name: 4 - Security Evaluation (Hard Blocker)
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_PROVIDER: sqlite
+      DATABASE_PATH: ci_security.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run adversarial security evaluation
+        run: python evaluation/run_security_evaluation.py --report-dir ci_security_reports
+      - name: Run PII leakage evaluation
+        run: python evaluation/run_pii_leakage_evaluation.py --report-dir ci_security_reports
+      - name: Run prompt-injection defense tests
+        run: python evaluation/test_prompt_injection_defense.py
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: ci_security_reports
+          if-no-files-found: error
+
+  regression:
+    name: 5 - Regression
+    needs: security
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_PROVIDER: sqlite
+      DATABASE_PATH: ci_regression.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run deterministic regression suite
+        run: python evaluation/run_regression.py --quick --report-dir ci_regression_reports
+      - name: Upload regression report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-reports
+          path: ci_regression_reports
+          if-no-files-found: error
+
+  build:
+    name: 6 - Build
+    needs: regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build application image
+        run: docker build --tag ai-agent:${{ github.sha }} .

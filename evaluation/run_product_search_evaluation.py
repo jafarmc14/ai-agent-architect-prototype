@@ -100,7 +100,7 @@ def hard_constraints_satisfied(row: dict[str, Any], constraints: dict[str, Any])
     return True
 
 
-def evaluate_case(case: dict[str, Any]) -> dict[str, Any]:
+def evaluate_case(case: dict[str, Any], *, deterministic_only: bool = False) -> dict[str, Any]:
     from configs import get_settings
     from core.embeddings import OpenAICompatibleEmbeddingProvider
     from core.repositories import ProductRepository
@@ -122,7 +122,7 @@ def evaluate_case(case: dict[str, Any]) -> dict[str, Any]:
     exception = None
 
     try:
-        if settings.database_provider == "postgres" and semantic_query_text:
+        if not deterministic_only and settings.database_provider == "postgres" and semantic_query_text:
             embedding = OpenAICompatibleEmbeddingProvider().embed_text(semantic_query_text)
             candidates = PostgresProductEmbeddingRepository().search_products_by_embedding(
                 query_embedding=embedding,
@@ -262,6 +262,11 @@ def main() -> int:
     parser.add_argument("--dataset", default=str(DATASET_PATH))
     parser.add_argument("--report-dir", default=str(REPORT_DIR))
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument(
+        "--deterministic-only",
+        action="store_true",
+        help="Skip embedding/vector retrieval and evaluate database filters plus deterministic ranking only.",
+    )
     args = parser.parse_args()
 
     dataset_path = Path(args.dataset)
@@ -278,13 +283,14 @@ def main() -> int:
     results = []
     for index, case in enumerate(cases, start=1):
         print(f"[{index}/{len(cases)}] {case['id']} - {case['query']}")
-        results.append(evaluate_case(case))
+        results.append(evaluate_case(case, deterministic_only=args.deterministic_only))
 
     report = {
         "name": "product_search_report_v1",
         "created_at": datetime.now().isoformat(),
         "database_provider": settings.database_provider,
         "embedding_model": settings.embedding_model,
+        "deterministic_only": args.deterministic_only,
         "dataset": str(dataset_path),
         "summary": summarize(results),
         "results": results,
