@@ -116,13 +116,23 @@ class ProductService:
                 filters.append(f"min_price=Rp{structured_query.min_price:,.0f}")
             if structured_query.max_price > 0:
                 filters.append(f"max_price=Rp{structured_query.max_price:,.0f}")
+            if structured_query.size is not None:
+                filters.append(f"size={structured_query.size}")
             if structured_query.sku:
                 filters.append(f"sku='{structured_query.sku}'")
             if structured_query.available is not None:
                 filters.append(f"available={structured_query.available}")
             if structured_query.min_stock > 0:
                 filters.append(f"min_stock={structured_query.min_stock}")
-            return f"No products found matching filters: {', '.join(filters)}."
+            result = f"No products found matching database-enforced filters: {', '.join(filters)}."
+            unsupported = []
+            if structured_query.color:
+                unsupported.append(f"color='{structured_query.color}'")
+            if structured_query.waterproof is not None:
+                unsupported.append(f"waterproof={structured_query.waterproof}")
+            if unsupported:
+                result += " Additional criteria captured but not catalog-filterable: " + ", ".join(unsupported) + "."
+            return result
 
         results = [f"Found {len(rows)} product(s):"]
         if semantic_note:

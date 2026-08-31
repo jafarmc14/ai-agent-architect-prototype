@@ -14,6 +14,7 @@ DATABASE_FACT_MARKERS = {
     "address",
     "alamat",
     "available",
+    "budget",
     "cart",
     "category",
     "harga",
@@ -56,6 +57,7 @@ SUPPORT_FACT_MARKERS = {
 }
 
 CRITICAL_BUSINESS_MARKERS = RAG_FACT_MARKERS | {
+    "budget",
     "business day",
     "business days",
     "estimated arrival",
@@ -172,6 +174,8 @@ def hallucination_abstention_message(language_hint: str = "English") -> str:
 
 def _classify_source(sentence: str) -> FactSource:
     lowered = sentence.lower()
+    if _is_non_factual_caveat(lowered):
+        return FactSource.GENERATED_PROSE
     if _contains_any(lowered, SUPPORT_FACT_MARKERS):
         return FactSource.DATABASE
     if _contains_any(lowered, RAG_FACT_MARKERS) or re.search(r"\bC\d+\b", sentence):
@@ -183,7 +187,20 @@ def _classify_source(sentence: str) -> FactSource:
 
 def _is_critical(sentence: str) -> bool:
     lowered = sentence.lower()
+    if _is_non_factual_caveat(lowered):
+        return False
     return _contains_any(lowered, CRITICAL_BUSINESS_MARKERS) or _has_business_number(sentence)
+
+
+def _is_non_factual_caveat(text: str) -> bool:
+    return any(
+        phrase in text
+        for phrase in (
+            "availability and prices are subject to change",
+            "price and availability are subject to change",
+            "prices and availability are subject to change",
+        )
+    )
 
 
 def _supported_by_evidence(sentence: str, evidence: str) -> tuple[bool, str, str]:
@@ -195,6 +212,17 @@ def _supported_by_evidence(sentence: str, evidence: str) -> tuple[bool, str, str
     status_value = _status_value(sentence)
     if status_value and status_value not in evidence_norm:
         return False, f"Status value was not found in evidence: {status_value}.", ""
+
+    comparison_valid = _price_comparison_valid(sentence, evidence)
+    if comparison_valid is False:
+        return False, "The price comparison contradicts the database-enforced price limit.", ""
+
+    stock_valid = _stock_availability_valid(sentence, evidence)
+    if stock_valid is False:
+        return False, "The stock availability claim contradicts database inventory.", ""
+
+    if _is_negative_product_result(sentence) and "no products found" in evidence_norm:
+        return True, "The negative product result is present in database evidence.", _snippet(evidence, {"product"})
 
     claim_terms = _claim_terms(sentence)
     if sentence_norm and sentence_norm in evidence_norm:
@@ -210,6 +238,8 @@ def _supported_by_evidence(sentence: str, evidence: str) -> tuple[bool, str, str
 
     if claim_terms:
         overlap = len(claim_terms & _claim_terms(evidence)) / len(claim_terms)
+        if _business_numbers(sentence) and overlap >= 0.25:
+            return True, "Business numbers and a factual anchor were found in evidence.", _snippet(evidence, claim_terms)
         if overlap >= 0.55:
             return True, "Claim has sufficient lexical support in evidence.", _snippet(evidence, claim_terms)
 
@@ -230,10 +260,23 @@ def _split_sentences(text: str) -> list[str]:
 
 
 def _looks_like_claim(sentence: str) -> bool:
+    if re.fullmatch(r"\d+[.)]?", sentence.strip()):
+        return False
     if sentence.strip().endswith("?"):
         return False
     lowered = sentence.lower()
-    if lowered.startswith(("could you", "can you", "please share", "mohon", "silakan")):
+    if lowered.startswith((
+        "could you",
+        "can you",
+        "i can help",
+        "i'd be happy to help",
+        "i would be happy to help",
+        "please share",
+        "mohon",
+        "saya bisa membantu",
+        "saya dengan senang hati membantu",
+        "silakan",
+    )):
         return False
     if _contains_any(lowered, CRITICAL_BUSINESS_MARKERS):
         return True
@@ -269,6 +312,104 @@ def _status_value(text: str) -> str:
     return _normalize(match.group(1))
 
 
+def _is_negative_product_result(text: str) -> bool:
+    lowered = text.lower()
+    return any(
+        phrase in lowered
+        for phrase in (
+            "couldn't find any",
+            "could not find any",
+            "didn't find any",
+            "did not find any",
+            "no matching product",
+            "no products",
+            "no product",
+            "tidak ada produk",
+            "tidak menemukan produk",
+        )
+    )
+
+
+def _price_comparison_valid(sentence: str, evidence: str) -> bool | None:
+    lowered = sentence.lower()
+    above_markers = ("above your budget", "over your budget", "exceeds your budget", "above the price limit")
+    within_markers = ("within your budget", "under your budget", "below your budget", "fits your budget")
+    if not any(marker in lowered for marker in above_markers + within_markers):
+        return None
+
+    limit_match = re.search(
+        r"max[_ ]price['\"]?\s*[:=]\s*(?:rp\s*)?([\d.,]+)",
+        evidence,
+        flags=re.IGNORECASE,
+    )
+    if not limit_match:
+        return None
+    limit = _numeric_value(limit_match.group(1))
+
+    price_match = re.search(r"rp\s*([\d.,]+)", sentence, flags=re.IGNORECASE)
+    price = _numeric_value(price_match.group(1)) if price_match else _product_price_from_evidence(sentence, evidence)
+    if limit is None or price is None:
+        return None
+
+    if any(marker in lowered for marker in above_markers):
+        return price > limit
+    return price <= limit
+
+
+def _product_price_from_evidence(sentence: str, evidence: str) -> float | None:
+    sentence_norm = _normalize(sentence)
+    for line in evidence.splitlines():
+        match = re.search(r"^-\s*(.+?)\s*\|.*?Price:\s*Rp\s*([\d.,]+)", line, flags=re.IGNORECASE)
+        if not match:
+            continue
+        product_name = _normalize(match.group(1))
+        if product_name and product_name in sentence_norm:
+            return _numeric_value(match.group(2))
+    return None
+
+
+def _stock_availability_valid(sentence: str, evidence: str) -> bool | None:
+    lowered = sentence.lower()
+    says_out = "out of stock" in lowered or "stok habis" in lowered
+    says_in = "in stock" in lowered or "tersedia" in lowered
+    if not says_out and not says_in:
+        return None
+
+    stock = _product_stock_from_evidence(sentence, evidence)
+    if stock is None:
+        return None
+    return stock <= 0 if says_out else stock > 0
+
+
+def _product_stock_from_evidence(sentence: str, evidence: str) -> float | None:
+    sentence_norm = _normalize(sentence)
+    sentence_numbers = set(_business_numbers(sentence))
+    for line in evidence.splitlines():
+        match = re.search(r"^-\s*(.+?)\s*\|.*?Stock:\s*([\d.,]+)\s*units?", line, flags=re.IGNORECASE)
+        if not match:
+            continue
+        product_name = _normalize(match.group(1))
+        stock = _numeric_value(match.group(2))
+        stock_number = re.sub(r"\D", "", match.group(2))
+        if product_name in sentence_norm or (stock_number and stock_number in sentence_numbers):
+            return stock
+    return None
+
+
+def _numeric_value(raw: str) -> float | None:
+    compact = re.sub(r"[^\d.,]", "", raw)
+    if not compact:
+        return None
+    if "," in compact and "." in compact:
+        compact = compact.replace(",", "")
+    elif compact.count(",") > 1 or ("," in compact and len(compact.rsplit(",", 1)[1]) == 3):
+        compact = compact.replace(",", "")
+    try:
+        return float(compact)
+    except ValueError:
+        return None
+
+
 def _anchor_terms(sentence: str) -> set[str]:
     terms = _claim_terms(sentence)
     markers = {term.replace(" ", "") for term in CRITICAL_BUSINESS_MARKERS}
@@ -278,33 +419,76 @@ def _anchor_terms(sentence: str) -> set[str]:
 def _claim_terms(text: str) -> set[str]:
     stopwords = {
         "about",
+        "also",
         "adalah",
+        "and",
         "anda",
+        "are",
+        "at",
         "atau",
+        "based",
+        "being",
         "bisa",
         "can",
         "could",
         "dari",
         "dengan",
+        "found",
         "for",
+        "fit",
+        "fits",
+        "following",
         "from",
         "have",
+        "has",
         "kami",
+        "here",
+        "meet",
+        "meets",
+        "request",
+        "requirement",
+        "requirements",
+        "option",
+        "options",
+        "some",
         "that",
+        "they",
         "the",
+        "these",
         "this",
+        "under",
         "untuk",
         "with",
+        "we",
         "would",
         "yang",
         "you",
         "your",
     }
-    return {
-        token
-        for token in re.findall(r"[a-zA-Z][a-zA-Z0-9]+", _normalize(text))
-        if len(token) > 2 and token not in stopwords
+    aliases = {
+        "asal": "origin",
+        "availability": "stock",
+        "available": "stock",
+        "budget": "price",
+        "ditemukan": "found",
+        "harga": "price",
+        "kategori": "category",
+        "cost": "price",
+        "costs": "price",
+        "priced": "price",
+        "prices": "price",
+        "produk": "product",
+        "stok": "stock",
     }
+    terms = set()
+    for token in re.findall(r"[a-zA-Z][a-zA-Z0-9]+", _normalize(text)):
+        if len(token) <= 2 or token in stopwords:
+            continue
+        canonical = aliases.get(token, token)
+        if canonical.endswith("s") and len(canonical) > 4 and not canonical.endswith("ss"):
+            canonical = canonical[:-1]
+        terms.add(canonical)
+    return terms
 
 
 def _normalize(text: Any) -> str:
