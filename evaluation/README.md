@@ -342,6 +342,147 @@ The report is saved to:
 evaluation/reports/security_report_latest.json
 ```
 
+## Run Structured Output Tests
+
+```bash
+py evaluation/test_structured_outputs.py
+```
+
+These tests verify Pydantic schema validation, JSON Schema generation, internal adapters, and controlled retry/repair for wrapped JSON output.
+
+## Run Structured Output Evaluation
+
+```bash
+py evaluation/run_structured_output_evaluation.py
+```
+
+The runner measures schema validity for:
+
+```text
+intent
+filters
+routing
+tool arguments
+policy decision
+```
+
+Target:
+
+```text
+Schema validity >= 99.9%
+```
+
+The report is saved to:
+
+```text
+evaluation/reports/structured_output_report_latest.json
+```
+
+## Run Hallucination Control Tests
+
+```bash
+py evaluation/test_hallucination_control.py
+```
+
+These tests verify:
+
+- database facts are checked against tool/database output
+- RAG facts are checked against retrieved evidence
+- unsupported critical business facts trigger abstention
+- generated prose is not treated as a factual business claim
+
+## Run Hallucination Evaluation
+
+```bash
+py evaluation/run_hallucination_evaluation.py
+```
+
+The runner measures:
+
+- unsupported factual claim rate
+- unsupported critical business claims
+- detector match rate on supported and intentionally unsupported examples
+- abstention count
+
+Targets:
+
+```text
+Unsupported factual claims < 1%
+Critical business unsupported factual claims = 0
+```
+
+The report is saved to:
+
+```text
+evaluation/reports/hallucination_report_latest.json
+```
+
+## Run Controlled Write Action Tests
+
+```bash
+py evaluation/test_controlled_write_actions.py
+```
+
+These tests verify:
+
+- cart mutations require explicit confirmation
+- pending confirmations do not mutate state before approval
+- idempotency keys prevent duplicate retry mutations
+- high-risk order mutations are disabled by default
+- audit-log payloads include actor/action/resource/old/new/request identifiers
+
+## Run Human Escalation Tests
+
+```bash
+py evaluation/test_human_escalation.py
+```
+
+These tests verify:
+
+- escalation priority assignment
+- automatic rules for fraud, legal complaints, payment disputes, high-value refunds, repeated failures, low confidence, and human requests
+- summarized context generation
+- support ticket payloads include escalation metadata
+
+## Run Conversation State Tests
+
+```bash
+py evaluation/test_conversation_state.py
+```
+
+These tests verify:
+
+- user and assistant messages are stored as transcript rows
+- structured state is stored separately from natural-language history
+- only a bounded recent-message window is sent back to the LLM
+- product constraints are retained across follow-up turns
+
+## Run Multi-turn Evaluation
+
+Multi-turn state cases live in:
+
+```text
+evaluation/datasets/conversation_state.jsonl
+```
+
+Run the evaluation:
+
+```bash
+py evaluation/run_multiturn_evaluation.py
+```
+
+The runner measures:
+
+- Context retention
+- Constraint retention
+- Cross-turn factual consistency
+
+The report is saved to:
+
+```text
+evaluation/reports/multiturn_report_latest.json
+```
+
 ## Metrics
 
 The v1 runner records:

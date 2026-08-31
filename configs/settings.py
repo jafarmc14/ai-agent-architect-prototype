@@ -58,6 +58,7 @@ class AppSettings:
     ollama_api_key: str
     ollama_model: str
     ollama_api_base: str
+    high_risk_write_actions_enabled: bool
 
 
 @lru_cache(maxsize=1)
@@ -89,6 +90,8 @@ def get_settings() -> AppSettings:
         ollama_api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
         ollama_model=os.getenv("OLLAMA_MODEL", "llama3.1"),
         ollama_api_base=os.getenv("OLLAMA_API_BASE", "http://localhost:11434/v1"),
+        high_risk_write_actions_enabled=os.getenv("HIGH_RISK_WRITE_ACTIONS_ENABLED", "false").strip().lower()
+        in {"1", "true", "yes", "on"},
     )
 
 

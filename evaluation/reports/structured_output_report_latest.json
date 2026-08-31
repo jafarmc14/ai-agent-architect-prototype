@@ -1,0 +1,1434 @@
+{
+  "name": "structured_output_report_v1",
+  "created_at": "2026-08-31T10:23:36.942913",
+  "summary": {
+    "total_cases": 174,
+    "valid": 174,
+    "invalid": 0,
+    "repaired": 2,
+    "schema_validity_rate": 1.0,
+    "target_schema_validity": 0.999,
+    "target_pass": true,
+    "by_schema": {
+      "filters": {
+        "total": 10,
+        "valid": 10,
+        "validity_rate": 1.0
+      },
+      "intent": {
+        "total": 72,
+        "valid": 72,
+        "validity_rate": 1.0
+      },
+      "policy_decision": {
+        "total": 10,
+        "valid": 10,
+        "validity_rate": 1.0
+      },
+      "routing": {
+        "total": 72,
+        "valid": 72,
+        "validity_rate": 1.0
+      },
+      "tool_arguments": {
+        "total": 10,
+        "valid": 10,
+        "validity_rate": 1.0
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "intent_cart_001",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_cart_001",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_cart_002",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_cart_002",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_cart_003",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_cart_003",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_cart_004",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_cart_004",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_cart_005",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_cart_005",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_cart_006",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_cart_006",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_escalation_001",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_escalation_001",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_escalation_002",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_escalation_002",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_escalation_003",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_escalation_003",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_escalation_004",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_escalation_004",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_escalation_005",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_escalation_005",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_knowledge_001",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_knowledge_001",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_knowledge_002",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_knowledge_002",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_knowledge_003",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_knowledge_003",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_knowledge_004",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_knowledge_004",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_knowledge_005",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_knowledge_005",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_knowledge_006",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_knowledge_006",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_knowledge_007",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_knowledge_007",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_multistep_001",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_multistep_001",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_multistep_002",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_multistep_002",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_multistep_003",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_multistep_003",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_multistep_004",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_multistep_004",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_orders_001",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_orders_001",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_orders_002",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_orders_002",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_orders_003",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_orders_003",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_orders_004",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_orders_004",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_orders_005",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_orders_005",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_orders_006",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_orders_006",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_orders_007",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_orders_007",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_orders_008",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_orders_008",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_products_001",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_products_001",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_products_002",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_products_002",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_products_003",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_products_003",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_products_004",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_products_004",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_products_005",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_products_005",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_products_006",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_products_006",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_products_007",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_products_007",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_products_008",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_products_008",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_stock_001",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_stock_001",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_stock_002",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_stock_002",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_stock_003",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_stock_003",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_stock_004",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_stock_004",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_stock_005",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_stock_005",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_001",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_001",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_002",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_002",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_003",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_003",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_004",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_004",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_005",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_005",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_006",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_006",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_007",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_007",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_008",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_008",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_009",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_009",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_010",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_010",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_011",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_011",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_012",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_012",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_013",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_013",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_014",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_014",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_015",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_015",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_016",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_016",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_017",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_017",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_018",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_018",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_019",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_019",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_020",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_020",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_021",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_021",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_022",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_022",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_023",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_023",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_024",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_024",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_025",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_025",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_026",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_026",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_027",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_027",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_intent_028",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "routing_intent_028",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "filters_ps_001",
+      "schema": "filters",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "filters_ps_002",
+      "schema": "filters",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "filters_ps_003",
+      "schema": "filters",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "filters_ps_004",
+      "schema": "filters",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "filters_ps_005",
+      "schema": "filters",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "filters_ps_006",
+      "schema": "filters",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "filters_ps_007",
+      "schema": "filters",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "filters_ps_008",
+      "schema": "filters",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "filters_ps_009",
+      "schema": "filters",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "filters_ps_010",
+      "schema": "filters",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "tool_arguments_check_stock",
+      "schema": "tool_arguments",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "tool_arguments_check_order_status",
+      "schema": "tool_arguments",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "tool_arguments_search_products",
+      "schema": "tool_arguments",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "tool_arguments_cancel_customer_order",
+      "schema": "tool_arguments",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "tool_arguments_update_shipping_address",
+      "schema": "tool_arguments",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "tool_arguments_add_product_to_cart",
+      "schema": "tool_arguments",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "tool_arguments_view_shopping_cart",
+      "schema": "tool_arguments",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "tool_arguments_clear_shopping_cart",
+      "schema": "tool_arguments",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "tool_arguments_search_knowledge_base",
+      "schema": "tool_arguments",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "tool_arguments_escalate_to_human",
+      "schema": "tool_arguments",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "policy_decision_check_stock",
+      "schema": "policy_decision",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "policy_decision_check_order_status",
+      "schema": "policy_decision",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "policy_decision_search_products",
+      "schema": "policy_decision",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "policy_decision_cancel_customer_order",
+      "schema": "policy_decision",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "policy_decision_update_shipping_address",
+      "schema": "policy_decision",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "policy_decision_add_product_to_cart",
+      "schema": "policy_decision",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "policy_decision_view_shopping_cart",
+      "schema": "policy_decision",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "policy_decision_clear_shopping_cart",
+      "schema": "policy_decision",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "policy_decision_search_knowledge_base",
+      "schema": "policy_decision",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "policy_decision_escalate_to_human",
+      "schema": "policy_decision",
+      "valid": true,
+      "attempts": 1,
+      "repaired": false,
+      "errors": []
+    },
+    {
+      "id": "intent_retry_wrapped_json",
+      "schema": "intent",
+      "valid": true,
+      "attempts": 2,
+      "repaired": true,
+      "errors": []
+    },
+    {
+      "id": "routing_retry_wrapped_json",
+      "schema": "routing",
+      "valid": true,
+      "attempts": 2,
+      "repaired": true,
+      "errors": []
+    }
+  ]
+}

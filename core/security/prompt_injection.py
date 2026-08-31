@@ -327,6 +327,14 @@ def _validate_escalation(args: dict[str, Any]) -> ToolValidationResult:
     priority = str(args.get("priority", "Normal")).strip().lower()
     if priority not in {"low", "normal", "high", "urgent"}:
         return ToolValidationResult(False, "priority must be Low, Normal, High, or Urgent")
+    if "summarized_context" in args:
+        summary_result = _require_text(args, "summarized_context", min_length=0, max_length=1000)
+        if not summary_result.allowed:
+            return summary_result
+    if "escalation_type" in args:
+        type_result = _require_text(args, "escalation_type", min_length=0, max_length=80)
+        if not type_result.allowed:
+            return type_result
     return ToolValidationResult(True, "allowed")
 
 

@@ -1,0 +1,239 @@
+{
+  "name": "hallucination_report_v1",
+  "created_at": "2026-08-31T11:00:19.297989",
+  "dataset": "D:\\AI-Agent Arch Prot\\evaluation\\datasets\\hallucination.jsonl",
+  "summary": {
+    "total_cases": 11,
+    "target_cases": 7,
+    "target_claims": 5,
+    "expected_detector_matches": 11,
+    "expected_detector_match_rate": 1.0,
+    "unsupported_claims": 0,
+    "unsupported_claim_rate": 0.0,
+    "unsupported_critical_claims": 0,
+    "abstentions": 4,
+    "targets": {
+      "unsupported_claim_rate": 0.01,
+      "unsupported_critical_claims": 0
+    },
+    "target_pass": {
+      "unsupported_claim_rate": true,
+      "unsupported_critical_claims": true
+    }
+  },
+  "results": [
+    {
+      "id": "db_price_supported",
+      "response": "Nike Air Max Shoes costs Rp1,200,000 and has 50 units in stock.",
+      "expected_unsupported_critical": 0,
+      "unsupported_claim_count": 0,
+      "unsupported_critical_claim_count": 0,
+      "unsupported_claim_rate": 0.0,
+      "should_abstain": false,
+      "expected_match": true,
+      "critical_target_pass": true,
+      "claims": [
+        {
+          "text": "Nike Air Max Shoes costs Rp1,200,000 and has 50 units in stock.",
+          "source": "database_fact",
+          "critical": true,
+          "supported": true,
+          "reason": "Claim has sufficient lexical support in evidence.",
+          "evidence_type": "database"
+        }
+      ]
+    },
+    {
+      "id": "db_price_unsupported",
+      "response": "Nike Air Max Shoes costs Rp999,000 and has 50 units in stock.",
+      "expected_unsupported_critical": 1,
+      "unsupported_claim_count": 1,
+      "unsupported_critical_claim_count": 1,
+      "unsupported_claim_rate": 1.0,
+      "should_abstain": true,
+      "expected_match": true,
+      "critical_target_pass": false,
+      "claims": [
+        {
+          "text": "Nike Air Max Shoes costs Rp999,000 and has 50 units in stock.",
+          "source": "database_fact",
+          "critical": true,
+          "supported": false,
+          "reason": "Business number(s) not found in evidence: 999000.",
+          "evidence_type": "database"
+        }
+      ]
+    },
+    {
+      "id": "order_status_supported",
+      "response": "Order ORD001 status is Processing and the total is Rp350,000.",
+      "expected_unsupported_critical": 0,
+      "unsupported_claim_count": 0,
+      "unsupported_critical_claim_count": 0,
+      "unsupported_claim_rate": 0.0,
+      "should_abstain": false,
+      "expected_match": true,
+      "critical_target_pass": true,
+      "claims": [
+        {
+          "text": "Order ORD001 status is Processing and the total is Rp350,000.",
+          "source": "database_fact",
+          "critical": true,
+          "supported": true,
+          "reason": "All critical anchor terms were found in evidence.",
+          "evidence_type": "database"
+        }
+      ]
+    },
+    {
+      "id": "order_status_unsupported",
+      "response": "Order ORD001 status is Shipped and the total is Rp350,000.",
+      "expected_unsupported_critical": 1,
+      "unsupported_claim_count": 1,
+      "unsupported_critical_claim_count": 1,
+      "unsupported_claim_rate": 1.0,
+      "should_abstain": true,
+      "expected_match": true,
+      "critical_target_pass": false,
+      "claims": [
+        {
+          "text": "Order ORD001 status is Shipped and the total is Rp350,000.",
+          "source": "database_fact",
+          "critical": true,
+          "supported": false,
+          "reason": "Status value was not found in evidence: shipped.",
+          "evidence_type": "database"
+        }
+      ]
+    },
+    {
+      "id": "rag_refund_supported",
+      "response": "Refund processing takes 3-5 business days after approval [C1].",
+      "expected_unsupported_critical": 0,
+      "unsupported_claim_count": 0,
+      "unsupported_critical_claim_count": 0,
+      "unsupported_claim_rate": 0.0,
+      "should_abstain": false,
+      "expected_match": true,
+      "critical_target_pass": true,
+      "claims": [
+        {
+          "text": "Refund processing takes 3-5 business days after approval [C1].",
+          "source": "rag_fact",
+          "critical": true,
+          "supported": true,
+          "reason": "All critical anchor terms were found in evidence.",
+          "evidence_type": "rag"
+        }
+      ]
+    },
+    {
+      "id": "rag_refund_unsupported",
+      "response": "Refund processing takes 24 hours after approval [C1].",
+      "expected_unsupported_critical": 1,
+      "unsupported_claim_count": 1,
+      "unsupported_critical_claim_count": 1,
+      "unsupported_claim_rate": 1.0,
+      "should_abstain": true,
+      "expected_match": true,
+      "critical_target_pass": false,
+      "claims": [
+        {
+          "text": "Refund processing takes 24 hours after approval [C1].",
+          "source": "rag_fact",
+          "critical": true,
+          "supported": false,
+          "reason": "Business number(s) not found in evidence: 24.",
+          "evidence_type": "rag"
+        }
+      ]
+    },
+    {
+      "id": "rag_abstain_supported",
+      "response": "I don't have enough authorized, fresh evidence to answer that from the knowledge base.",
+      "expected_unsupported_critical": 0,
+      "unsupported_claim_count": 0,
+      "unsupported_critical_claim_count": 0,
+      "unsupported_claim_rate": 0.0,
+      "should_abstain": false,
+      "expected_match": true,
+      "critical_target_pass": true,
+      "claims": []
+    },
+    {
+      "id": "generated_prose_allowed",
+      "response": "Sure, I can help with that. Could you share the order ID?",
+      "expected_unsupported_critical": 0,
+      "unsupported_claim_count": 0,
+      "unsupported_critical_claim_count": 0,
+      "unsupported_claim_rate": 0.0,
+      "should_abstain": false,
+      "expected_match": true,
+      "critical_target_pass": true,
+      "claims": []
+    },
+    {
+      "id": "cart_supported",
+      "response": "Python Programming Book x1 was added to your cart for Rp95,000.",
+      "expected_unsupported_critical": 0,
+      "unsupported_claim_count": 0,
+      "unsupported_critical_claim_count": 0,
+      "unsupported_claim_rate": 0.0,
+      "should_abstain": false,
+      "expected_match": true,
+      "critical_target_pass": true,
+      "claims": [
+        {
+          "text": "Python Programming Book x1 was added to your cart for Rp95,000.",
+          "source": "database_fact",
+          "critical": true,
+          "supported": true,
+          "reason": "All critical anchor terms were found in evidence.",
+          "evidence_type": "database"
+        }
+      ]
+    },
+    {
+      "id": "cart_unsupported",
+      "response": "Python Programming Book x2 was added to your cart for Rp190,000.",
+      "expected_unsupported_critical": 1,
+      "unsupported_claim_count": 1,
+      "unsupported_critical_claim_count": 1,
+      "unsupported_claim_rate": 1.0,
+      "should_abstain": true,
+      "expected_match": true,
+      "critical_target_pass": false,
+      "claims": [
+        {
+          "text": "Python Programming Book x2 was added to your cart for Rp190,000.",
+          "source": "database_fact",
+          "critical": true,
+          "supported": false,
+          "reason": "Business number(s) not found in evidence: 190000.",
+          "evidence_type": "database"
+        }
+      ]
+    },
+    {
+      "id": "support_ticket_supported",
+      "response": "Support ticket #TICKET-123 created successfully (Priority: High, Type: payment_dispute).",
+      "expected_unsupported_critical": 0,
+      "unsupported_claim_count": 0,
+      "unsupported_critical_claim_count": 0,
+      "unsupported_claim_rate": 0.0,
+      "should_abstain": false,
+      "expected_match": true,
+      "critical_target_pass": true,
+      "claims": [
+        {
+          "text": "Support ticket #TICKET-123 created successfully (Priority: High, Type: payment_dispute).",
+          "source": "database_fact",
+          "critical": true,
+          "supported": true,
+          "reason": "The claim sentence appears in evidence.",
+          "evidence_type": "database"
+        }
+      ]
+    }
+  ]
+}

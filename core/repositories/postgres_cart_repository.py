@@ -58,6 +58,54 @@ class PostgresCartRepository:
                 (cart["id"], product_id, quantity, product["price"]),
             )
 
+    def add_item_transactional(self, session_id: str, product_id: str, quantity: int, user_id: str | None = None):
+        with get_postgres_connection() as conn:
+            with conn.transaction():
+                cart = self._get_or_create_cart(conn, session_id, user_id)
+                existing = conn.execute(
+                    """
+                    SELECT id, quantity
+                    FROM shopping_cart_items
+                    WHERE shopping_cart_id = %s
+                      AND product_id = %s
+                    FOR UPDATE
+                    """,
+                    (cart["id"], product_id),
+                ).fetchone()
+                product = conn.execute(
+                    "SELECT name, base_price AS price FROM products WHERE id = %s FOR SHARE",
+                    (product_id,),
+                ).fetchone()
+                old_quantity = existing["quantity"] if existing else 0
+                if existing:
+                    new_quantity = old_quantity + quantity
+                    conn.execute(
+                        """
+                        UPDATE shopping_cart_items
+                        SET quantity = %s,
+                            updated_at = now()
+                        WHERE id = %s
+                        """,
+                        (new_quantity, existing["id"]),
+                    )
+                else:
+                    new_quantity = quantity
+                    conn.execute(
+                        """
+                        INSERT INTO shopping_cart_items (
+                            shopping_cart_id, product_id, quantity, unit_price, currency
+                        )
+                        VALUES (%s, %s, %s, %s, 'IDR')
+                        """,
+                        (cart["id"], product_id, quantity, product["price"]),
+                    )
+                return {
+                    "old_quantity": old_quantity,
+                    "new_quantity": new_quantity,
+                    "product_name": product["name"],
+                    "unit_price": product["price"],
+                }
+
     def list_cart_items(self, session_id: str, user_id: str | None = None):
         with get_postgres_connection() as conn:
             return conn.execute(
@@ -94,6 +142,37 @@ class PostgresCartRepository:
                 (user_id, user_id, user_id, session_id),
             )
             return result.rowcount or 0
+
+    def clear_cart_transactional(self, session_id: str, user_id: str | None = None):
+        with get_postgres_connection() as conn:
+            with conn.transaction():
+                rows = conn.execute(
+                    """
+                    SELECT p.name, sci.quantity
+                    FROM shopping_cart_items sci
+                    JOIN shopping_carts sc ON sc.id = sci.shopping_cart_id
+                    JOIN products p ON p.id = sci.product_id
+                    WHERE (
+                        (%s::uuid IS NOT NULL AND sc.user_id = %s::uuid)
+                        OR (%s::uuid IS NULL AND sc.session_id = %s)
+                    )
+                    FOR UPDATE OF sci
+                    """,
+                    (user_id, user_id, user_id, session_id),
+                ).fetchall()
+                result = conn.execute(
+                    """
+                    DELETE FROM shopping_cart_items sci
+                    USING shopping_carts sc
+                    WHERE sc.id = sci.shopping_cart_id
+                      AND (
+                          (%s::uuid IS NOT NULL AND sc.user_id = %s::uuid)
+                          OR (%s::uuid IS NULL AND sc.session_id = %s)
+                      )
+                    """,
+                    (user_id, user_id, user_id, session_id),
+                )
+                return {"deleted": result.rowcount or 0, "items": rows}
 
     def _get_or_create_cart(self, conn, session_id: str, user_id: str | None = None):
         if user_id:

@@ -140,16 +140,31 @@ def search_knowledge_base(query: str) -> str:
 
 
 @tool
-def escalate_to_human(customer_message: str, reason: str = "", priority: str = "Normal") -> str:
+def escalate_to_human(
+    customer_message: str,
+    reason: str = "",
+    priority: str = "Normal",
+    summarized_context: str = "",
+    escalation_type: str = "",
+) -> str:
     """Use this when the user's issue cannot be resolved by the AI, when the user explicitly asks to speak to a human, or when the user is very frustrated/angry.
     Input:
     - customer_message: the original message or complaint from the user
-    - reason: brief summary of why escalation is needed (written by the AI agent)
-    - priority: 'Low', 'Normal', 'High', or 'Urgent'"""
+    - reason: brief reason why escalation is needed
+    - priority: 'Low', 'Normal', 'High', or 'Urgent'
+    - summarized_context: concise context summary for the human support agent
+    - escalation_type: category such as fraud, legal_complaint, payment_dispute, high_value_refund, repeated_failure, low_confidence, or human_requested"""
     denied = _tool_authorized("escalate_to_human")
     if denied:
         return denied
-    return support_service.create_support_ticket(customer_message, reason, priority)
+    return support_service.create_support_ticket(
+        customer_message,
+        agent_summary=summarized_context or reason,
+        priority=priority,
+        escalation_type=escalation_type,
+        escalation_reason=reason,
+        summarized_context=summarized_context,
+    )
 
 
 tools = [

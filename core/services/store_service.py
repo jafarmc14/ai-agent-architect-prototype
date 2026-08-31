@@ -17,20 +17,35 @@ class StoreService:
     def check_order_status(self, order_id: str) -> str:
         return order_service.check_order_status(order_id)
 
-    def cancel_order(self, order_id: str) -> str:
-        return order_service.cancel_order(order_id)
+    def cancel_order(self, order_id: str, confirmed: bool = False, idempotency_key: str = "", request_id: str = "") -> str:
+        return order_service.cancel_order(order_id, confirmed, idempotency_key, request_id)
 
-    def update_order_address(self, order_id: str, new_address: str) -> str:
-        return order_service.update_order_address(order_id, new_address)
+    def update_order_address(
+        self,
+        order_id: str,
+        new_address: str,
+        confirmed: bool = False,
+        idempotency_key: str = "",
+        request_id: str = "",
+    ) -> str:
+        return order_service.update_order_address(order_id, new_address, confirmed, idempotency_key, request_id)
 
-    def add_to_cart(self, product_name: str, quantity: int = 1, session_id: str = "default") -> str:
-        return cart_service.add_to_cart(product_name, quantity, session_id)
+    def add_to_cart(
+        self,
+        product_name: str,
+        quantity: int = 1,
+        session_id: str = "default",
+        confirmed: bool = False,
+        idempotency_key: str = "",
+        request_id: str = "",
+    ) -> str:
+        return cart_service.add_to_cart(product_name, quantity, session_id, confirmed, idempotency_key, request_id)
 
     def view_cart(self, session_id: str = "default") -> str:
         return cart_service.view_cart(session_id)
 
-    def clear_cart(self, session_id: str = "default") -> str:
-        return cart_service.clear_cart(session_id)
+    def clear_cart(self, session_id: str = "default", confirmed: bool = False, idempotency_key: str = "", request_id: str = "") -> str:
+        return cart_service.clear_cart(session_id, confirmed, idempotency_key, request_id)
 
     def search_knowledge_base(self, query: str) -> str:
         return knowledge_service.search_knowledge_base(query)

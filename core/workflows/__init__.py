@@ -8,6 +8,7 @@ from .document_ingestion import (
     DocumentValidation,
     ParsedDocument,
 )
+from .escalation_rules import EscalationDecision, evaluate_escalation, summarize_escalation_context
 from .intent_router import Intent, RouteDecision, classify_intent, route_intent
 from .product_reranker import rerank_products
 from .product_search_query import ProductSearchQuery, extract_product_search_query
@@ -17,6 +18,7 @@ __all__ = [
     "DocumentChunk",
     "DocumentIngestionPipeline",
     "DocumentValidation",
+    "EscalationDecision",
     "ALLOWED_DOCUMENT_EXTENSIONS",
     "APPROVAL_STATUSES",
     "INDEXABLE_APPROVAL_STATUSES",
@@ -30,8 +32,10 @@ __all__ = [
     "TRUST_LEVELS",
     "build_rag_context",
     "classify_intent",
+    "evaluate_escalation",
     "extract_product_search_query",
     "rerank_products",
     "rerank_rag_chunks",
     "route_intent",
+    "summarize_escalation_context",
 ]

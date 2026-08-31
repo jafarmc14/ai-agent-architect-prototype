@@ -84,7 +84,7 @@ def test_order_service_minimizes_pii_in_customer_responses():
     assert "Jl. Melati" not in status_response
     assert "saved on order" in status_response
     assert "Jl. Baru" not in update_response
-    assert "address provided" in update_response
+    assert "currently disabled" in update_response
 
 
 def test_redact_for_logs_handles_nested_structures():

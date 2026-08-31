@@ -82,6 +82,41 @@ class PostgresOrderRepository:
                 (postgres_status, order_id, user_id, user_id),
             )
 
+    def update_order_status_transactional(self, order_id: str, status: str, user_id: str | None = None):
+        postgres_status = STATUS_TO_POSTGRES.get(status, status.lower().replace(" ", "_"))
+        with get_postgres_connection() as conn:
+            with conn.transaction():
+                row = conn.execute(
+                    f"""
+                    SELECT
+                        o.order_number AS id,
+                        {POSTGRES_STATUS_SQL} AS status,
+                        o.shipping_address
+                    FROM orders o
+                    WHERE upper(o.order_number) = upper(%s)
+                      AND (%s::uuid IS NULL OR o.user_id = %s::uuid)
+                    FOR UPDATE
+                    """,
+                    (order_id, user_id, user_id),
+                ).fetchone()
+                if not row:
+                    return None
+                if status == "Cancelled" and row["status"] not in ("Processing", "Awaiting Payment"):
+                    blocked = dict(row)
+                    blocked["blocked"] = True
+                    return blocked
+                conn.execute(
+                    """
+                    UPDATE orders
+                    SET status = %s::order_status,
+                        updated_at = now()
+                    WHERE upper(order_number) = upper(%s)
+                      AND (%s::uuid IS NULL OR user_id = %s::uuid)
+                    """,
+                    (postgres_status, order_id, user_id, user_id),
+                )
+                return row
+
     def update_order_shipping_address(self, order_id: str, new_address: str, user_id: str | None = None) -> None:
         with get_postgres_connection() as conn:
             conn.execute(
@@ -94,3 +129,37 @@ class PostgresOrderRepository:
                 """,
                 (new_address, order_id, user_id, user_id),
             )
+
+    def update_order_shipping_address_transactional(self, order_id: str, new_address: str, user_id: str | None = None):
+        with get_postgres_connection() as conn:
+            with conn.transaction():
+                row = conn.execute(
+                    f"""
+                    SELECT
+                        o.order_number AS id,
+                        {POSTGRES_STATUS_SQL} AS status,
+                        o.shipping_address
+                    FROM orders o
+                    WHERE upper(o.order_number) = upper(%s)
+                      AND (%s::uuid IS NULL OR o.user_id = %s::uuid)
+                    FOR UPDATE
+                    """,
+                    (order_id, user_id, user_id),
+                ).fetchone()
+                if not row:
+                    return None
+                if row["status"] in ("Shipped", "Completed", "Cancelled"):
+                    blocked = dict(row)
+                    blocked["blocked"] = True
+                    return blocked
+                conn.execute(
+                    """
+                    UPDATE orders
+                    SET shipping_address = %s,
+                        updated_at = now()
+                    WHERE upper(order_number) = upper(%s)
+                      AND (%s::uuid IS NULL OR user_id = %s::uuid)
+                    """,
+                    (new_address, order_id, user_id, user_id),
+                )
+                return row

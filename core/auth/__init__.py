@@ -1,5 +1,6 @@
 from .jwt import create_session_token, verify_session_token
 from .rbac import (
+    AuthorizationResult,
     Role,
     authorize_tool,
     authorize_workflow,
@@ -13,6 +14,7 @@ from .request_context import AuthenticatedUser, RequestContext, anonymous_contex
 
 __all__ = [
     "AuthenticatedUser",
+    "AuthorizationResult",
     "RequestContext",
     "Role",
     "anonymous_context",

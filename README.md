@@ -28,6 +28,7 @@ This system is a web-based chat interface powered by an AI model that supports s
 | 9 | **Response Generation** | Deliver polite, professional responses aligned with store customer service standards. |
 | 10 | **PII & Privacy Controls** | Inventory sensitive data, minimize customer-facing order output, redact PII before external LLM calls, and filter sensitive evaluation logs. |
 | 11 | **Prompt Injection Defense** | Detect prompt-injection attempts, treat retrieved content as untrusted data, isolate system instructions, expose only workflow-relevant tools, and validate tool proposals before execution. |
+| 12 | **Conversation State** | Store conversation turns in PostgreSQL and keep compact structured state for multi-turn continuity without depending on full natural-language history. |
 
 ---
 
@@ -68,6 +69,12 @@ Agent Runtime (`core/orchestration/runtime.py`)
   |      +--> OpenRouterProvider
   |      +--> OllamaProvider
   |      +--> PII redaction before external LLM payloads
+  |
+  +--> Conversation State (`core/services/conversation_service.py`)
+  |      |
+  |      +--> stores user/assistant turns in `messages`
+  |      +--> stores compact state in `conversations.structured_state`
+  |      +--> sends only structured state + recent bounded messages to the LLM
   |
   v
 10 AI Tools (`core/tools/store_tools.py`)
@@ -128,6 +135,8 @@ Database Provider (`DATABASE_PROVIDER=postgres` or `sqlite`)
 ```
 
 Language policy: service and repository outputs remain internal/canonical. The LLM is responsible for translating and rewriting final responses in the same language used by the customer.
+
+Conversation policy: the runtime stores full transcript rows for auditability, but the agent prompt uses compact structured state plus a bounded recent-message window. Product constraints, order context, language, recent tools, and active workflow are tracked separately from natural-language chat history.
 
 ### Product Search Foundation
 
@@ -472,6 +481,11 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `core/auth/rbac.py` | **Authorization and RBAC policy.** Defines roles, tool permissions, workflow permissions, ownership filters, and knowledge access mapping. |
 | `core/privacy/pii.py` | **PII and privacy utilities.** Defines PII inventory, redaction patterns, leak detection, LLM payload redaction, and sensitive log filtering helpers. |
 | `core/security/prompt_injection.py` | **Prompt injection defense utilities.** Defines threat model, injection detection, security instructions, dynamic tool exposure, tool-call validation, and untrusted data wrappers. |
+| `core/hallucination/claim_control.py` | **Hallucination control.** Classifies factual claims as database facts, RAG facts, or generated prose, then checks critical business claims against tool/database output or RAG evidence. |
+| `core/services/write_action_service.py` | **Controlled write-action service.** Manages explicit confirmation, idempotency keys, and audit logging for mutations. |
+| `core/structured_outputs/schemas.py` | **Structured output schemas.** Defines Pydantic/JSON Schema contracts for intent, filters, routing, tool arguments, and policy decisions. |
+| `core/structured_outputs/validator.py` | **Structured output validator.** Validates payloads against Pydantic schemas and performs controlled retry/repair for wrapped JSON output. |
+| `core/structured_outputs/adapters.py` | **Structured output adapters.** Converts deterministic internal decisions into validated structured outputs. |
 | `configs/settings.py` | **Centralized environment-specific configuration.** Loads shared `.env` plus optional `.env.<environment>` overrides selected by `APP_ENV`. |
 | `core/orchestration/runtime.py` | **Orchestrator runtime.** Initializes the LLM through `LLMGateway`, binds tools, manages chat history, and runs the multi-step tool-calling loop. |
 | `core/tools/store_tools.py` | **Agent tools.** Defines all 10 LangChain tools as thin adapters into the service layer. |
@@ -490,6 +504,7 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `core/repositories/user_repository.py` | **User repository.** Loads demo customer identities used by Streamlit session authentication. |
 | `core/prompts/system.py` | **System prompt.** Defines Ubichinon's identity, tone, capabilities, and tool-use rules. |
 | `core/workflows/intent_router.py` | **Explicit intent router.** Classifies requests and chooses direct workflow vs full agent loop. |
+| `core/workflows/escalation_rules.py` | **Human escalation rules.** Detects fraud, legal complaints, payment disputes, high-value refunds, repeated failures, low confidence, and explicit human requests. |
 | `core/workflows/document_ingestion.py` | **Secure document ingestion pipeline.** Validates file type/size, scans suspicious content, enforces approval status, then parses, cleans, chunks, embeds, and stores approved knowledge documents for RAG. |
 | `core/workflows/rag_retrieval.py` | **RAG retrieval pipeline.** Applies trust-aware reranking, evidence gating, citation building, and abstain behavior. |
 | `core/workflows/` | **Workflow package.** Contains product search extraction/reranking, document ingestion, and RAG retrieval workflows. |
@@ -508,6 +523,8 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `evaluation/datasets/baseline/*.jsonl` | **Baseline evaluation dataset.** Contains 41 JSONL test cases converted from manual prompts and additional baseline variants. |
 | `evaluation/datasets/product_search.jsonl` | **Product search evaluation dataset.** Defines relevant products, graded relevance, and hard constraints for retrieval/ranking metrics. |
 | `evaluation/datasets/rag.jsonl` | **RAG evaluation dataset.** Defines relevant policy documents, required terms, and abstention cases. |
+| `evaluation/datasets/hallucination.jsonl` | **Hallucination evaluation dataset.** Covers supported and unsupported database/RAG factual claims. |
+| `evaluation/datasets/conversation_state.jsonl` | **Multi-turn evaluation dataset.** Covers context retention, product constraint retention, and cross-turn factual consistency. |
 | `evaluation/datasets/intent.jsonl` | **Intent router evaluation dataset.** Covers the explicit taxonomy used by the runtime router. |
 | `evaluation/datasets/security/adversarial.jsonl` | **Adversarial security dataset.** Contains expanded security cases for injection, authorization, PII, tool abuse, exfiltration, RAG poisoning, and catalog poisoning. |
 | `evaluation/generate_security_dataset.py` | **Security dataset generator.** Builds deterministic adversarial datasets at 100-500 case scale. |
@@ -518,8 +535,16 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `evaluation/run_authorization_evaluation.py` | **Authorization evaluation runner.** Verifies cross-user order access and reports unauthorized successes. |
 | `evaluation/run_pii_leakage_evaluation.py` | **PII leakage evaluation runner.** Verifies redaction/minimization surfaces and targets zero unintended PII exposure. |
 | `evaluation/run_security_evaluation.py` | **Security evaluation runner.** Measures deployment-blocking security targets across the adversarial dataset. |
+| `evaluation/run_structured_output_evaluation.py` | **Structured output evaluation runner.** Measures schema validity for internal structured tasks and controlled invalid-output repair. |
+| `evaluation/run_hallucination_evaluation.py` | **Hallucination evaluation runner.** Measures unsupported claim rate and critical business factual grounding. |
+| `evaluation/run_multiturn_evaluation.py` | **Multi-turn evaluation runner.** Measures context retention, constraint retention, and cross-turn factual consistency. |
 | `evaluation/test_privacy_redaction.py` | **Privacy regression tests.** Checks redaction helpers, external LLM message redaction, nested log filtering, and order response minimization. |
 | `evaluation/test_prompt_injection_defense.py` | **Prompt injection defense tests.** Checks threat-model coverage, detection, dynamic tool exposure, tool schema validation, business-rule validation, and RAG/tool-output data labeling. |
+| `evaluation/test_structured_outputs.py` | **Structured output tests.** Checks schema validation, JSON Schema generation, runtime adapters, and controlled retry behavior. |
+| `evaluation/test_hallucination_control.py` | **Hallucination control tests.** Checks claim classification, evidence support, and abstention behavior. |
+| `evaluation/test_conversation_state.py` | **Conversation state tests.** Checks transcript storage, separate structured state, bounded recent history, and retained product constraints. |
+| `evaluation/test_controlled_write_actions.py` | **Controlled write-action tests.** Checks confirmation gating, idempotency, high-risk write disablement, and audit-log payloads. |
+| `evaluation/test_human_escalation.py` | **Human escalation tests.** Checks escalation rules, priority assignment, summarized context, and support ticket payloads. |
 | `evaluation/reports/baseline_report_latest.json` | **Latest evaluation report.** Generated by the runner and overwritten on each evaluation run. |
 | `evaluation/reports/product_search_report_latest.json` | **Latest product search evaluation report.** Generated by the product search runner and overwritten on each run. |
 | `evaluation/reports/rag_report_latest.json` | **Latest RAG evaluation report.** Generated by the RAG runner and overwritten on each run. |
@@ -527,6 +552,9 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `evaluation/reports/authorization_report_latest.json` | **Latest authorization evaluation report.** Generated by the authorization runner and overwritten on each run. |
 | `evaluation/reports/pii_leakage_report_latest.json` | **Latest PII leakage report.** Generated by the privacy runner and overwritten on each run. |
 | `evaluation/reports/security_report_latest.json` | **Latest security evaluation report.** Generated by the security runner and overwritten on each run. |
+| `evaluation/reports/structured_output_report_latest.json` | **Latest structured output report.** Generated by the structured output runner and overwritten on each run. |
+| `evaluation/reports/hallucination_report_latest.json` | **Latest hallucination report.** Generated by the hallucination runner and overwritten on each run. |
+| `evaluation/reports/multiturn_report_latest.json` | **Latest multi-turn report.** Generated by the multi-turn runner and overwritten on each run. |
 | `database/migrations/postgres/V001__initial_schema.sql` | **PostgreSQL migration V001.** Defines the target PostgreSQL tables for Phase 5 migration. |
 | `database/migrations/postgres/V002__enable_pgvector_document_chunks.sql` | **PostgreSQL migration V002.** Enables pgvector and adds vector storage for document chunks. |
 | `database/migrations/postgres/V003__add_operational_indexes.sql` | **PostgreSQL migration V003.** Adds tenant-aware indexes for SKU, category, user, order, document metadata, and vector search access patterns. |
@@ -536,6 +564,9 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `database/migrations/postgres/V007__add_document_freshness_fields.sql` | **PostgreSQL migration V007.** Adds queryable document freshness fields for RAG retrieval. |
 | `database/migrations/postgres/V008__add_document_approval_status.sql` | **PostgreSQL migration V008.** Adds document approval lifecycle status and indexes it for secure RAG retrieval. |
 | `database/migrations/postgres/V009__seed_demo_users_and_bind_orders.sql` | **PostgreSQL migration V009.** Seeds demo customer users and binds migrated orders to authenticated user identities. |
+| `database/migrations/postgres/V010__add_write_controls_and_audit_logs.sql` | **PostgreSQL migration V010.** Adds idempotency records and audit logs for controlled write actions. |
+| `database/migrations/postgres/V011__upgrade_support_escalations.sql` | **PostgreSQL migration V011.** Adds escalation type, reason, summarized context, and metadata to support tickets. |
+| `database/migrations/postgres/V012__add_conversation_structured_state.sql` | **PostgreSQL migration V012.** Adds structured conversation state and message ordering indexes for multi-turn continuity. |
 | `database/migrations/README.md` | **Migration guide.** Documents naming convention and manual apply flow for versioned migrations. |
 | `database/migrate_sqlite_to_postgres.py` | **Data migration script.** Migrates SQLite data to PostgreSQL in the order: products, inventory, orders, cart, support. |
 | `database/embed_products.py` | **Product embedding script.** Builds semantic product text from relevant fields and stores pgvector embeddings in PostgreSQL. |
@@ -946,6 +977,336 @@ Reports are saved to:
 
 ```text
 evaluation/reports/security_report_latest.json
+```
+
+### Structured Outputs
+
+Internal structured tasks are represented with Pydantic models and JSON Schema:
+
+```text
+intent
+filters
+routing
+tool arguments
+policy decision
+```
+
+Schemas live in:
+
+```text
+core/structured_outputs/schemas.py
+```
+
+The validator accepts Python dictionaries, Pydantic models, or JSON strings. If an output is invalid because the JSON object is wrapped in extra text, the validator performs one controlled repair attempt by extracting the JSON object and validating again.
+
+Runtime usage:
+
+```text
+intent/routing trace
+|
+v
+Pydantic structured output
+|
+v
+schema validation
+
+tool proposal
+|
+v
+tool whitelist + business validation
+|
+v
+ToolArgumentsOutput
+
+product filter extraction
+|
+v
+FilterOutput validation
+```
+
+Run structured output tests:
+
+```bash
+py evaluation/test_structured_outputs.py
+```
+
+Run structured output evaluation:
+
+```bash
+py evaluation/run_structured_output_evaluation.py
+```
+
+Target:
+
+```text
+Schema validity >= 99.9%
+```
+
+Reports are saved to:
+
+```text
+evaluation/reports/structured_output_report_latest.json
+```
+
+### Hallucination Control
+
+The runtime classifies factual claims before returning final answers:
+
+```text
+database facts
+RAG facts
+generated prose
+```
+
+Critical business facts must be grounded:
+
+```text
+stock
+price
+order status
+refund status
+shipping / warranty / payment policy details
+```
+
+Database facts must be supported by tool/database output. RAG facts must be supported by retrieved policy evidence and citations. General prose, such as greetings or clarification questions, is allowed without database evidence.
+
+Runtime flow:
+
+```text
+final response
+|
+v
+claim classifier
+|
+v
+evidence support check
+|
+v
+return answer OR abstain
+```
+
+If a critical business claim is unsupported, the runtime abstains instead of returning a potentially invented answer.
+
+Run hallucination control tests:
+
+```bash
+py evaluation/test_hallucination_control.py
+```
+
+Run hallucination evaluation:
+
+```bash
+py evaluation/run_hallucination_evaluation.py
+```
+
+Targets:
+
+```text
+Unsupported factual claims < 1%
+Critical business unsupported factual claims = 0
+```
+
+Reports are saved to:
+
+```text
+evaluation/reports/hallucination_report_latest.json
+```
+
+### Controlled Write Actions
+
+Write tools now use an explicit confirmation flow before mutations are executed.
+
+Currently active controlled writes:
+
+```text
+add_product_to_cart
+clear_shopping_cart
+```
+
+High-risk order mutations are implemented behind a feature flag and disabled by default:
+
+```text
+cancel_customer_order
+update_shipping_address
+```
+
+Default config:
+
+```bash
+HIGH_RISK_WRITE_ACTIONS_ENABLED=false
+```
+
+Chat flow:
+
+```text
+User asks for a write action
+|
+v
+tool validates product/order/business state
+|
+v
+agent asks for explicit confirmation
+|
+v
+user replies: confirm <confirmation_id>
+|
+v
+mutation executes once with idempotency key
+|
+v
+audit log records who/what/when/resource/old/new/request_id
+```
+
+Idempotency keys prevent duplicate mutations when a confirmed action is retried. PostgreSQL stores idempotency records and audit logs in:
+
+```text
+write_idempotency_keys
+audit_logs
+```
+
+Apply the latest PostgreSQL migration if the database has not been updated yet:
+
+```bash
+py database/migrate_sqlite_to_postgres.py --apply-schema
+```
+
+Run controlled write tests:
+
+```bash
+py evaluation/test_controlled_write_actions.py
+```
+
+### Human Escalation
+
+Escalation is upgraded from a basic ticket tool into a controlled support workflow.
+
+The escalation tool now captures:
+
+```text
+priority
+escalation_type
+escalation_reason
+summarized_context
+customer_message
+```
+
+Automatic escalation rules trigger on:
+
+```text
+fraud
+legal complaint
+payment dispute
+high-value refund
+repeated failure
+low confidence
+human requested
+```
+
+Priority mapping:
+
+```text
+Urgent: fraud, legal complaint
+High: payment dispute, high-value refund, repeated failure
+Normal: low confidence, human requested
+```
+
+Runtime flow:
+
+```text
+user message
+|
+v
+intent/router + escalation rules
+|
+v
+automatic support ticket when escalation is required
+|
+v
+ticket stores summarized context and escalation metadata
+```
+
+PostgreSQL support tickets include escalation metadata after migration V011:
+
+```text
+escalation_type
+escalation_reason
+summarized_context
+metadata
+```
+
+Run human escalation tests:
+
+```bash
+py evaluation/test_human_escalation.py
+```
+
+### Conversation State
+
+Conversation turns are persisted in PostgreSQL while operational memory is stored separately as structured state.
+
+Database storage:
+
+```text
+conversations
+messages
+```
+
+Structured state is stored in:
+
+```text
+conversations.structured_state
+```
+
+The state tracks compact continuity data such as:
+
+```text
+last_order_id
+last_user_language
+active_intent
+last_product_filters
+last_tool_calls
+last_workflow
+```
+
+Runtime flow:
+
+```text
+new user message
+|
+v
+load compact structured state
+|
+v
+load bounded recent messages only
+|
+v
+execute router/workflow/agent
+|
+v
+store user + assistant messages
+|
+v
+merge updated structured state
+```
+
+This keeps multi-turn behavior stable without depending on the full natural-language transcript. For product conversations, follow-up turns merge constraints instead of dropping earlier filters such as category, size, color, price, availability, and soft preferences.
+
+Run conversation state tests:
+
+```bash
+py evaluation/test_conversation_state.py
+```
+
+Run multi-turn evaluation:
+
+```bash
+py evaluation/run_multiturn_evaluation.py
+```
+
+The latest report is saved to:
+
+```text
+evaluation/reports/multiturn_report_latest.json
 ```
 
 ### Switching LLM Providers

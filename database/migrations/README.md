@@ -48,6 +48,9 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V006__add_product_keyword_s
 psql "$DATABASE_URL" -f database/migrations/postgres/V007__add_document_freshness_fields.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V008__add_document_approval_status.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V009__seed_demo_users_and_bind_orders.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V010__add_write_controls_and_audit_logs.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V011__upgrade_support_escalations.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V012__add_conversation_structured_state.sql
 ```
 
 `V001__initial_schema.sql` creates a `schema_migrations` table and records itself after successful execution. Later migrations should insert their own version into `schema_migrations` at the end of the file.
@@ -65,6 +68,12 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V009__seed_demo_users_and_b
 `V008__add_document_approval_status.sql` adds the document approval lifecycle column used by secure knowledge ingestion: `uploaded`, `reviewed`, `approved`, and `indexed`.
 
 `V009__seed_demo_users_and_bind_orders.sql` creates demo customer identities from migrated orders and binds `orders.user_id` for authenticated request-context filtering.
+
+`V010__add_write_controls_and_audit_logs.sql` adds idempotency records and audit logs for controlled write actions.
+
+`V011__upgrade_support_escalations.sql` adds escalation metadata to support tickets.
+
+`V012__add_conversation_structured_state.sql` adds compact structured conversation state and message ordering indexes for multi-turn continuity.
 
 ## Vector Storage
 
@@ -98,7 +107,7 @@ product keyword search
 
 ## Current Runtime
 
-The application runtime can use SQLite or PostgreSQL through `DATABASE_PROVIDER`. The current PostgreSQL path is ready for product, order, cart, support, document vector, product embedding, and hybrid product search workflows.
+The application runtime can use SQLite or PostgreSQL through `DATABASE_PROVIDER`. The current PostgreSQL path is ready for product, order, cart, support, conversation state, document vector, product embedding, and hybrid product search workflows.
 
 ## SQLite to PostgreSQL Data Migration
 

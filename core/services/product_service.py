@@ -4,6 +4,7 @@ from configs import get_settings
 from core.embeddings import OpenAICompatibleEmbeddingProvider
 from core.repositories import ProductRepository
 from core.repositories.postgres_product_embedding_repository import PostgresProductEmbeddingRepository
+from core.structured_outputs import FilterOutput
 from core.workflows.product_reranker import rerank_products
 from core.workflows.product_search_query import ProductSearchQuery, extract_product_search_query
 
@@ -87,6 +88,7 @@ class ProductService:
             min_stock=min_stock,
             soft_preferences=soft_preferences,
         )
+        FilterOutput(**structured_query.to_dict())
         filter_category = structured_query.catalog_category or structured_query.category
         semantic_note = ""
         semantic_query_text = self._semantic_query_text(structured_query)
