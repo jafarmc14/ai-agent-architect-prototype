@@ -29,6 +29,8 @@ This system is a web-based chat interface powered by an AI model that supports s
 | 10 | **PII & Privacy Controls** | Inventory sensitive data, minimize customer-facing order output, redact PII before external LLM calls, and filter sensitive evaluation logs. |
 | 11 | **Prompt Injection Defense** | Detect prompt-injection attempts, treat retrieved content as untrusted data, isolate system instructions, expose only workflow-relevant tools, and validate tool proposals before execution. |
 | 12 | **Conversation State** | Store conversation turns in PostgreSQL and keep compact structured state for multi-turn continuity without depending on full natural-language history. |
+| 13 | **Token & Context Optimization** | Account for context by component, enforce per-task budgets, load only task prompts/tools, window conversation history, narrow RAG evidence, cache versioned retrievals, and block unjustified token regressions above 20%. |
+| 14 | **Domain Scope Control** | Route unknown non-store questions to a deterministic bilingual refusal so unsupported general knowledge never reaches the LLM agent loop. |
 
 ---
 
@@ -70,12 +72,29 @@ Agent Runtime (`core/orchestration/runtime.py`)
   |      +--> OpenRouterProvider
   |      +--> OllamaProvider
   |      +--> PII redaction before external LLM payloads
+  |      +--> per-task input budgets and output limits
+  |      +--> component token accounting in `llm_requests`
+  |      +--> provider prompt-cache observability
+  |
+  +--> Context Optimization (`core/optimization/`)
+  |      |
+  |      +--> modular task prompts and dynamic tool schemas
+  |      +--> relevance-windowed conversation context (4-8 messages)
+  |      +--> RAG deduplication/compression (retrieve 20, send 3-5)
+  |      +--> tenant/version-aware embedding, retrieval, and response caches
+  |      +--> deterministic product/order responses before LLM generation
   |
   +--> Conversation State (`core/services/conversation_service.py`)
   |      |
   |      +--> stores user/assistant turns in `messages`
   |      +--> stores compact state in `conversations.structured_state`
   |      +--> sends only structured state + recent bounded messages to the LLM
+  |
+  +--> Observability (`core/observability/service.py`)
+         |
+         +--> correlated request/trace IDs
+         +--> lifecycle and tool-call spans
+         +--> LLM tokens, latency, and cost metadata
   |
   v
 10 AI Tools (`core/tools/store_tools.py`)
@@ -120,6 +139,10 @@ Every job depends on the preceding job. A failed security evaluation is therefor
 
 The quality job compares deterministic candidate reports with [`evaluation/baselines/quality_baseline.json`](evaluation/baselines/quality_baseline.json). It enforces both absolute targets and maximum allowed regression from the pinned baseline. A missing or malformed report also fails the gate. Current key minimums are:
 
+The same job runs token evaluation against [`evaluation/baselines/token_baseline.json`](evaluation/baselines/token_baseline.json). Any task exceeding its context budget fails. A token increase above 20% also fails when there is no measured quality improvement.
+
+When `APP_ENV=development`, the Streamlit sidebar shows safe numeric metrics for the latest request: input/output totals, component breakdown, task budget utilization, LLM/request latency, call count, and provider-reported cost. Deterministic requests explicitly show zero LLM calls. Prompt text, retrieved evidence, tool payloads, and secrets are never displayed in this panel.
+
 | Metric | Minimum |
 |---|---:|
 | Product Precision@5 | 0.90 |
@@ -140,6 +163,51 @@ py evaluation/run_intent_evaluation.py --report-dir ci_quality_reports
 py evaluation/run_structured_output_evaluation.py --report-dir ci_quality_reports
 py evaluation/run_hallucination_evaluation.py --report-dir ci_quality_reports
 py evaluation/run_quality_gate.py --baseline evaluation/baselines/quality_baseline.json --report-dir ci_quality_reports
+```
+
+### Observability Foundation
+
+Every chat request now receives a correlated `request_id` and `trace_id`. The runtime records these lifecycle stages without changing business behavior:
+
+```text
+request -> intent -> retrieval -> tool -> LLM -> validation -> response
+```
+
+PostgreSQL stores request-level data in `request_traces`, individual operations in `trace_spans`, and provider usage in `llm_requests`. Tool spans include the tool name, validated/redacted arguments, status, output preview, and latency. LLM records include provider, model, model version, prompt/completion/total tokens, latency, and cost when reported. Ollama cost is recorded as `0` with source `local`; `openrouter/free` is recorded as `0` with source `free_model`; unknown paid-model cost remains `NULL` instead of being estimated without pricing evidence.
+
+Apply pending schema migrations without re-importing SQLite data:
+
+```powershell
+py database/migrate_sqlite_to_postgres.py --schema-only
+```
+
+Inspect recent request traces in pgAdmin:
+
+```sql
+SELECT request_id, trace_id, status, intent, workflow, latency_ms, started_at
+FROM request_traces
+ORDER BY started_at DESC
+LIMIT 20;
+```
+
+Inspect the full lifecycle for one trace:
+
+```sql
+SELECT stage, name, status, latency_ms, attributes, started_at
+FROM trace_spans
+WHERE trace_id = '<trace-id>'
+ORDER BY started_at;
+```
+
+Inspect correlated LLM usage:
+
+```sql
+SELECT request_id, trace_id, provider, model, model_version,
+       prompt_tokens, completion_tokens, total_tokens,
+       latency_ms, cost_usd, cost_source, created_at
+FROM llm_requests
+ORDER BY created_at DESC
+LIMIT 20;
 ```
 
 ### Runtime Layers
@@ -517,6 +585,8 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `core/llm/model_governance.py` | **Model version governance.** Normalizes provider/model/model_version metadata and marks alias vs pinned model usage. |
 | `core/llm/providers/openrouter_provider.py` | **OpenRouter provider adapter.** Wraps LangChain `ChatOpenAI` configured for OpenRouter and implements the provider contract. |
 | `core/llm/providers/ollama_provider.py` | **Ollama provider adapter.** Wraps Ollama's local OpenAI-compatible API for local development with `LLM_PROVIDER=ollama`. |
+| `core/observability/service.py` | **Observability service.** Correlates request lifecycle spans and exposes request/trace IDs across orchestration, tools, validation, and LLM calls. |
+| `core/repositories/observability_repository.py` | **Observability repository.** Persists request traces and spans to PostgreSQL with an in-memory test fallback. |
 | `core/auth/jwt.py` | **JWT session helper.** Creates and verifies signed HS256 session tokens for authenticated chat sessions. |
 | `core/auth/request_context.py` | **Request context.** Stores authenticated user, tenant, role, and session ID for the current request. |
 | `core/auth/rbac.py` | **Authorization and RBAC policy.** Defines roles, tool permissions, workflow permissions, ownership filters, and knowledge access mapping. |
@@ -588,6 +658,7 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `evaluation/run_multiturn_evaluation.py` | **Multi-turn evaluation runner.** Measures context retention, constraint retention, and cross-turn factual consistency. |
 | `evaluation/run_full_evaluation.py` | **Full evaluation framework runner.** Aggregates deterministic metrics, optional LLM-as-a-Judge subjective scores, and signal-based calibration. |
 | `evaluation/run_regression.py` | **Regression runner.** Runs change-area regression checks for prompt, model, embedding, retrieval, reranker, chunking, tools, business rules, and authorization. |
+| `evaluation/test_observability.py` | **Observability tests.** Verifies trace correlation, lifecycle stages, redaction, and LLM usage/cost capture. |
 | `evaluation/test_privacy_redaction.py` | **Privacy regression tests.** Checks redaction helpers, external LLM message redaction, nested log filtering, and order response minimization. |
 | `evaluation/test_prompt_injection_defense.py` | **Prompt injection defense tests.** Checks threat-model coverage, detection, dynamic tool exposure, tool schema validation, business-rule validation, and RAG/tool-output data labeling. |
 | `evaluation/test_structured_outputs.py` | **Structured output tests.** Checks schema validation, JSON Schema generation, runtime adapters, and controlled retry behavior. |

@@ -1,8 +1,9 @@
 import streamlit as st
 from uuid import uuid4
 
-from agent import configure_llm_provider, get_agent_response, get_llm_config
+from agent import configure_llm_provider, get_agent_response_with_trace, get_llm_config
 from core.auth import create_session_token, verify_session_token
+from core.optimization import summarize_token_trace
 from core.repositories.user_repository import UserRepository
 
 
@@ -24,6 +25,52 @@ def reset_ui_chat() -> None:
     st.session_state.messages = [
         {"role": "assistant", "content": WELCOME_MESSAGE}
     ]
+    st.session_state.last_token_usage = None
+
+
+def render_token_usage(usage: dict | None) -> None:
+    st.header("Token Usage")
+    if not usage:
+        st.caption("No request metrics yet.")
+        return
+
+    st.caption(f"Last request: {usage.get('workflow') or 'unknown workflow'}")
+    if usage["llm_calls"] == 0:
+        st.success("0 LLM calls. The request was handled deterministically.")
+        st.caption(f"Request latency: {usage['request_latency_ms']:,} ms")
+        return
+
+    input_column, output_column = st.columns(2)
+    input_column.metric("Input", f"{usage['input_tokens']:,}")
+    output_column.metric("Output", f"{usage['output_tokens']:,}")
+    st.metric("Total tokens", f"{usage['total_tokens']:,}")
+
+    utilization = usage["context_utilization_ratio"]
+    st.progress(min(utilization, 1.0))
+    st.caption(
+        f"Peak context utilization: {utilization:.1%} | "
+        f"Combined input budget: {usage['input_budget']:,}"
+    )
+    if not usage["within_budget"]:
+        st.error("Token budget exceeded.")
+    elif utilization >= 0.8:
+        st.warning("Context utilization is above 80%.")
+
+    st.caption(
+        f"LLM calls: {usage['llm_calls']} | LLM latency: {usage['llm_latency_ms']:,} ms | "
+        f"Request latency: {usage['request_latency_ms']:,} ms"
+    )
+    if usage["cost_usd"] is not None:
+        st.caption(f"Reported cost: ${usage['cost_usd']:.6f}")
+
+    with st.expander("Token breakdown"):
+        st.caption(f"System prompt: {usage['system_prompt_tokens']:,}")
+        st.caption(f"User: {usage['user_tokens']:,}")
+        st.caption(f"Conversation: {usage['conversation_tokens']:,}")
+        st.caption(f"Retrieval: {usage['retrieval_tokens']:,}")
+        st.caption(f"Tool schemas: {usage['tool_schema_tokens']:,}")
+        if usage["tasks"]:
+            st.caption(f"Tasks: {', '.join(usage['tasks'])}")
 
 
 st.set_page_config(
@@ -49,6 +96,7 @@ active_provider_index = provider_labels.index(active_provider_label)
 if "session_id" not in st.session_state:
     st.session_state.session_id = f"streamlit-{uuid4()}"
 
+token_usage_placeholder = None
 with st.sidebar:
     st.header("LLM Provider")
 
@@ -123,6 +171,11 @@ with st.sidebar:
             st.session_state.auth_token = None
             st.caption("Session token is invalid. Running anonymous session.")
 
+    if current_config["environment"] == "development":
+        token_usage_placeholder = st.empty()
+        with token_usage_placeholder.container():
+            render_token_usage(st.session_state.get("last_token_usage"))
+
 if "messages" not in st.session_state:
     reset_ui_chat()
 
@@ -136,11 +189,20 @@ if prompt := st.chat_input("Type your message here..."):
         st.markdown(prompt)
 
     with st.spinner("Agent is thinking..."):
-        response = get_agent_response(
+        result = get_agent_response_with_trace(
             prompt,
             auth_token=st.session_state.get("auth_token"),
             session_id=st.session_state.session_id,
         )
+        response = result.get("response") or (
+            f"*(System Message)* Sorry, an error occurred while contacting the AI model: {result.get('exception')}"
+        )
+        if current_config["environment"] == "development":
+            st.session_state.last_token_usage = summarize_token_trace(result)
+            if token_usage_placeholder is not None:
+                token_usage_placeholder.empty()
+                with token_usage_placeholder.container():
+                    render_token_usage(st.session_state.last_token_usage)
 
     st.session_state.messages.append({"role": "assistant", "content": response})
     with st.chat_message("assistant"):

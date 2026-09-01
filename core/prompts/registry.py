@@ -1,6 +1,15 @@
 from dataclasses import dataclass
 from typing import Any
 
+from .modules import (
+    BASE_PROMPT_V1,
+    CART_PROMPT_V1,
+    ESCALATION_PROMPT_V1,
+    ORDERS_PROMPT_V1,
+    PRODUCT_PROMPT_V1,
+    RAG_PROMPT_V1,
+)
+
 
 @dataclass(frozen=True)
 class PromptVersion:
@@ -92,6 +101,12 @@ PROMPT_VERSIONS = [
         previous_version="v1",
         notes="Adds prompt-versioning privacy rule.",
     ),
+    PromptVersion("base", "v1", BASE_PROMPT_V1, "2026-09-01T00:00:00", "active", notes="Shared minimal runtime rules."),
+    PromptVersion("product", "v1", PRODUCT_PROMPT_V1, "2026-09-01T00:00:00", "active", notes="Product and catalog tasks."),
+    PromptVersion("rag", "v1", RAG_PROMPT_V1, "2026-09-01T00:00:00", "active", notes="Evidence-grounded policy tasks."),
+    PromptVersion("orders", "v1", ORDERS_PROMPT_V1, "2026-09-01T00:00:00", "active", notes="Order read and mutation tasks."),
+    PromptVersion("cart", "v1", CART_PROMPT_V1, "2026-09-01T00:00:00", "active", notes="Shopping-cart tasks."),
+    PromptVersion("escalation", "v1", ESCALATION_PROMPT_V1, "2026-09-01T00:00:00", "active", notes="Human escalation tasks."),
 ]
 
 

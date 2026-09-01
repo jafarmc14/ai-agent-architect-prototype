@@ -731,3 +731,23 @@ py evaluation/run_quality_gate.py --baseline evaluation/baselines/quality_baseli
 ```
 
 The quality gate fails when a metric drops below its absolute target, regresses beyond its allowed tolerance, or a required report is unavailable. Security evaluation is a hard blocker: critical exposure, unauthorized actions, cross-user access, or PII leakage must remain zero.
+
+## Run Observability Tests
+
+```powershell
+py evaluation/test_observability.py
+```
+
+These tests verify request/trace ID correlation, lifecycle spans, redaction, LLM token and cost capture, provider usage normalization, and linkage between `request_traces`, `trace_spans`, and `llm_requests`.
+
+## Token and Context Evaluation
+
+Run the deterministic Phase 27 accounting and regression gate:
+
+```powershell
+py evaluation/run_token_evaluation.py
+py evaluation/run_token_regression.py
+py evaluation/test_token_optimization.py
+```
+
+The report breaks input into `system_prompt_tokens`, `user_tokens`, `conversation_tokens`, `retrieval_tokens`, and `tool_schema_tokens`. It also records output tokens, context-utilization ratio, budget compliance, and cost per correct answer. The regression gate compares against `evaluation/baselines/token_baseline.json` and fails an increase above 20% unless the candidate has a measured quality gain.

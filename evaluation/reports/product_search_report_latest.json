@@ -1,18 +1,19 @@
 {
   "name": "product_search_report_v1",
-  "created_at": "2026-08-28T16:20:35.315862",
+  "created_at": "2026-09-01T08:55:56.858534",
   "database_provider": "postgres",
   "embedding_model": "nomic-embed-text",
+  "deterministic_only": true,
   "dataset": "D:\\AI-Agent Arch Prot\\evaluation\\datasets\\product_search.jsonl",
   "summary": {
     "total_cases": 10,
     "evaluated_cases": 10,
     "exceptions": 0,
-    "precision_at_5": 0.96,
-    "recall_at_10": 1.0,
-    "ndcg_at_10": 0.9957,
+    "precision_at_5": 0.92,
+    "recall_at_10": 0.96,
+    "ndcg_at_10": 0.9112,
     "hard_constraint_satisfaction": 1.0,
-    "avg_latency_ms": 1338.92,
+    "avg_latency_ms": 50.98,
     "targets": {
       "precision_at_5": 0.9,
       "recall_at_10": 0.95,
@@ -33,10 +34,10 @@
       "query": "Show me all electronics products you have",
       "retrieval_mode": "deterministic",
       "expected_relevant": [
+        "Sony WH-1000 Headphone",
         "Logitech G502 Mouse",
-        "Galaxy Fit Smartwatch",
         "Mechanical RGB Keyboard",
-        "Sony WH-1000 Headphone"
+        "Galaxy Fit Smartwatch"
       ],
       "ranked_products": [
         "Mechanical RGB Keyboard",
@@ -60,7 +61,7 @@
         "category": "Electronics"
       },
       "exception": null,
-      "latency_ms": 272.06
+      "latency_ms": 270.12
     },
     {
       "id": "ps_002",
@@ -86,7 +87,7 @@
         "max_price": 600000
       },
       "exception": null,
-      "latency_ms": 41.66
+      "latency_ms": 26.49
     },
     {
       "id": "ps_003",
@@ -115,23 +116,23 @@
         "max_price": 300000
       },
       "exception": null,
-      "latency_ms": 29.28
+      "latency_ms": 26.81
     },
     {
       "id": "ps_004",
       "query": "Rekomendasikan produk sepatu di bawah Rp 1.300.000",
-      "retrieval_mode": "hybrid_reranked",
+      "retrieval_mode": "deterministic",
       "expected_relevant": [
         "Birkenstock Sandals",
         "Nike Air Max Shoes"
       ],
       "ranked_products": [
-        "Nike Air Max Shoes",
-        "Birkenstock Sandals"
+        "Birkenstock Sandals",
+        "Nike Air Max Shoes"
       ],
       "top5": [
-        "Nike Air Max Shoes",
-        "Birkenstock Sandals"
+        "Birkenstock Sandals",
+        "Nike Air Max Shoes"
       ],
       "candidate_count": 2,
       "result_count": 2,
@@ -144,23 +145,23 @@
         "max_price": 1300000
       },
       "exception": null,
-      "latency_ms": 2200.15
+      "latency_ms": 27.76
     },
     {
       "id": "ps_005",
       "query": "Do you have any beauty items below Rp 500,000?",
-      "retrieval_mode": "hybrid_reranked",
+      "retrieval_mode": "deterministic",
       "expected_relevant": [
         "Premium Skincare Set",
         "Eau de Toilette Perfume"
       ],
       "ranked_products": [
-        "Premium Skincare Set",
-        "Eau de Toilette Perfume"
+        "Eau de Toilette Perfume",
+        "Premium Skincare Set"
       ],
       "top5": [
-        "Premium Skincare Set",
-        "Eau de Toilette Perfume"
+        "Eau de Toilette Perfume",
+        "Premium Skincare Set"
       ],
       "candidate_count": 2,
       "result_count": 2,
@@ -173,7 +174,7 @@
         "max_price": 500000
       },
       "exception": null,
-      "latency_ms": 2153.72
+      "latency_ms": 25.51
     },
     {
       "id": "ps_006",
@@ -200,26 +201,26 @@
         "max_price": 500000
       },
       "exception": null,
-      "latency_ms": 43.76
+      "latency_ms": 25.73
     },
     {
       "id": "ps_007",
       "query": "Find comfortable minimalist shoes under Rp 1,500,000",
-      "retrieval_mode": "hybrid_reranked",
+      "retrieval_mode": "deterministic",
       "expected_relevant": [
         "Adidas Ultraboost Shoes",
         "Birkenstock Sandals",
         "Nike Air Max Shoes"
       ],
       "ranked_products": [
+        "Birkenstock Sandals",
         "Nike Air Max Shoes",
-        "Adidas Ultraboost Shoes",
-        "Birkenstock Sandals"
+        "Adidas Ultraboost Shoes"
       ],
       "top5": [
+        "Birkenstock Sandals",
         "Nike Air Max Shoes",
-        "Adidas Ultraboost Shoes",
-        "Birkenstock Sandals"
+        "Adidas Ultraboost Shoes"
       ],
       "candidate_count": 3,
       "result_count": 3,
@@ -232,79 +233,79 @@
         "max_price": 1500000
       },
       "exception": null,
-      "latency_ms": 2132.04
+      "latency_ms": 24.99
     },
     {
       "id": "ps_008",
       "query": "Find Nike shoes under Rp 1,500,000",
-      "retrieval_mode": "hybrid_reranked",
+      "retrieval_mode": "deterministic",
       "expected_relevant": [
         "Adidas Ultraboost Shoes",
         "Birkenstock Sandals",
         "Nike Air Max Shoes"
       ],
       "ranked_products": [
+        "Birkenstock Sandals",
         "Nike Air Max Shoes",
-        "Adidas Ultraboost Shoes",
-        "Birkenstock Sandals"
+        "Adidas Ultraboost Shoes"
       ],
       "top5": [
+        "Birkenstock Sandals",
         "Nike Air Max Shoes",
-        "Adidas Ultraboost Shoes",
-        "Birkenstock Sandals"
+        "Adidas Ultraboost Shoes"
       ],
       "candidate_count": 3,
       "result_count": 3,
       "precision_at_5": 1.0,
       "recall_at_10": 1.0,
-      "ndcg_at_10": 1.0,
+      "ndcg_at_10": 0.7277,
       "hard_constraint_satisfaction": 1.0,
       "hard_constraints": {
         "category": "Shoes",
         "max_price": 1500000
       },
       "exception": null,
-      "latency_ms": 2169.9
+      "latency_ms": 26.32
     },
     {
       "id": "ps_009",
       "query": "Cari produk premium dan stylish",
-      "retrieval_mode": "hybrid_reranked",
+      "retrieval_mode": "deterministic",
       "expected_relevant": [
-        "Nike Air Max Shoes",
-        "Adidas Ultraboost Shoes",
-        "Casio Classic Watch",
         "Polarized Sunglasses",
-        "Premium Skincare Set"
+        "Adidas Ultraboost Shoes",
+        "Nike Air Max Shoes",
+        "Premium Skincare Set",
+        "Casio Classic Watch"
       ],
       "ranked_products": [
-        "Premium Skincare Set",
-        "Adidas Ultraboost Shoes",
-        "Nike Air Max Shoes",
-        "Oversize Denim Jacket",
         "Black Plain T-Shirt",
-        "Casio Classic Watch",
+        "Python Programming Book",
         "Polarized Sunglasses",
         "Eau de Toilette Perfume",
-        "Birkenstock Sandals",
-        "Galaxy Fit Smartwatch"
+        "Oversize Denim Jacket",
+        "Eiger Backpack",
+        "Premium Skincare Set",
+        "Mechanical RGB Keyboard",
+        "Casio Classic Watch",
+        "Logitech G502 Mouse"
       ],
       "top5": [
-        "Premium Skincare Set",
-        "Adidas Ultraboost Shoes",
-        "Nike Air Max Shoes",
-        "Oversize Denim Jacket",
-        "Black Plain T-Shirt"
+        "Black Plain T-Shirt",
+        "Python Programming Book",
+        "Polarized Sunglasses",
+        "Eau de Toilette Perfume",
+        "Oversize Denim Jacket"
       ],
       "candidate_count": 15,
       "result_count": 10,
-      "precision_at_5": 0.6,
-      "recall_at_10": 1.0,
-      "ndcg_at_10": 0.9566,
+      "precision_at_5": 0.2,
+      "recall_at_10": 0.6,
+      "ndcg_at_10": 0.3847,
       "hard_constraint_satisfaction": 1.0,
       "hard_constraints": {},
       "exception": null,
-      "latency_ms": 2158.97
+      "latency_ms": 28.49
     },
     {
       "id": "ps_010",
@@ -325,7 +326,7 @@
         "size": 42
       },
       "exception": null,
-      "latency_ms": 2187.62
+      "latency_ms": 27.54
     }
   ]
 }

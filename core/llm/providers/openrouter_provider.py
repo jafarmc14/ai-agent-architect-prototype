@@ -3,7 +3,7 @@ from typing import Any
 from langchain_openai import ChatOpenAI
 
 from configs import get_settings
-from core.llm.base import LLMProvider, LLMResponse, LLMToolCall, Message, StructuredSchema, ToolDefinition
+from core.llm.base import LLMProvider, LLMResponse, LLMToolCall, Message, StructuredSchema, ToolDefinition, extract_llm_usage
 from core.llm.model_governance import build_model_governance
 
 
@@ -15,6 +15,7 @@ class OpenRouterProvider(LLMProvider):
     """OpenRouter adapter backed by LangChain's ChatOpenAI client."""
 
     provider_name = "openrouter"
+    supports_prompt_caching = True
 
     def __init__(
         self,
@@ -111,7 +112,7 @@ class OpenRouterProvider(LLMProvider):
                 for tool_call in getattr(raw_response, "tool_calls", []) or []
             ],
             raw=raw_response,
-            usage=getattr(raw_response, "usage_metadata", None),
+            usage=extract_llm_usage(raw_response),
             model=self.model,
             model_version=self.model_version,
             model_metadata=self.model_governance.metadata(),

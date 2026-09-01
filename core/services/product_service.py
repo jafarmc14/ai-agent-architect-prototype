@@ -2,6 +2,8 @@ from typing import Any
 
 from configs import get_settings
 from core.embeddings import OpenAICompatibleEmbeddingProvider
+from core.auth import get_request_context
+from core.optimization import retrieval_cache
 from core.repositories import ProductRepository
 from core.repositories.postgres_product_embedding_repository import PostgresProductEmbeddingRepository
 from core.structured_outputs import FilterOutput
@@ -171,8 +173,20 @@ class ProductService:
         try:
             embedding_provider = self.embedding_provider or OpenAICompatibleEmbeddingProvider()
             semantic_repository = self.semantic_repository or PostgresProductEmbeddingRepository()
-            query_embedding = embedding_provider.embed_text(semantic_query_text)
             keyword_query = self._keyword_query_text(structured_query)
+            request_context = get_request_context()
+            catalog_version = getattr(semantic_repository, "catalog_version", lambda: "unknown")()
+            cache_key = {
+                "kind": "product_hybrid",
+                "tenant": request_context.tenant_id,
+                "catalog_version": catalog_version,
+                "embedding_model": get_settings().embedding_model,
+                "query": structured_query.to_dict(),
+            }
+            cached = retrieval_cache.get(cache_key)
+            if cached is not None:
+                return cached
+            query_embedding = embedding_provider.embed_text(semantic_query_text)
             candidates = semantic_repository.search_products_by_embedding(
                 query_embedding=query_embedding,
                 limit=20,
@@ -186,7 +200,9 @@ class ProductService:
                 available=structured_query.available,
                 min_stock=structured_query.min_stock,
             )
-            return rerank_products(candidates, structured_query, keyword_query, limit=5)
+            result = rerank_products(candidates, structured_query, keyword_query, limit=5)
+            retrieval_cache.set(cache_key, result)
+            return result
         except (RuntimeError, ValueError, OSError):
             return []
 

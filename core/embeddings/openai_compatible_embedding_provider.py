@@ -4,6 +4,7 @@ import urllib.request
 from typing import Any
 
 from configs import get_settings
+from core.optimization import embedding_cache
 
 
 class OpenAICompatibleEmbeddingProvider:
@@ -21,6 +22,14 @@ class OpenAICompatibleEmbeddingProvider:
         self.model = model or settings.embedding_model
 
     def embed_text(self, text: str) -> list[float]:
+        cache_key = {
+            "provider": self.api_base,
+            "model": self.model,
+            "text": text.strip(),
+        }
+        cached = embedding_cache.get(cache_key)
+        if cached is not None:
+            return cached
         if not self.api_key or "your-embedding-key" in self.api_key or self.api_key.endswith("-here"):
             raise RuntimeError(
                 "EMBEDDING_API_KEY must be set. Use 'ollama' for local Ollama embeddings, "
@@ -49,4 +58,6 @@ class OpenAICompatibleEmbeddingProvider:
                 f"Response: {error_body}"
             ) from exc
 
-        return [float(value) for value in body["data"][0]["embedding"]]
+        embedding = [float(value) for value in body["data"][0]["embedding"]]
+        embedding_cache.set(cache_key, embedding)
+        return embedding

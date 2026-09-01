@@ -17,8 +17,10 @@ CHANGE_AREA_COMMANDS = {
     "prompt": [
         ["evaluation/test_prompt_versioning.py"],
         ["evaluation/test_prompt_injection_defense.py"],
+        ["evaluation/test_scope_control.py"],
         ["evaluation/test_structured_outputs.py"],
         ["evaluation/test_conversation_state.py"],
+        ["evaluation/test_token_optimization.py"],
     ],
     "model": [
         ["evaluation/test_model_governance.py"],
@@ -50,6 +52,7 @@ CHANGE_AREA_COMMANDS = {
         ["evaluation/test_controlled_write_actions.py"],
         ["evaluation/test_human_escalation.py"],
         ["evaluation/test_hallucination_control.py"],
+        ["evaluation/test_observability.py"],
     ],
     "business_rules": [
         ["evaluation/test_controlled_write_actions.py"],

@@ -6,6 +6,8 @@ from .system import (
     get_prompt_version,
     get_system_prompt,
     get_system_prompt_metadata,
+    get_task_prompt,
+    get_task_prompt_metadata,
     rollback_prompt_version,
 )
 
@@ -18,6 +20,8 @@ __all__ = [
     "get_prompt_version",
     "get_system_prompt",
     "get_system_prompt_metadata",
+    "get_task_prompt",
+    "get_task_prompt_metadata",
     "prompt_registry",
     "rollback_prompt_version",
 ]

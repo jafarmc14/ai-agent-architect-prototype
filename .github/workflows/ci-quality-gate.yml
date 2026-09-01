@@ -149,6 +149,10 @@ jobs:
           --baseline evaluation/baselines/quality_baseline.json
           --report-dir ci_quality_reports
           --output ci_quality_reports/quality_gate_report_latest.json
+      - name: Measure and enforce token regression threshold
+        run: |
+          python evaluation/run_token_evaluation.py --output ci_quality_reports/token_report_latest.json
+          python evaluation/run_token_regression.py --candidate ci_quality_reports/token_report_latest.json --output ci_quality_reports/token_regression_report_latest.json
       - name: Upload quality reports
         if: always()
         uses: actions/upload-artifact@v4

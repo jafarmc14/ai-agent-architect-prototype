@@ -18,6 +18,8 @@ class RequestContext:
     session_id: str
     tenant_id: str = "default"
     user: AuthenticatedUser | None = None
+    request_id: str = ""
+    trace_id: str = ""
 
     @property
     def user_id(self) -> str | None:

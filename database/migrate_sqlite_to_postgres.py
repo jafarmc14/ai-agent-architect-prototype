@@ -391,17 +391,30 @@ def main() -> int:
     parser.add_argument("--sqlite-path", default=str(get_settings().database_path))
     parser.add_argument("--database-url", default=get_settings().postgres_database_url)
     parser.add_argument("--apply-schema", action="store_true")
+    parser.add_argument(
+        "--schema-only",
+        action="store_true",
+        help="Apply pending versioned migrations without importing SQLite data.",
+    )
     parser.add_argument("--clear-target", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
+    if not args.database_url:
+        print("DATABASE_URL is required. Set it in .env or pass --database-url.", file=sys.stderr)
+        return 1
+
+    if args.schema_only:
+        psycopg = import_psycopg()
+        with psycopg.connect(args.database_url) as pg_conn:
+            with pg_conn.transaction():
+                apply_schema(pg_conn)
+        print("Pending PostgreSQL schema migrations applied.")
+        return 0
+
     sqlite_path = Path(args.sqlite_path)
     if not sqlite_path.exists():
         print(f"SQLite database not found: {sqlite_path}", file=sys.stderr)
-        return 1
-
-    if not args.database_url:
-        print("DATABASE_URL is required. Set it in .env.secrets or pass --database-url.", file=sys.stderr)
         return 1
 
     products = sqlite_rows(sqlite_path, "SELECT COUNT(*) AS count FROM products")[0]["count"]

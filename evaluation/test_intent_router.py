@@ -38,6 +38,9 @@ def test_router_bypasses_agent_loop_for_simple_workflows():
     assert route_intent("Show me all electronics products").workflow == "product_search"
     assert route_intent("Show me all electronics products").use_agent_loop is False
 
+    assert route_intent("What is the recipe for Korean chicken?").workflow == "out_of_scope"
+    assert route_intent("What is the recipe for Korean chicken?").use_agent_loop is False
+
 
 def test_router_keeps_complex_and_write_requests_in_agent_loop():
     assert route_intent("My order arrived damaged and I want a replacement").use_agent_loop is True

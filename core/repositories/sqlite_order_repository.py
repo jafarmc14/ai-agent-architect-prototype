@@ -8,8 +8,8 @@ class SQLiteOrderRepository:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            """SELECT o.id, o.customer_name, p.name as product_name, o.quantity, o.total_price,
-                      o.status, o.shipping_address, o.order_date, o.estimated_arrival
+            """SELECT o.id, p.name as product_name, o.quantity, o.total_price,
+                      o.status, o.order_date, o.estimated_arrival
                FROM orders o
                JOIN products p ON o.product_id = p.id
                WHERE UPPER(o.id) = UPPER(?)""",

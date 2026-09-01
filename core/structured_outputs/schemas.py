@@ -22,6 +22,7 @@ WorkflowName = Literal[
     "order_status",
     "product_search",
     "agent_loop",
+    "out_of_scope",
     "security_refusal",
 ]
 

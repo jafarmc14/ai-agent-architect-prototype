@@ -1,6 +1,7 @@
 from .cart_repository import CartRepository
 from .conversation_repository import ConversationRepository
 from .llm_request_repository import LLMRequestRepository
+from .observability_repository import ObservabilityRepository
 from .order_repository import OrderRepository
 from .prompt_repository import PromptRepository
 from .postgres_vector_repository import PostgresVectorRepository
@@ -15,6 +16,7 @@ __all__ = [
     "CartRepository",
     "ConversationRepository",
     "LLMRequestRepository",
+    "ObservabilityRepository",
     "OrderRepository",
     "PromptRepository",
     "PostgresVectorRepository",

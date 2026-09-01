@@ -30,12 +30,10 @@ class PostgresOrderRepository:
                 f"""
                 SELECT
                     o.order_number AS id,
-                    o.customer_name,
                     COALESCE(oi.product_name, 'Unknown product') AS product_name,
                     COALESCE(oi.quantity, 0) AS quantity,
                     o.grand_total AS total_price,
                     {POSTGRES_STATUS_SQL} AS status,
-                    o.shipping_address,
                     o.order_date::date::text AS order_date,
                     o.estimated_arrival::date::text AS estimated_arrival
                 FROM orders o

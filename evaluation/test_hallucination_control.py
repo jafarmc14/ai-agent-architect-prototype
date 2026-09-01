@@ -132,7 +132,7 @@ def test_grounded_product_fallback_localizes_indonesian_labels():
     assert "Stok: 50 unit" in response
 
 
-def test_product_finalizer_falls_back_when_llm_contradicts_database():
+def test_product_finalizer_uses_deterministic_database_response_without_llm():
     from core.orchestration import runtime
 
     tool_output = (
@@ -141,10 +141,8 @@ def test_product_finalizer_falls_back_when_llm_contradicts_database():
         "- Adidas Ultraboost Shoes | Category: Shoes | Price: Rp1,500,000 | Stock: 35 units"
     )
     original_generate = runtime.llm_gateway.generate_sync
-    runtime.llm_gateway.generate_sync = lambda *_args, **_kwargs: SimpleNamespace(
-        text="Adidas Ultraboost Shoes are above your budget and out of stock.",
-        raw=SimpleNamespace(content="Adidas Ultraboost Shoes are above your budget and out of stock."),
-    )
+    calls = []
+    runtime.llm_gateway.generate_sync = lambda *_args, **_kwargs: calls.append(True)
     trace = {}
     try:
         response = _finalize_workflow_response(
@@ -161,10 +159,11 @@ def test_product_finalizer_falls_back_when_llm_contradicts_database():
     assert "Stock: 35 units" in response
     assert "above your budget" not in response
     assert "out of stock" not in response
-    assert trace["grounded_response_fallback"] is True
+    assert trace["deterministic_first"] is True
+    assert calls == []
 
 
-def test_order_finalizer_falls_back_when_llm_paraphrase_is_unsupported():
+def test_order_finalizer_uses_deterministic_database_response_without_llm():
     from core.orchestration import runtime
 
     tool_output = (
@@ -175,10 +174,8 @@ def test_order_finalizer_falls_back_when_llm_paraphrase_is_unsupported():
         "- Estimated Arrival: 2026-03-25"
     )
     original_generate = runtime.llm_gateway.generate_sync
-    runtime.llm_gateway.generate_sync = lambda *_args, **_kwargs: SimpleNamespace(
-        text="Order ORD001 has status Cancelled.",
-        raw=SimpleNamespace(content="Order ORD001 has status Cancelled."),
-    )
+    calls = []
+    runtime.llm_gateway.generate_sync = lambda *_args, **_kwargs: calls.append(True)
     trace = {}
     try:
         response = _finalize_workflow_response(
@@ -193,7 +190,8 @@ def test_order_finalizer_falls_back_when_llm_paraphrase_is_unsupported():
     assert response == tool_output
     assert "Status: Shipped" in response
     assert "Cancelled" not in response
-    assert trace["grounded_response_fallback"] is True
+    assert trace["deterministic_first"] is True
+    assert calls == []
 
 
 def test_rag_response_keeps_source_citations():
@@ -343,8 +341,8 @@ if __name__ == "__main__":
     test_helpful_intro_repeating_user_constraint_is_not_a_business_claim()
     test_product_workflow_hides_internal_retrieval_scores_from_llm()
     test_grounded_product_fallback_localizes_indonesian_labels()
-    test_product_finalizer_falls_back_when_llm_contradicts_database()
-    test_order_finalizer_falls_back_when_llm_paraphrase_is_unsupported()
+    test_product_finalizer_uses_deterministic_database_response_without_llm()
+    test_order_finalizer_uses_deterministic_database_response_without_llm()
     test_rag_response_keeps_source_citations()
     test_paraphrased_product_result_still_rejects_wrong_price()
     test_false_above_budget_comparison_is_rejected()

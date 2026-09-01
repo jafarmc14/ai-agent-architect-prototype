@@ -162,8 +162,6 @@ class PostgresProductEmbeddingRepository:
                 ),
                 scored_products AS (
                     SELECT
-                        p.id,
-                        p.sku,
                         p.name,
                         p.category,
                         p.base_price AS price,
@@ -191,8 +189,6 @@ class PostgresProductEmbeddingRepository:
                     WHERE {where_clause}
                 )
                 SELECT
-                    id,
-                    sku,
                     name,
                     category,
                     price,
@@ -218,6 +214,19 @@ class PostgresProductEmbeddingRepository:
             ).fetchall()
 
         return [dict(row) for row in rows]
+
+    def catalog_version(self) -> str:
+        """Version key for cache invalidation after catalog or embedding changes."""
+        with get_postgres_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT COUNT(*), COALESCE(MAX(updated_at)::text, ''),
+                       COALESCE(MAX(embedding_updated_at)::text, '')
+                FROM products
+                WHERE is_active = true
+                """
+            ).fetchone()
+        return ":".join(str(value or "") for value in row)
 
     @staticmethod
     def _embedding_literal(embedding: list[float]) -> str:

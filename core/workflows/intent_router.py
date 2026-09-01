@@ -92,6 +92,14 @@ def classify_intent(user_input: str) -> Intent:
 def route_intent(user_input: str) -> RouteDecision:
     intent = classify_intent(user_input)
 
+    if intent == Intent.UNKNOWN:
+        return RouteDecision(
+            intent=intent,
+            workflow="out_of_scope",
+            use_agent_loop=False,
+            reason="unknown non-store request is handled by deterministic scope control",
+        )
+
     if intent == Intent.RETURN_POLICY and not _looks_complex(user_input):
         return RouteDecision(
             intent=intent,

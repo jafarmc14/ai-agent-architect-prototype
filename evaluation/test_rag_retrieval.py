@@ -7,6 +7,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.services.knowledge_service import KnowledgeService  # noqa: E402
+from core.optimization import estimate_tokens  # noqa: E402
+from core.optimization import retrieval_cache  # noqa: E402
 from core.workflows import RetrievalScope, build_rag_context, rerank_rag_chunks  # noqa: E402
 
 
@@ -77,6 +79,7 @@ def test_build_rag_context_abstains_when_evidence_is_weak():
 
 
 def test_knowledge_service_uses_authorized_retrieval_and_citations():
+    retrieval_cache.clear()
     repository = RecordingVectorRepository([
         _chunk("Shipping Policy", "shipping_policy", "OFFICIAL", 0.78)
     ])
@@ -99,10 +102,34 @@ def test_knowledge_service_uses_authorized_retrieval_and_citations():
     assert repository.calls[0]["access_level"] == "public"
     assert repository.calls[0]["status"] == "active"
     assert repository.calls[0]["approval_status"] == "indexed"
+    assert repository.calls[0]["limit"] == 20
+
+    cached_response = service._search_postgres_rag(
+        "international shipping",
+        RetrievalScope(tenant_id="default", role="customer", department="public", access_level="public"),
+    )
+    assert cached_response == response
+    assert len(repository.calls) == 1
+    assert len(embedding_provider.inputs) == 1
+
+
+def test_rag_context_deduplicates_and_respects_token_budget():
+    duplicate = _chunk("Return Policy", "return_policy", "OFFICIAL", 0.9)
+    duplicate["content"] = "Return policy evidence sentence. " * 100
+    result = build_rag_context(
+        [duplicate, dict(duplicate)],
+        query="return policy",
+        min_query_overlap=0,
+        max_context_tokens=100,
+    )
+    assert len(result.chunks) == 1
+    assert len(result.citations) == 1
+    assert estimate_tokens(result.answer_context) <= 100
 
 
 if __name__ == "__main__":
     test_reranker_prefers_more_trusted_evidence_when_similarity_is_close()
     test_build_rag_context_abstains_when_evidence_is_weak()
     test_knowledge_service_uses_authorized_retrieval_and_citations()
+    test_rag_context_deduplicates_and_respects_token_budget()
     print("RAG retrieval tests passed.")

@@ -81,6 +81,10 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V014__add_model_version_gov
 
 `V014__add_model_version_governance.sql` adds provider/model/model_version observability columns on LLM request logs.
 
+`V015__add_observability_tracing.sql` and `V016__link_request_traces_to_conversations.sql` add correlated request lifecycle and tool-call tracing.
+
+`V017__add_token_context_observability.sql` adds per-component token accounting, task budgets, output limits, context-utilization ratio, budget status, and provider prompt-cache usage fields to `llm_requests`.
+
 ## Vector Storage
 
 `V002__enable_pgvector_document_chunks.sql` enables the `vector` extension and adds pgvector-backed storage to `document_chunks`:

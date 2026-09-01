@@ -4,6 +4,7 @@ from pathlib import Path
 from configs import get_settings
 from core.auth import get_request_context, knowledge_access_level, knowledge_department, role_from_context
 from core.embeddings import OpenAICompatibleEmbeddingProvider
+from core.optimization import retrieval_cache
 from core.repositories.postgres_vector_repository import PostgresVectorRepository
 from core.workflows import RetrievalScope, build_rag_context, rerank_rag_chunks
 
@@ -64,21 +65,35 @@ class KnowledgeService:
         try:
             embedding_provider = self.embedding_provider or OpenAICompatibleEmbeddingProvider()
             vector_repository = self.vector_repository or PostgresVectorRepository()
-            query_embedding = embedding_provider.embed_text(query)
-            retrieved_chunks = vector_repository.search_chunks(
-                query_embedding=query_embedding,
-                limit=12,
-                embedding_model=self.settings.embedding_model,
-                tenant_id=scope.tenant_id,
-                role=scope.role,
-                department=scope.department,
-                access_level=scope.access_level,
-                status="active",
-                approval_status="indexed",
-                min_trust_level="EXTERNAL",
-            )
+            knowledge_version = getattr(vector_repository, "knowledge_version", lambda tenant_id: "unknown")(scope.tenant_id)
+            cache_key = {
+                "kind": "rag_retrieval",
+                "tenant": scope.tenant_id,
+                "role": scope.role,
+                "department": scope.department,
+                "access": scope.access_level,
+                "model": self.settings.embedding_model,
+                "version": knowledge_version,
+                "query": query.strip().lower(),
+            }
+            retrieved_chunks = retrieval_cache.get(cache_key)
+            if retrieved_chunks is None:
+                query_embedding = embedding_provider.embed_text(query)
+                retrieved_chunks = vector_repository.search_chunks(
+                    query_embedding=query_embedding,
+                    limit=20,
+                    embedding_model=self.settings.embedding_model,
+                    tenant_id=scope.tenant_id,
+                    role=scope.role,
+                    department=scope.department,
+                    access_level=scope.access_level,
+                    status="active",
+                    approval_status="indexed",
+                    min_trust_level="EXTERNAL",
+                )
+                retrieval_cache.set(cache_key, retrieved_chunks)
             reranked_chunks = rerank_rag_chunks(retrieved_chunks, limit=5)
-            context = build_rag_context(reranked_chunks, query=query)
+            context = build_rag_context(reranked_chunks, query=query, max_chunks=5, max_context_tokens=1800)
         except (RuntimeError, ValueError, OSError):
             return ""
 

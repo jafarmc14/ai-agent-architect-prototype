@@ -288,6 +288,21 @@ class PostgresVectorRepository:
             for row in rows
         ]
 
+    def knowledge_version(self, tenant_id: str) -> str:
+        """Version key used to invalidate tenant-aware retrieval caches."""
+        psycopg = self._import_psycopg()
+        with psycopg.connect(self._required_database_url()) as conn:
+            row = conn.execute(
+                """
+                SELECT COUNT(*), COALESCE(MAX(updated_at)::text, ''),
+                       COALESCE(MAX(version), '')
+                FROM documents
+                WHERE tenant_id = %s AND status = 'active' AND approval_status = 'indexed'
+                """,
+                (tenant_id,),
+            ).fetchone()
+        return ":".join(str(value or "") for value in row)
+
     def _required_database_url(self) -> str:
         if not self.database_url:
             raise RuntimeError("DATABASE_URL is required for PostgreSQL vector storage.")
