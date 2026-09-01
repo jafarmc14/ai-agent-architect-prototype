@@ -35,6 +35,21 @@ def render_token_usage(usage: dict | None) -> None:
         return
 
     st.caption(f"Last request: {usage.get('workflow') or 'unknown workflow'}")
+    resource = usage.get("resource_usage") or {}
+    if resource:
+        st.subheader("Request Safety")
+        st.caption(
+            f"Tools: {resource.get('tool_calls', 0)} | "
+            f"Agent steps: {resource.get('agent_steps', 0)} | "
+            f"Runtime: {resource.get('runtime_ms', 0):,} ms | "
+            f"Cost: ${float(resource.get('cost_usd', 0)):.6f}"
+        )
+    if usage.get("resource_limit"):
+        st.warning(f"Blocked by: {usage['resource_limit'].get('code', 'resource limit')}")
+    loop_safety = usage.get("agent_loop_safety") or {}
+    if loop_safety.get("reason"):
+        st.warning(f"Agent loop stopped: {loop_safety['reason']}")
+
     if usage["llm_calls"] == 0:
         st.success("0 LLM calls. The request was handled deterministically.")
         st.caption(f"Request latency: {usage['request_latency_ms']:,} ms")

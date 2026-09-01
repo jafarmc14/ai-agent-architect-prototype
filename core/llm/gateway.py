@@ -9,6 +9,7 @@ from core.observability import current_trace_ids, observed_span
 from core.optimization import account_llm_context, estimate_tokens
 from core.privacy import redact_for_logs
 from core.prompts import get_system_prompt_metadata
+from core.resource_protection import ResourceLimitExceeded, active_resource_guard
 from core.repositories.llm_request_repository import LLMRequestRepository
 
 
@@ -81,7 +82,7 @@ class LLMGateway:
         **kwargs: Any,
     ) -> LLMResponse:
         accounting = self._account_context(messages, tools, task, token_context)
-        kwargs.setdefault("max_tokens", accounting.output_limit)
+        self._apply_output_limit(kwargs, self._prepare_call(accounting))
         start = time.perf_counter()
         with observed_span(
             "llm",
@@ -92,6 +93,7 @@ class LLMGateway:
                 response = await self.provider.generate(messages, tools=tools, temperature=temperature, **kwargs)
                 latency_ms = _latency_ms(start)
                 accounting = self._with_output(accounting, response)
+                self._complete_call(response, accounting)
                 span.set_attributes(**self._usage_attributes(response, latency_ms), token_breakdown=accounting.to_dict())
                 self._log_request(
                     messages, tools, response, "success", latency_ms=latency_ms,
@@ -115,7 +117,7 @@ class LLMGateway:
         **kwargs: Any,
     ) -> Any:
         accounting = self._account_context(messages, None, task, token_context)
-        kwargs.setdefault("max_tokens", accounting.output_limit)
+        self._apply_output_limit(kwargs, self._prepare_call(accounting))
         start = time.perf_counter()
         with observed_span(
             "llm",
@@ -126,6 +128,7 @@ class LLMGateway:
                 response = await self.provider.generate_structured(messages, schema=schema, temperature=temperature, **kwargs)
                 latency_ms = _latency_ms(start)
                 accounting = self._with_structured_output(accounting, response)
+                self._complete_call(response, accounting)
                 span.set_attributes(
                     latency_ms=latency_ms,
                     tokens_unavailable=True,
@@ -163,7 +166,7 @@ class LLMGateway:
                 **kwargs,
             ))
         accounting = self._account_context(messages, tools, task, token_context)
-        kwargs.setdefault("max_tokens", accounting.output_limit)
+        self._apply_output_limit(kwargs, self._prepare_call(accounting))
         start = time.perf_counter()
         with observed_span(
             "llm",
@@ -174,6 +177,7 @@ class LLMGateway:
                 response = self.provider.generate_sync(messages, tools=tools, temperature=temperature, **kwargs)
                 latency_ms = _latency_ms(start)
                 accounting = self._with_output(accounting, response)
+                self._complete_call(response, accounting)
                 span.set_attributes(**self._usage_attributes(response, latency_ms), token_breakdown=accounting.to_dict())
                 self._log_request(
                     messages, tools, response, "success", latency_ms=latency_ms,
@@ -206,7 +210,7 @@ class LLMGateway:
                 **kwargs,
             ))
         accounting = self._account_context(messages, None, task, token_context)
-        kwargs.setdefault("max_tokens", accounting.output_limit)
+        self._apply_output_limit(kwargs, self._prepare_call(accounting))
         start = time.perf_counter()
         with observed_span(
             "llm",
@@ -217,6 +221,7 @@ class LLMGateway:
                 response = self.provider.generate_structured_sync(messages, schema=schema, temperature=temperature, **kwargs)
                 latency_ms = _latency_ms(start)
                 accounting = self._with_structured_output(accounting, response)
+                self._complete_call(response, accounting)
                 span.set_attributes(
                     latency_ms=latency_ms,
                     tokens_unavailable=True,
@@ -302,6 +307,36 @@ class LLMGateway:
             tools=tools,
             provider_prompt_cache_eligible=bool(getattr(self.provider, "supports_prompt_caching", False)),
         )
+
+    def _prepare_call(self, accounting) -> int:
+        settings = get_settings()
+        if accounting.total_input_tokens > settings.max_input_tokens:
+            raise ResourceLimitExceeded("max_input_tokens", "Maximum LLM input tokens exceeded.")
+        guard = active_resource_guard()
+        if guard is not None:
+            return guard.before_llm(accounting)
+        return min(accounting.output_limit, settings.max_output_tokens)
+
+    @staticmethod
+    def _complete_call(response: Any, accounting) -> None:
+        guard = active_resource_guard()
+        if guard is not None:
+            guard.after_llm(response, accounting)
+
+    @staticmethod
+    def _apply_output_limit(kwargs: dict[str, Any], allowed: int) -> None:
+        try:
+            requested = int(kwargs.get("max_tokens", allowed))
+        except (TypeError, ValueError):
+            requested = allowed
+        kwargs["max_tokens"] = min(max(1, requested), allowed)
+        guard = active_resource_guard()
+        if guard is not None:
+            try:
+                requested_timeout = float(kwargs.get("timeout", guard.remaining_seconds))
+            except (TypeError, ValueError):
+                requested_timeout = guard.remaining_seconds
+            kwargs["timeout"] = min(max(0.1, requested_timeout), guard.remaining_seconds)
 
     @staticmethod
     def _with_output(accounting, response: LLMResponse):

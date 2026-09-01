@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from uuid import uuid4
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -10,6 +11,8 @@ from configs import get_settings  # noqa: E402
 from core.repositories.llm_request_repository import LLMRequestRepository  # noqa: E402
 from core.repositories.postgres_connection import get_postgres_connection  # noqa: E402
 from core.repositories.postgres_product_repository import PostgresProductRepository  # noqa: E402
+from core.auth import RequestContext  # noqa: E402
+from core.resource_protection import ResourceLimits, ResourceProtectionService  # noqa: E402
 
 
 REQUIRED_TABLES = {
@@ -26,6 +29,7 @@ REQUIRED_TABLES = {
     "llm_requests",
     "request_traces",
     "trace_spans",
+    "resource_usage_events",
     "evaluation_runs",
     "evaluation_results",
 }
@@ -51,7 +55,7 @@ def main() -> int:
         migration_count = conn.execute("SELECT count(*) AS count FROM schema_migrations").fetchone()["count"]
         product_count = conn.execute("SELECT count(*) AS count FROM products").fetchone()["count"]
         order_count = conn.execute("SELECT count(*) AS count FROM orders").fetchone()["count"]
-        assert migration_count >= 17
+        assert migration_count >= 19
 
         llm_columns = {
             row["column_name"]
@@ -120,6 +124,33 @@ def main() -> int:
     names = {row["name"] for row in products}
     assert {"Adidas Ultraboost Shoes", "Nike Air Max Shoes", "Birkenstock Sandals"} <= names
     assert all(float(row["price"]) <= 1_500_000 for row in products)
+
+    request_id = str(uuid4())
+    resource_service = ResourceProtectionService(
+        limits=ResourceLimits.from_settings(settings),
+        use_postgres=True,
+    )
+    guard = resource_service.begin_request(
+        "integration resource admission",
+        RequestContext(
+            session_id=f"integration-{request_id}",
+            tenant_id="integration",
+            request_id=request_id,
+            trace_id=str(uuid4()),
+        ),
+        workflow="out_of_scope",
+    )
+    guard.output_tokens = 3
+    resource_service.finish_request(guard)
+    with get_postgres_connection() as conn:
+        resource_row = conn.execute(
+            "SELECT status, input_tokens, output_tokens FROM resource_usage_events WHERE request_id = %s::uuid",
+            (request_id,),
+        ).fetchone()
+        assert resource_row and resource_row["status"] == "completed"
+        assert resource_row["input_tokens"] > 0
+        assert resource_row["output_tokens"] == 3
+        conn.execute("DELETE FROM resource_usage_events WHERE request_id = %s::uuid", (request_id,))
 
     print("PostgreSQL integration checks passed.")
     print(f"tables={len(tables)}, migrations={migration_count}, products={product_count}, orders={order_count}")

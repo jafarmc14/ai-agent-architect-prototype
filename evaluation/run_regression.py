@@ -49,12 +49,16 @@ CHANGE_AREA_COMMANDS = {
         ["evaluation/run_rag_evaluation.py"],
     ],
     "tools": [
+        ["evaluation/test_agent_loop_safety.py"],
+        ["evaluation/test_resource_protection.py"],
         ["evaluation/test_controlled_write_actions.py"],
         ["evaluation/test_human_escalation.py"],
         ["evaluation/test_hallucination_control.py"],
         ["evaluation/test_observability.py"],
     ],
     "business_rules": [
+        ["evaluation/test_agent_loop_safety.py"],
+        ["evaluation/test_resource_protection.py"],
         ["evaluation/test_controlled_write_actions.py"],
         ["evaluation/test_human_escalation.py"],
         ["evaluation/test_hallucination_control.py"],

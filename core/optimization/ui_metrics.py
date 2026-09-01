@@ -28,6 +28,9 @@ def summarize_token_trace(trace: dict[str, Any]) -> dict[str, Any]:
         "within_budget": True,
         "llm_latency_ms": 0,
         "cost_usd": None,
+        "resource_usage": trace.get("resource_usage") or {},
+        "resource_limit": trace.get("resource_limit") or {},
+        "agent_loop_safety": trace.get("agent_loop_safety") or {},
         **{component: 0 for component in TOKEN_COMPONENTS},
     }
     costs = []

@@ -29,6 +29,7 @@ class OllamaProvider(LLMProvider):
         self.api_base = api_base or settings.ollama_api_base or DEFAULT_OLLAMA_API_BASE
         self.api_key = api_key or settings.ollama_api_key
         self.temperature = temperature
+        self.request_timeout = settings.max_agent_runtime_seconds
         self.model_governance = build_model_governance(
             provider=self.provider_name,
             model=self.model,
@@ -85,6 +86,7 @@ class OllamaProvider(LLMProvider):
             openai_api_key=self.api_key,
             model_name=self.model,
             temperature=temperature,
+            timeout=self.request_timeout,
         )
 
     def _client_for_call(

@@ -53,6 +53,11 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V011__upgrade_support_escal
 psql "$DATABASE_URL" -f database/migrations/postgres/V012__add_conversation_structured_state.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V013__add_prompt_versioning.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V014__add_model_version_governance.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V015__add_observability_tracing.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V016__link_request_traces_to_conversations.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V017__add_token_context_observability.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V018__add_resource_abuse_protection.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V019__repair_token_context_migration_ledger.sql
 ```
 
 `V001__initial_schema.sql` creates a `schema_migrations` table and records itself after successful execution. Later migrations should insert their own version into `schema_migrations` at the end of the file.
@@ -84,6 +89,10 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V014__add_model_version_gov
 `V015__add_observability_tracing.sql` and `V016__link_request_traces_to_conversations.sql` add correlated request lifecycle and tool-call tracing.
 
 `V017__add_token_context_observability.sql` adds per-component token accounting, task budgets, output limits, context-utilization ratio, budget status, and provider prompt-cache usage fields to `llm_requests`.
+
+`V018__add_resource_abuse_protection.sql` adds request resource accounting for user/workflow rate limits, tenant quotas, repeated expensive-request detection, tool/step/runtime limits, and request cost enforcement.
+
+`V019__repair_token_context_migration_ledger.sql` records the idempotent `V017` token-context migration in databases where its schema was already applied but its ledger row was missing.
 
 ## Vector Storage
 

@@ -31,6 +31,8 @@ This system is a web-based chat interface powered by an AI model that supports s
 | 12 | **Conversation State** | Store conversation turns in PostgreSQL and keep compact structured state for multi-turn continuity without depending on full natural-language history. |
 | 13 | **Token & Context Optimization** | Account for context by component, enforce per-task budgets, load only task prompts/tools, window conversation history, narrow RAG evidence, cache versioned retrievals, and block unjustified token regressions above 20%. |
 | 14 | **Domain Scope Control** | Route unknown non-store questions to a deterministic bilingual refusal so unsupported general knowledge never reaches the LLM agent loop. |
+| 15 | **Resource Abuse Protection** | Enforce request token, output, tool-call, agent-step, runtime, cost, per-user, per-tenant, per-workflow, and repetitive expensive-request limits. |
+| 16 | **Agent Loop Safety** | Stop repeated tool calls, cyclic plans, and low-progress loops at a hard step boundary, then hand unresolved work to human support. |
 
 ---
 
@@ -56,10 +58,19 @@ Streamlit UI (`app.py`)
   v
 Agent Runtime (`core/orchestration/runtime.py`)
   |
+  +--> Resource Protection (`core/resource_protection/`)
+  |      |
+  |      +--> input/output token and request cost limits
+  |      +--> tool-call, agent-step, and runtime limits
+  |      +--> per-user, per-tenant, and per-workflow quotas
+  |      +--> repetitive expensive-request detection
+  |      +--> atomic PostgreSQL admission in `resource_usage_events`
+  |
   +--> Intent Router (`core/workflows/intent_router.py`)
   |      |
   |      +--> Direct workflows for simple RAG, order status, and product search
   |      +--> Agent loop for complex/write-capable requests
+  |      +--> loop safety guard for duplicate calls, planning cycles, and low progress
   |
   +--> Prompt Injection Defense (`core/security/prompt_injection.py`)
   |      |
@@ -121,6 +132,62 @@ PostgreSQL `documents` and `document_chunks` store ingested, embedded chunks for
 ```
 
 Note: The current local runtime uses PostgreSQL when `DATABASE_PROVIDER=postgres` is set in `.env`. The LLM provider can be switched between OpenRouter and Ollama from the Streamlit sidebar or `.env`.
+
+### Resource Abuse Protection
+
+Every chat request is admitted before workflow execution. PostgreSQL mode uses an advisory transaction lock and `resource_usage_events` so quotas are shared across Streamlit processes. Testing and SQLite mode use an in-memory counter.
+
+Default development limits:
+
+| Limit | Default |
+|---|---:|
+| Input | 2,000 tokens/request |
+| Output | 1,200 tokens/request |
+| Tool calls | 6/request |
+| Agent/LLM steps | 4/request |
+| Runtime | 60 seconds/request |
+| Request cost | USD 0.05 |
+| User rate | 20 requests/60 seconds |
+| Tenant daily quota | 1,000 requests, 1,000,000 tokens, USD 10 |
+| Repeated expensive request | 3 matching requests/300 seconds |
+
+Workflow limits use the same user rate window: agent loop 10, RAG 20, product and order reads 30, confirmed writes 10, and out-of-scope requests 60. Set `MAX_INPUT_PRICE_PER_MILLION` and `MAX_OUTPUT_PRICE_PER_MILLION` when using a paid model whose provider response does not include cost; zero keeps local/free-model estimation at no cost.
+
+Inspect recent decisions in pgAdmin:
+
+```sql
+SELECT identity_key, tenant_id, workflow, status, limit_code,
+       input_tokens, output_tokens, tool_calls, agent_steps,
+       runtime_ms, cost_usd, created_at
+FROM resource_usage_events
+ORDER BY created_at DESC
+LIMIT 50;
+```
+
+### Agent Loop Safety
+
+Complex workflows use `core/orchestration/agent_loop_safety.py` inside the native tool loop. Safety checks run before each proposed tool batch and after each batch result:
+
+```text
+LLM tool plan
+  -> hard step check
+  -> identical call check
+  -> cyclic plan check
+  -> execute validated tools
+  -> new-evidence/progress check
+  -> continue or create one human support ticket
+```
+
+Defaults allow one occurrence of an identical tool call, stop after two consecutive no-progress results, inspect planning cycles up to length three, and reuse `MAX_AGENT_STEPS=4` as the hard loop boundary. Automatic safety escalation is orchestrator-controlled, logged as `agent_loop.safety`, and does not ask the LLM to perform another step.
+
+Configuration:
+
+```ini
+MAX_AGENT_STEPS=4
+MAX_IDENTICAL_TOOL_CALLS=1
+MAX_LOW_PROGRESS_STEPS=2
+MAX_PLANNING_CYCLE_LENGTH=3
+```
 
 ### CI/CD Quality Gate
 

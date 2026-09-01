@@ -61,6 +61,24 @@ class AppSettings:
     ollama_model_version: str
     ollama_api_base: str
     high_risk_write_actions_enabled: bool
+    max_input_tokens: int
+    max_output_tokens: int
+    max_tool_calls: int
+    max_agent_steps: int
+    max_agent_runtime_seconds: int
+    max_request_cost_usd: float
+    max_input_price_per_million: float
+    max_output_price_per_million: float
+    user_rate_limit_requests: int
+    user_rate_limit_window_seconds: int
+    tenant_daily_request_quota: int
+    tenant_daily_token_quota: int
+    tenant_daily_cost_quota_usd: float
+    expensive_repeat_limit: int
+    expensive_repeat_window_seconds: int
+    max_identical_tool_calls: int
+    max_low_progress_steps: int
+    max_planning_cycle_length: int
 
 
 @lru_cache(maxsize=1)
@@ -96,6 +114,24 @@ def get_settings() -> AppSettings:
         ollama_api_base=os.getenv("OLLAMA_API_BASE", "http://localhost:11434/v1"),
         high_risk_write_actions_enabled=os.getenv("HIGH_RISK_WRITE_ACTIONS_ENABLED", "false").strip().lower()
         in {"1", "true", "yes", "on"},
+        max_input_tokens=int(os.getenv("MAX_INPUT_TOKENS", "2000")),
+        max_output_tokens=int(os.getenv("MAX_OUTPUT_TOKENS", "1200")),
+        max_tool_calls=int(os.getenv("MAX_TOOL_CALLS", "6")),
+        max_agent_steps=int(os.getenv("MAX_AGENT_STEPS", "4")),
+        max_agent_runtime_seconds=int(os.getenv("MAX_AGENT_RUNTIME_SECONDS", "60")),
+        max_request_cost_usd=float(os.getenv("MAX_REQUEST_COST_USD", "0.05")),
+        max_input_price_per_million=float(os.getenv("MAX_INPUT_PRICE_PER_MILLION", "0")),
+        max_output_price_per_million=float(os.getenv("MAX_OUTPUT_PRICE_PER_MILLION", "0")),
+        user_rate_limit_requests=int(os.getenv("USER_RATE_LIMIT_REQUESTS", "20")),
+        user_rate_limit_window_seconds=int(os.getenv("USER_RATE_LIMIT_WINDOW_SECONDS", "60")),
+        tenant_daily_request_quota=int(os.getenv("TENANT_DAILY_REQUEST_QUOTA", "1000")),
+        tenant_daily_token_quota=int(os.getenv("TENANT_DAILY_TOKEN_QUOTA", "1000000")),
+        tenant_daily_cost_quota_usd=float(os.getenv("TENANT_DAILY_COST_QUOTA_USD", "10")),
+        expensive_repeat_limit=int(os.getenv("EXPENSIVE_REPEAT_LIMIT", "3")),
+        expensive_repeat_window_seconds=int(os.getenv("EXPENSIVE_REPEAT_WINDOW_SECONDS", "300")),
+        max_identical_tool_calls=int(os.getenv("MAX_IDENTICAL_TOOL_CALLS", "1")),
+        max_low_progress_steps=int(os.getenv("MAX_LOW_PROGRESS_STEPS", "2")),
+        max_planning_cycle_length=int(os.getenv("MAX_PLANNING_CYCLE_LENGTH", "3")),
     )
 
 

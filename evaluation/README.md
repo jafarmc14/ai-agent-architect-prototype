@@ -751,3 +751,23 @@ py evaluation/test_token_optimization.py
 ```
 
 The report breaks input into `system_prompt_tokens`, `user_tokens`, `conversation_tokens`, `retrieval_tokens`, and `tool_schema_tokens`. It also records output tokens, context-utilization ratio, budget compliance, and cost per correct answer. The regression gate compares against `evaluation/baselines/token_baseline.json` and fails an increase above 20% unless the candidate has a measured quality gain.
+
+## Resource Abuse Protection Tests
+
+Run the deterministic Phase 28 checks:
+
+```powershell
+py evaluation/test_resource_protection.py
+```
+
+The suite verifies input/output limits, forced provider output caps, maximum tool calls, agent steps and runtime, request cost preflight and actual-cost checks, user/workflow rates, tenant request/token/cost quotas, and normalized repeated expensive-request detection. It does not call OpenRouter or Ollama.
+
+## Agent Loop Safety Tests
+
+Run the deterministic Phase 29 checks:
+
+```powershell
+py evaluation/test_agent_loop_safety.py
+```
+
+The suite verifies the hard agent-step boundary, repeated identical tool-call detection, cyclic planning with changing arguments, low progress based on repeated evidence, and a single terminal escalation to human support. It does not call an LLM provider.

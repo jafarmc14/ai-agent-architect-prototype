@@ -1,23 +1,16 @@
 {
   "name": "regression_report_v1",
-  "created_at": "2026-09-01T09:22:02.302186",
+  "created_at": "2026-09-01T19:23:11.179688",
   "summary": {
     "selected_areas": [
-      "prompt",
-      "model",
-      "embedding",
-      "retrieval",
-      "reranker",
-      "chunking",
       "tools",
-      "business_rules",
-      "authorization"
+      "business_rules"
     ],
     "bug_dataset_valid": true,
     "bug_cases_total": 10,
-    "bug_cases_selected": 10,
-    "commands_total": 20,
-    "commands_passed": 20,
+    "bug_cases_selected": 9,
+    "commands_total": 8,
+    "commands_passed": 8,
     "llm_regression_enabled": false,
     "llm_cases_total": 0,
     "llm_cases_passed": 0,
@@ -25,7 +18,7 @@
   },
   "bug_dataset_validation": {
     "total_cases": 10,
-    "selected_cases": 10,
+    "selected_cases": 9,
     "coverage": {
       "prompt": 6,
       "model": 1,
@@ -44,134 +37,24 @@
     {
       "command": [
         "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_prompt_versioning.py"
+        "evaluation/test_agent_loop_safety.py"
       ],
       "returncode": 0,
       "passed": true,
-      "latency_ms": 3557.12,
-      "stdout_tail": "Prompt versioning tests passed.\n",
+      "latency_ms": 3323.79,
+      "stdout_tail": "Agent loop safety tests passed.\n",
       "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
     },
     {
       "command": [
         "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_prompt_injection_defense.py"
+        "evaluation/test_resource_protection.py"
       ],
       "returncode": 0,
       "passed": true,
-      "latency_ms": 195.13,
-      "stdout_tail": "Prompt injection defense tests passed.\n",
-      "stderr_tail": ""
-    },
-    {
-      "command": [
-        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_scope_control.py"
-      ],
-      "returncode": 0,
-      "passed": true,
-      "latency_ms": 3049.29,
-      "stdout_tail": "Scope control tests passed.\n",
+      "latency_ms": 2804.11,
+      "stdout_tail": "Resource protection tests passed.\n",
       "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
-    },
-    {
-      "command": [
-        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_structured_outputs.py"
-      ],
-      "returncode": 0,
-      "passed": true,
-      "latency_ms": 347.44,
-      "stdout_tail": "Structured output tests passed.\n",
-      "stderr_tail": ""
-    },
-    {
-      "command": [
-        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_conversation_state.py"
-      ],
-      "returncode": 0,
-      "passed": true,
-      "latency_ms": 544.54,
-      "stdout_tail": "Conversation state tests passed.\n",
-      "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
-    },
-    {
-      "command": [
-        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_token_optimization.py"
-      ],
-      "returncode": 0,
-      "passed": true,
-      "latency_ms": 215.72,
-      "stdout_tail": "Token optimization tests passed.\n",
-      "stderr_tail": ""
-    },
-    {
-      "command": [
-        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_model_governance.py"
-      ],
-      "returncode": 0,
-      "passed": true,
-      "latency_ms": 2884.91,
-      "stdout_tail": "Model governance tests passed.\n",
-      "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
-    },
-    {
-      "command": [
-        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_full_evaluation_framework.py"
-      ],
-      "returncode": 0,
-      "passed": true,
-      "latency_ms": 79.77,
-      "stdout_tail": "Full evaluation framework tests passed.\n",
-      "stderr_tail": ""
-    },
-    {
-      "command": [
-        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_regression_framework.py"
-      ],
-      "returncode": 0,
-      "passed": true,
-      "latency_ms": 82.65,
-      "stdout_tail": "Regression framework tests passed.\n",
-      "stderr_tail": ""
-    },
-    {
-      "command": [
-        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_product_search_extraction.py"
-      ],
-      "returncode": 0,
-      "passed": true,
-      "latency_ms": 568.86,
-      "stdout_tail": "Product search extraction tests passed.\n",
-      "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
-    },
-    {
-      "command": [
-        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_rag_retrieval.py"
-      ],
-      "returncode": 0,
-      "passed": true,
-      "latency_ms": 572.39,
-      "stdout_tail": "RAG retrieval tests passed.\n",
-      "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
-    },
-    {
-      "command": [
-        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_document_ingestion.py"
-      ],
-      "returncode": 0,
-      "passed": true,
-      "latency_ms": 217.9,
-      "stdout_tail": "Document ingestion tests passed.\n",
-      "stderr_tail": ""
     },
     {
       "command": [
@@ -180,7 +63,7 @@
       ],
       "returncode": 0,
       "passed": true,
-      "latency_ms": 558.39,
+      "latency_ms": 553.81,
       "stdout_tail": "Controlled write action tests passed.\n",
       "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
     },
@@ -191,7 +74,7 @@
       ],
       "returncode": 0,
       "passed": true,
-      "latency_ms": 561.27,
+      "latency_ms": 618.47,
       "stdout_tail": "Human escalation tests passed.\n",
       "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
     },
@@ -202,7 +85,7 @@
       ],
       "returncode": 0,
       "passed": true,
-      "latency_ms": 3046.67,
+      "latency_ms": 2970.44,
       "stdout_tail": "Hallucination control tests passed.\n",
       "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
     },
@@ -213,7 +96,7 @@
       ],
       "returncode": 0,
       "passed": true,
-      "latency_ms": 2886.6,
+      "latency_ms": 2801.41,
       "stdout_tail": "Observability tests passed.\n",
       "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
     },
@@ -224,7 +107,7 @@
       ],
       "returncode": 0,
       "passed": true,
-      "latency_ms": 84.38,
+      "latency_ms": 86.26,
       "stdout_tail": "Quality gate tests passed.\n",
       "stderr_tail": ""
     },
@@ -235,31 +118,9 @@
       ],
       "returncode": 0,
       "passed": true,
-      "latency_ms": 55.44,
+      "latency_ms": 59.15,
       "stdout_tail": "CI pipeline contract tests passed.\n",
       "stderr_tail": ""
-    },
-    {
-      "command": [
-        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_auth_context.py"
-      ],
-      "returncode": 0,
-      "passed": true,
-      "latency_ms": 548.38,
-      "stdout_tail": "Auth context tests passed.\n",
-      "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
-    },
-    {
-      "command": [
-        "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
-        "evaluation/test_rbac_authorization.py"
-      ],
-      "returncode": 0,
-      "passed": true,
-      "latency_ms": 544.06,
-      "stdout_tail": "RBAC authorization tests passed.\n",
-      "stderr_tail": "C:\\Users\\jafar\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.\n  from pydantic.v1.fields import FieldInfo as FieldInfoV1\n"
     }
   ],
   "llm_bug_results": [],

@@ -12,6 +12,12 @@ from core.prompts import get_system_prompt_metadata, get_task_prompt, get_task_p
 from core.optimization import semantic_response_cache, task_budget
 from core.privacy import redact_for_logs, redact_text
 from core.privacy.pii import redact_message_content
+from core.resource_protection import (
+    ResourceLimitExceeded,
+    active_resource_guard,
+    resource_guard_context,
+    resource_protection_service,
+)
 from core.security import (
     is_security_only_attack,
     security_instruction,
@@ -32,6 +38,7 @@ from core.services import (
 from core.structured_outputs import build_policy_decision_output, build_routing_output, build_tool_arguments_output
 from core.tools import tools, tools_by_name
 from core.workflows import evaluate_escalation, route_intent
+from .agent_loop_safety import AgentLoopSafetyDecision, AgentLoopSafetyGuard
 from database import init_database
 
 
@@ -186,6 +193,13 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
     exposed_tool_names = tool_names_for_user_input(user_input, context)
     exposed_tools = _tools_by_names(exposed_tool_names)
     evidence_tool_outputs = []
+    settings = get_settings()
+    loop_safety = AgentLoopSafetyGuard(
+        max_agent_steps=settings.max_agent_steps,
+        max_identical_tool_calls=settings.max_identical_tool_calls,
+        max_low_progress_steps=settings.max_low_progress_steps,
+        max_planning_cycle_length=settings.max_planning_cycle_length,
+    )
 
     if trace is not None:
         trace["exposed_tools"] = sorted(exposed_tool_names)
@@ -204,9 +218,22 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
     messages.append(ai_msg)
 
     while hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls:
+        guard = active_resource_guard()
+        safety_decision = loop_safety.inspect_plan(
+            ai_msg.tool_calls,
+            current_agent_steps=guard.agent_steps if guard is not None else loop_safety.planning_steps,
+        )
+        if trace is not None:
+            trace["agent_loop_safety"] = loop_safety.snapshot()
+        if safety_decision.should_stop:
+            return _escalate_agent_loop_safety(user_input, safety_decision, loop_safety, trace)
+        if guard is not None:
+            guard.before_tool_batch(len(ai_msg.tool_calls))
+        current_tool_outputs = []
         for tool_call in ai_msg.tool_calls:
             tool_name = tool_call["name"].lower()
             tool_args = tool_call.get("args", {})
+            _before_tool_call(tool_name)
             with observed_span(
                 "validation",
                 "tool.validate",
@@ -236,6 +263,7 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
                     attributes={"tool_name": tool_name, "reason": validation.reason},
                 )
             evidence_tool_outputs.append(str(tool_output))
+            current_tool_outputs.append(str(tool_output))
 
             if trace is not None:
                 structured_tool_args = build_tool_arguments_output(
@@ -259,6 +287,12 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
                 name=tool_call["name"],
             ))
 
+        safety_decision = loop_safety.record_tool_results(current_tool_outputs)
+        if trace is not None:
+            trace["agent_loop_safety"] = loop_safety.snapshot()
+        if safety_decision.should_stop:
+            return _escalate_agent_loop_safety(user_input, safety_decision, loop_safety, trace)
+
         messages.append(SystemMessage(content=security_instruction(user_input)))
         messages.append(SystemMessage(content=_response_language_instruction(user_input)))
         llm_response = llm_gateway.generate_sync(
@@ -269,6 +303,8 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
         messages.append(ai_msg)
 
     cleaned_content = _clean_ai_response(ai_msg.content)
+    if trace is not None:
+        trace["agent_loop_safety"] = loop_safety.snapshot()
     try:
         ai_msg.content = cleaned_content
     except (AttributeError, TypeError, ValueError):
@@ -356,6 +392,7 @@ def _execute_routed_workflow(user_input: str, trace: dict | None = None) -> str 
                 "tool.escalate_to_human",
                 attributes={"priority": escalation.priority, "escalation_type": escalation.escalation_type},
             ) as tool_span:
+                _before_tool_call("escalate_to_human")
                 tool_output = support_service.create_support_ticket(
                     user_input,
                     agent_summary=escalation.summarized_context,
@@ -407,6 +444,7 @@ def _execute_routed_workflow(user_input: str, trace: dict | None = None) -> str 
         tool_args = {"query": user_input}
         with observed_span("retrieval", "knowledge.retrieve", attributes={"query": user_input}):
             with observed_span("tool", f"tool.{tool_name}", attributes={"arguments": tool_args}) as tool_span:
+                _before_tool_call(tool_name)
                 tool_output = knowledge_service.search_knowledge_base(user_input)
                 tool_span.set_attributes(output=str(tool_output))
     elif decision.workflow == "order_status":
@@ -417,6 +455,7 @@ def _execute_routed_workflow(user_input: str, trace: dict | None = None) -> str 
         tool_name = "check_order_status"
         tool_args = {"order_id": order_id}
         with observed_span("tool", f"tool.{tool_name}", attributes={"arguments": tool_args}) as tool_span:
+            _before_tool_call(tool_name)
             tool_output = order_service.check_order_status(order_id)
             tool_span.set_attributes(output=str(tool_output))
     elif decision.workflow == "product_search":
@@ -424,6 +463,7 @@ def _execute_routed_workflow(user_input: str, trace: dict | None = None) -> str 
         tool_args = {"query": user_input}
         with observed_span("retrieval", "product.retrieve", attributes={"query": user_input}):
             with observed_span("tool", f"tool.{tool_name}", attributes={"arguments": tool_args}) as tool_span:
+                _before_tool_call(tool_name)
                 tool_output = product_service.search_products(query=user_input)
                 tool_span.set_attributes(output=str(tool_output))
     else:
@@ -817,33 +857,9 @@ def get_agent_response(user_input: str, auth_token: str | None = None, session_i
                 trace_id=request_trace.trace_id,
             )
             with request_context(traced_context):
-                confirmed_response = _execute_confirmed_write_action(user_input, trace=trace)
-                if confirmed_response is not None:
-                    response = confirmed_response
-                    trace.update({"intent": "TRANSACTION", "workflow": "confirmed_write_action", "use_agent_loop": False})
-                    record_trace_event(
-                        "intent",
-                        "intent.route",
-                        attributes={"intent": "TRANSACTION", "workflow": "confirmed_write_action"},
-                    )
-                elif is_security_only_attack(user_input):
-                    response = security_refusal()
-                    trace.update({"intent": "UNKNOWN", "workflow": "security_refusal", "use_agent_loop": False})
-                    record_trace_event(
-                        "intent",
-                        "intent.route",
-                        attributes={"intent": "UNKNOWN", "workflow": "security_refusal"},
-                    )
-                    record_trace_event(
-                        "validation",
-                        "security.direct_injection",
-                        status="blocked",
-                        attributes={"blocked": True},
-                    )
-                else:
-                    routed_response = _execute_routed_workflow(user_input, trace=trace)
-                    response = routed_response if routed_response is not None else _execute_agent(user_input, trace=trace)
-                conversation_service.record_turn(user_input, response, trace)
+                response, should_record = _execute_with_resource_limits(user_input, trace)
+                if should_record:
+                    conversation_service.record_turn(user_input, response, trace)
                 request_trace.complete(
                     response,
                     intent=trace.get("intent", ""),
@@ -867,33 +883,9 @@ def get_agent_response_with_trace(user_input: str, auth_token: str | None = None
                 trace_id=request_trace.trace_id,
             )
             with request_context(traced_context):
-                confirmed_response = _execute_confirmed_write_action(user_input, trace=trace)
-                if confirmed_response is not None:
-                    response = confirmed_response
-                    trace.update({"intent": "TRANSACTION", "workflow": "confirmed_write_action", "use_agent_loop": False})
-                    record_trace_event(
-                        "intent",
-                        "intent.route",
-                        attributes={"intent": "TRANSACTION", "workflow": "confirmed_write_action"},
-                    )
-                elif is_security_only_attack(user_input):
-                    response = security_refusal()
-                    trace.update({"intent": "UNKNOWN", "workflow": "security_refusal", "use_agent_loop": False})
-                    record_trace_event(
-                        "intent",
-                        "intent.route",
-                        attributes={"intent": "UNKNOWN", "workflow": "security_refusal"},
-                    )
-                    record_trace_event(
-                        "validation",
-                        "security.direct_injection",
-                        status="blocked",
-                        attributes={"blocked": True},
-                    )
-                else:
-                    routed_response = _execute_routed_workflow(user_input, trace=trace)
-                    response = routed_response if routed_response is not None else _execute_agent(user_input, trace=trace)
-                conversation_service.record_turn(user_input, response, trace)
+                response, should_record = _execute_with_resource_limits(user_input, trace)
+                if should_record:
+                    conversation_service.record_turn(user_input, response, trace)
                 request_trace.complete(
                     response,
                     intent=trace.get("intent", ""),
@@ -934,7 +926,163 @@ def _trace_payload(trace: dict, *, response: str, exception: str | None) -> dict
         "model_governance": trace.get("model_governance"),
         "claim_audit": trace.get("claim_audit"),
         "hallucination_abstained": trace.get("hallucination_abstained", False),
+        "agent_loop_safety": trace.get("agent_loop_safety"),
+        "resource_usage": trace.get("resource_usage"),
+        "resource_limit": trace.get("resource_limit"),
         "exception": exception,
+    }
+
+
+def _execute_with_resource_limits(user_input: str, trace: dict) -> tuple[str, bool]:
+    context = _context_from_current_request()
+    guard = None
+    try:
+        guard = resource_protection_service.begin_request(user_input, context)
+        trace["resource_usage"] = _resource_usage_trace(guard)
+        with resource_guard_context(guard):
+            response = _dispatch_agent_request(user_input, trace)
+            guard.check_runtime()
+            response = guard.bound_response(response)
+        resource_protection_service.finish_request(guard)
+        trace["resource_usage"] = _resource_usage_trace(guard)
+        return response, True
+    except ResourceLimitExceeded as exc:
+        if guard is not None:
+            resource_protection_service.finish_request(guard, status="blocked", limit_code=exc.code)
+            trace["resource_usage"] = _resource_usage_trace(guard)
+        trace["resource_limit"] = {
+            "code": exc.code,
+            "retry_after_seconds": exc.retry_after_seconds,
+        }
+        trace.update({"intent": trace.get("intent") or "UNKNOWN", "workflow": "resource_limit", "use_agent_loop": False})
+        record_trace_event(
+            "validation",
+            "resource.limit",
+            status="blocked",
+            attributes=trace["resource_limit"],
+        )
+        return exc.user_message(_detect_response_language(user_input)), False
+
+
+def _dispatch_agent_request(user_input: str, trace: dict) -> str:
+    confirmed_response = _execute_confirmed_write_action(user_input, trace=trace)
+    if confirmed_response is not None:
+        trace.update({"intent": "TRANSACTION", "workflow": "confirmed_write_action", "use_agent_loop": False})
+        record_trace_event(
+            "intent",
+            "intent.route",
+            attributes={"intent": "TRANSACTION", "workflow": "confirmed_write_action"},
+        )
+        return confirmed_response
+    if is_security_only_attack(user_input):
+        trace.update({"intent": "UNKNOWN", "workflow": "security_refusal", "use_agent_loop": False})
+        record_trace_event(
+            "intent",
+            "intent.route",
+            attributes={"intent": "UNKNOWN", "workflow": "security_refusal"},
+        )
+        record_trace_event(
+            "validation",
+            "security.direct_injection",
+            status="blocked",
+            attributes={"blocked": True},
+        )
+        return security_refusal()
+    routed_response = _execute_routed_workflow(user_input, trace=trace)
+    return routed_response if routed_response is not None else _execute_agent(user_input, trace=trace)
+
+
+def _before_tool_call(tool_name: str) -> None:
+    guard = active_resource_guard()
+    if guard is not None:
+        guard.before_tool(tool_name)
+
+
+def _escalate_agent_loop_safety(
+    user_input: str,
+    decision: AgentLoopSafetyDecision,
+    loop_safety: AgentLoopSafetyGuard,
+    trace: dict | None,
+) -> str:
+    safety_metadata = {
+        "reason": decision.reason,
+        "detail": decision.detail,
+        **loop_safety.snapshot(),
+    }
+    record_trace_event(
+        "validation",
+        "agent_loop.safety",
+        status="blocked",
+        attributes=safety_metadata,
+    )
+    summary = (
+        f"Automatic agent loop stopped safely due to {decision.reason}. "
+        f"Planning steps: {loop_safety.planning_steps}; "
+        f"unique evidence items: {len(loop_safety.evidence_hashes)}; "
+        f"planned tools: {', '.join(name for plan in loop_safety.plan_history for name in plan) or 'none'}."
+    )
+    # This is an orchestrator-controlled terminal handoff, not another LLM-proposed tool step.
+    with observed_span(
+        "tool",
+        "tool.escalate_to_human",
+        attributes={"automatic": True, "escalation_type": "agent_loop_safety"},
+    ) as tool_span:
+        tool_output = support_service.create_support_ticket(
+            user_input,
+            agent_summary=summary,
+            priority="Normal",
+            escalation_type="agent_loop_safety",
+            escalation_reason=decision.reason,
+            summarized_context=summary,
+        )
+        tool_span.set_attributes(output=str(tool_output))
+
+    if trace is not None:
+        trace["workflow"] = "agent_loop_safety_escalation"
+        trace["use_agent_loop"] = False
+        trace["agent_loop_safety"] = safety_metadata
+        trace["escalation_decision"] = {
+            "priority": "Normal",
+            "type": "agent_loop_safety",
+            "reason": decision.reason,
+            "automatic": True,
+        }
+        trace.setdefault("tool_calls", []).append({
+            "name": "escalate_to_human",
+            "args": {
+                "priority": "Normal",
+                "escalation_type": "agent_loop_safety",
+                "reason": decision.reason,
+            },
+            "output": redact_for_logs(str(tool_output)),
+            "routed": True,
+            "automatic": True,
+            "agent_loop_safety": True,
+        })
+    return _finalize_workflow_response(
+        user_input,
+        "escalate_to_human",
+        str(tool_output),
+        trace=trace,
+    )
+
+
+def _resource_usage_trace(guard) -> dict:
+    return {
+        "input_tokens": guard.input_tokens,
+        "output_tokens": guard.output_tokens,
+        "tool_calls": guard.tool_calls,
+        "agent_steps": guard.agent_steps,
+        "runtime_ms": int(guard.elapsed_seconds * 1000),
+        "cost_usd": round(guard.cost_usd, 10),
+        "limits": {
+            "max_input_tokens": guard.limits.max_input_tokens,
+            "max_output_tokens": guard.limits.max_output_tokens,
+            "max_tool_calls": guard.limits.max_tool_calls,
+            "max_agent_steps": guard.limits.max_agent_steps,
+            "max_agent_runtime_seconds": guard.limits.max_agent_runtime_seconds,
+            "max_request_cost_usd": guard.limits.max_request_cost_usd,
+        },
     }
 
 
@@ -956,6 +1104,8 @@ def _execute_confirmed_write_action(user_input: str, trace: dict | None = None) 
     pending = write_action_service.consume_confirmation(user_input)
     if pending is None:
         return None
+
+    _before_tool_call(pending.action)
 
     if pending.action == "cart.add_item":
         response = cart_service.add_to_cart(
