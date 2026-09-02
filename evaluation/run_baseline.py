@@ -1,5 +1,6 @@
 import argparse
 import json
+import re
 import shutil
 import sys
 import time
@@ -16,6 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.privacy import redact_for_logs  # noqa: E402
+from core.optimization import summarize_token_trace  # noqa: E402
 
 
 def load_cases(dataset_dir: Path) -> list[dict]:
@@ -153,6 +155,8 @@ def evaluate_case(case: dict, agent_module, database_module) -> dict:
     argument_accuracy_pass = len(argument_mismatches) == 0
     response_returned = bool(result["response"].strip())
     exception = result["exception"]
+    token_usage = summarize_token_trace(result)
+    claim_audit = redact_for_logs(result.get("claim_audit") or {})
 
     return {
         "id": case["id"],
@@ -177,6 +181,10 @@ def evaluate_case(case: dict, agent_module, database_module) -> dict:
         "prompt": redact_for_logs(result.get("prompt")),
         "exception": redact_for_logs(exception),
         "latency_ms": latency_ms,
+        "token_usage": token_usage,
+        "claim_audit": claim_audit,
+        "hallucination_abstained": bool(result.get("hallucination_abstained")),
+        "citation_present": bool(re.search(r"\[C\d+\]", result["response"])),
         "access": case.get("access"),
         "risk": case.get("risk"),
         "skipped": False,
@@ -212,6 +220,10 @@ def skipped_case(case: dict, reason: str) -> dict:
         "response_preview": "",
         "exception": None,
         "latency_ms": 0,
+        "token_usage": {},
+        "claim_audit": {},
+        "hallucination_abstained": False,
+        "citation_present": False,
         "access": case.get("access"),
         "risk": case.get("risk"),
         "skipped": True,

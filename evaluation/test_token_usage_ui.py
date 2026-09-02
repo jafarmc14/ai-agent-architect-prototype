@@ -24,6 +24,16 @@ def test_token_trace_summary_aggregates_llm_calls():
                     "model": "openrouter/free",
                     "latency_ms": 95,
                     "cost_usd": 0,
+                    "routing": {
+                        "task": "simple_rag",
+                        "complexity": "medium",
+                        "selected_tier": "premium",
+                        "provider": "kimi",
+                        "model": "kimi-k2.6",
+                        "premium_model_used": True,
+                        "fallback_used": False,
+                        "reasons": ["low_confidence_with_usable_evidence"],
+                    },
                     "token_breakdown": {
                         "task": "simple_rag",
                         "system_prompt_tokens": 100,
@@ -48,6 +58,8 @@ def test_token_trace_summary_aggregates_llm_calls():
     assert summary["total_tokens"] == 420
     assert summary["retrieval_tokens"] == 200
     assert summary["cost_usd"] == 0
+    assert summary["premium_model_calls"] == 1
+    assert summary["routing_decisions"][0]["selected_tier"] == "premium"
 
 
 def test_deterministic_request_reports_zero_llm_calls():

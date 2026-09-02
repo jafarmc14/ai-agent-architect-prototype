@@ -4,7 +4,8 @@ from typing import Any
 
 from configs import get_settings
 from core.llm.base import LLMProvider, LLMResponse, Message, StructuredSchema, ToolDefinition
-from core.llm.providers import OllamaProvider, OpenRouterProvider
+from core.llm.model_routing import ModelRouter, RoutingDecision
+from core.llm.providers import DeepSeekProvider, KimiProvider, OllamaProvider, OpenRouterProvider
 from core.observability import current_trace_ids, observed_span
 from core.optimization import account_llm_context, estimate_tokens
 from core.privacy import redact_for_logs
@@ -18,6 +19,8 @@ class LLMGateway:
 
     def __init__(self, provider: LLMProvider | None = None):
         self.provider = provider or self._build_provider()
+        self.model_router = ModelRouter(get_settings())
+        self._provider_cache = {(self.provider_name, self.model or ""): self.provider}
         self.request_repository = LLMRequestRepository()
 
     @property
@@ -57,6 +60,8 @@ class LLMGateway:
     ) -> None:
         """Switch the active provider at runtime without touching business code."""
         self.provider = self._build_provider(provider_name=provider_name, model=model)
+        self.model_router = ModelRouter(get_settings())
+        self._provider_cache = {(self.provider_name, self.model or ""): self.provider}
 
     def _build_provider(
         self,
@@ -69,7 +74,11 @@ class LLMGateway:
             return OpenRouterProvider(model=model)
         if provider_name == "ollama":
             return OllamaProvider(model=model)
-        supported = "openrouter, ollama"
+        if provider_name == "deepseek":
+            return DeepSeekProvider(model=model)
+        if provider_name in {"kimi", "moonshot"}:
+            return KimiProvider(model=model)
+        supported = "openrouter, ollama, deepseek, kimi"
         raise ValueError(f"Unsupported LLM_PROVIDER {provider_name!r}. Supported values: {supported}.")
 
     async def generate(
@@ -81,29 +90,35 @@ class LLMGateway:
         token_context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
-        accounting = self._account_context(messages, tools, task, token_context)
+        accounting = self._account_context(messages, tools, task, token_context, provider=self.provider)
+        provider, routing = self._route_provider(task, accounting, tools, token_context)
+        accounting = self._account_context(messages, tools, task, token_context, provider=provider)
         self._apply_output_limit(kwargs, self._prepare_call(accounting))
         start = time.perf_counter()
         with observed_span(
             "llm",
             "llm.generate",
-            attributes=self._span_attributes(tools, structured=False, accounting=accounting),
+            attributes=self._span_attributes(
+                tools, structured=False, accounting=accounting, provider=provider, routing=routing,
+            ),
         ) as span:
             try:
-                response = await self.provider.generate(messages, tools=tools, temperature=temperature, **kwargs)
+                response = await provider.generate(messages, tools=tools, temperature=temperature, **kwargs)
                 latency_ms = _latency_ms(start)
                 accounting = self._with_output(accounting, response)
                 self._complete_call(response, accounting)
-                span.set_attributes(**self._usage_attributes(response, latency_ms), token_breakdown=accounting.to_dict())
+                span.set_attributes(
+                    **self._usage_attributes(response, latency_ms, provider), token_breakdown=accounting.to_dict()
+                )
                 self._log_request(
                     messages, tools, response, "success", latency_ms=latency_ms,
-                    accounting=accounting, token_context=token_context,
+                    accounting=accounting, token_context=token_context, provider=provider, routing=routing,
                 )
                 return response
             except Exception as exc:
                 self._log_request(
                     messages, tools, None, "error", error_message=str(exc), latency_ms=_latency_ms(start),
-                    accounting=accounting, token_context=token_context,
+                    accounting=accounting, token_context=token_context, provider=provider, routing=routing,
                 )
                 raise
 
@@ -116,16 +131,20 @@ class LLMGateway:
         token_context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any:
-        accounting = self._account_context(messages, None, task, token_context)
+        accounting = self._account_context(messages, None, task, token_context, provider=self.provider)
+        provider, routing = self._route_provider(task, accounting, None, token_context)
+        accounting = self._account_context(messages, None, task, token_context, provider=provider)
         self._apply_output_limit(kwargs, self._prepare_call(accounting))
         start = time.perf_counter()
         with observed_span(
             "llm",
             "llm.generate_structured",
-            attributes=self._span_attributes(None, structured=True, accounting=accounting),
+            attributes=self._span_attributes(
+                None, structured=True, accounting=accounting, provider=provider, routing=routing,
+            ),
         ) as span:
             try:
-                response = await self.provider.generate_structured(messages, schema=schema, temperature=temperature, **kwargs)
+                response = await provider.generate_structured(messages, schema=schema, temperature=temperature, **kwargs)
                 latency_ms = _latency_ms(start)
                 accounting = self._with_structured_output(accounting, response)
                 self._complete_call(response, accounting)
@@ -133,17 +152,18 @@ class LLMGateway:
                     latency_ms=latency_ms,
                     tokens_unavailable=True,
                     token_breakdown=accounting.to_dict(),
-                    **self._cost_attributes({}),
+                    **self._cost_attributes({}, provider),
                 )
                 self._log_request(
                     messages, None, None, "success", latency_ms=latency_ms, metadata={"structured": True},
-                    accounting=accounting, token_context=token_context,
+                    accounting=accounting, token_context=token_context, provider=provider, routing=routing,
                 )
                 return response
             except Exception as exc:
                 self._log_request(
                     messages, None, None, "error", error_message=str(exc), latency_ms=_latency_ms(start),
                     metadata={"structured": True}, accounting=accounting, token_context=token_context,
+                    provider=provider, routing=routing,
                 )
                 raise
 
@@ -156,7 +176,9 @@ class LLMGateway:
         token_context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
-        if not hasattr(self.provider, "generate_sync"):
+        accounting = self._account_context(messages, tools, task, token_context, provider=self.provider)
+        provider, routing = self._route_provider(task, accounting, tools, token_context)
+        if not hasattr(provider, "generate_sync"):
             return asyncio.run(self.generate(
                 messages,
                 tools=tools,
@@ -165,29 +187,33 @@ class LLMGateway:
                 token_context=token_context,
                 **kwargs,
             ))
-        accounting = self._account_context(messages, tools, task, token_context)
+        accounting = self._account_context(messages, tools, task, token_context, provider=provider)
         self._apply_output_limit(kwargs, self._prepare_call(accounting))
         start = time.perf_counter()
         with observed_span(
             "llm",
             "llm.generate",
-            attributes=self._span_attributes(tools, structured=False, accounting=accounting),
+            attributes=self._span_attributes(
+                tools, structured=False, accounting=accounting, provider=provider, routing=routing,
+            ),
         ) as span:
             try:
-                response = self.provider.generate_sync(messages, tools=tools, temperature=temperature, **kwargs)
+                response = provider.generate_sync(messages, tools=tools, temperature=temperature, **kwargs)
                 latency_ms = _latency_ms(start)
                 accounting = self._with_output(accounting, response)
                 self._complete_call(response, accounting)
-                span.set_attributes(**self._usage_attributes(response, latency_ms), token_breakdown=accounting.to_dict())
+                span.set_attributes(
+                    **self._usage_attributes(response, latency_ms, provider), token_breakdown=accounting.to_dict()
+                )
                 self._log_request(
                     messages, tools, response, "success", latency_ms=latency_ms,
-                    accounting=accounting, token_context=token_context,
+                    accounting=accounting, token_context=token_context, provider=provider, routing=routing,
                 )
                 return response
             except Exception as exc:
                 self._log_request(
                     messages, tools, None, "error", error_message=str(exc), latency_ms=_latency_ms(start),
-                    accounting=accounting, token_context=token_context,
+                    accounting=accounting, token_context=token_context, provider=provider, routing=routing,
                 )
                 raise
 
@@ -200,7 +226,9 @@ class LLMGateway:
         token_context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any:
-        if not hasattr(self.provider, "generate_structured_sync"):
+        accounting = self._account_context(messages, None, task, token_context, provider=self.provider)
+        provider, routing = self._route_provider(task, accounting, None, token_context)
+        if not hasattr(provider, "generate_structured_sync"):
             return asyncio.run(self.generate_structured(
                 messages,
                 schema=schema,
@@ -209,16 +237,18 @@ class LLMGateway:
                 token_context=token_context,
                 **kwargs,
             ))
-        accounting = self._account_context(messages, None, task, token_context)
+        accounting = self._account_context(messages, None, task, token_context, provider=provider)
         self._apply_output_limit(kwargs, self._prepare_call(accounting))
         start = time.perf_counter()
         with observed_span(
             "llm",
             "llm.generate_structured",
-            attributes=self._span_attributes(None, structured=True, accounting=accounting),
+            attributes=self._span_attributes(
+                None, structured=True, accounting=accounting, provider=provider, routing=routing,
+            ),
         ) as span:
             try:
-                response = self.provider.generate_structured_sync(messages, schema=schema, temperature=temperature, **kwargs)
+                response = provider.generate_structured_sync(messages, schema=schema, temperature=temperature, **kwargs)
                 latency_ms = _latency_ms(start)
                 accounting = self._with_structured_output(accounting, response)
                 self._complete_call(response, accounting)
@@ -226,17 +256,18 @@ class LLMGateway:
                     latency_ms=latency_ms,
                     tokens_unavailable=True,
                     token_breakdown=accounting.to_dict(),
-                    **self._cost_attributes({}),
+                    **self._cost_attributes({}, provider),
                 )
                 self._log_request(
                     messages, None, None, "success", latency_ms=latency_ms, metadata={"structured": True},
-                    accounting=accounting, token_context=token_context,
+                    accounting=accounting, token_context=token_context, provider=provider, routing=routing,
                 )
                 return response
             except Exception as exc:
                 self._log_request(
                     messages, None, None, "error", error_message=str(exc), latency_ms=_latency_ms(start),
                     metadata={"structured": True}, accounting=accounting, token_context=token_context,
+                    provider=provider, routing=routing,
                 )
                 raise
 
@@ -251,16 +282,22 @@ class LLMGateway:
         metadata: dict[str, Any] | None = None,
         accounting=None,
         token_context: dict[str, Any] | None = None,
+        provider: LLMProvider | None = None,
+        routing: RoutingDecision | None = None,
     ) -> None:
+        provider = provider or self.provider
         usage = response.usage if response and response.usage else {}
-        cost = self._cost_attributes(usage)
+        cost = self._cost_attributes(usage, provider)
         trace_ids = current_trace_ids()
         token_context = token_context or {}
+        provider_name = _provider_name(provider)
+        model = _provider_model(provider)
+        model_metadata = _provider_metadata(provider)
         self.request_repository.insert_request(
-            provider=self.provider_name,
-            model=self.model or "",
-            model_version=self.model_version or "",
-            model_metadata=response.model_metadata if response and response.model_metadata else self.model_metadata,
+            provider=provider_name,
+            model=model,
+            model_version=_provider_model_version(provider),
+            model_metadata=response.model_metadata if response and response.model_metadata else model_metadata,
             request_messages=redact_for_logs(_serializable_messages(messages)),
             request_tools=tools or [],
             response_text=redact_for_logs(response.text if response else ""),
@@ -278,14 +315,26 @@ class LLMGateway:
             trace_id=trace_ids["trace_id"],
             token_breakdown=accounting.to_dict() if accounting else {},
             prompt_metadata=token_context.get("prompt_metadata") or get_system_prompt_metadata(),
-            metadata={**(metadata or {}), "task": accounting.task if accounting else ""},
+            metadata={
+                **(metadata or {}),
+                "task": accounting.task if accounting else "",
+                "routing": routing.metadata() if routing else {},
+            },
         )
 
-    def _span_attributes(self, tools: list[ToolDefinition] | None, *, structured: bool, accounting) -> dict[str, Any]:
+    def _span_attributes(
+        self,
+        tools: list[ToolDefinition] | None,
+        *,
+        structured: bool,
+        accounting,
+        provider: LLMProvider,
+        routing: RoutingDecision,
+    ) -> dict[str, Any]:
         return {
-            "provider": self.provider_name,
-            "model": self.model or "",
-            "model_version": self.model_version or "",
+            "provider": _provider_name(provider),
+            "model": _provider_model(provider),
+            "model_version": _provider_model_version(provider),
             "structured": structured,
             "tools_exposed": len(tools or []),
             "task": accounting.task,
@@ -294,9 +343,19 @@ class LLMGateway:
             "estimated_input_tokens": accounting.total_input_tokens,
             "context_utilization_ratio": accounting.context_utilization_ratio,
             "within_budget": accounting.within_budget,
+            "routing": routing.metadata(),
+            "premium_model_used": routing.premium_model_used,
         }
 
-    def _account_context(self, messages, tools, task: str, token_context: dict[str, Any] | None):
+    def _account_context(
+        self,
+        messages,
+        tools,
+        task: str,
+        token_context: dict[str, Any] | None,
+        *,
+        provider: LLMProvider,
+    ):
         context = dict(token_context or _infer_token_context(messages))
         return account_llm_context(
             task=task,
@@ -305,8 +364,34 @@ class LLMGateway:
             conversation=context.get("conversation", ""),
             retrieval_context=context.get("retrieval_context", ""),
             tools=tools,
-            provider_prompt_cache_eligible=bool(getattr(self.provider, "supports_prompt_caching", False)),
+            provider_prompt_cache_eligible=bool(getattr(provider, "supports_prompt_caching", False)),
         )
+
+    def _route_provider(
+        self,
+        task: str,
+        accounting,
+        tools: list[ToolDefinition] | None,
+        token_context: dict[str, Any] | None,
+    ) -> tuple[LLMProvider, RoutingDecision]:
+        context = token_context or {}
+        decision = self.model_router.decide(
+            task=task,
+            base_provider=self.provider_name,
+            base_model=self.model or "",
+            estimated_input_tokens=accounting.total_input_tokens,
+            input_budget=accounting.input_budget,
+            tool_count=len(tools or []),
+            route_context=context.get("routing") or {},
+        )
+        if not decision.enabled or (
+            decision.provider == self.provider_name and decision.model == (self.model or "")
+        ):
+            return self.provider, decision
+        key = (decision.provider, decision.model)
+        if key not in self._provider_cache:
+            self._provider_cache[key] = self._build_provider(decision.provider, decision.model)
+        return self._provider_cache[key], decision
 
     def _prepare_call(self, accounting) -> int:
         settings = get_settings()
@@ -354,17 +439,27 @@ class LLMGateway:
         values["output_tokens"] = estimate_tokens(value)
         return accounting.__class__(**values)
 
-    def _usage_attributes(self, response: LLMResponse, latency_ms: int) -> dict[str, Any]:
+    def _usage_attributes(
+        self,
+        response: LLMResponse,
+        latency_ms: int,
+        provider: LLMProvider,
+    ) -> dict[str, Any]:
         usage = response.usage or {}
         return {
             "latency_ms": latency_ms,
             "prompt_tokens": _usage_value(usage, "input_tokens", "prompt_tokens"),
             "completion_tokens": _usage_value(usage, "output_tokens", "completion_tokens"),
             "total_tokens": _usage_value(usage, "total_tokens"),
-            **self._cost_attributes(usage),
+            **self._cost_attributes(usage, provider),
         }
 
-    def _cost_attributes(self, usage: dict[str, Any]) -> dict[str, Any]:
+    def _cost_attributes(
+        self,
+        usage: dict[str, Any],
+        provider: LLMProvider | None = None,
+    ) -> dict[str, Any]:
+        provider = provider or self.provider
         for key in ("cost_usd", "cost", "total_cost"):
             if usage.get(key) is not None:
                 try:
@@ -373,15 +468,44 @@ class LLMGateway:
                     continue
                 if cost >= 0:
                     return {"cost_usd": cost, "cost_source": "provider"}
-        if self.provider_name == "ollama":
+        provider_name = _provider_name(provider)
+        model = _provider_model(provider)
+        if provider_name == "ollama":
             return {"cost_usd": 0.0, "cost_source": "local"}
-        if self.provider_name == "openrouter" and (self.model or "").endswith("/free"):
+        if provider_name == "openrouter" and model.endswith("/free"):
             return {"cost_usd": 0.0, "cost_source": "free_model"}
         return {"cost_usd": None, "cost_source": "not_reported"}
 
 
 def _latency_ms(start: float) -> int:
     return int(round((time.perf_counter() - start) * 1000))
+
+
+def _provider_name(provider: LLMProvider) -> str:
+    return getattr(provider, "provider_name", provider.__class__.__name__.lower())
+
+
+def _provider_model(provider: LLMProvider) -> str:
+    return getattr(provider, "model", None) or ""
+
+
+def _provider_model_version(provider: LLMProvider) -> str:
+    return getattr(provider, "model_version", None) or ""
+
+
+def _provider_metadata(provider: LLMProvider) -> dict[str, Any]:
+    governance = getattr(provider, "model_governance", None)
+    if governance is not None:
+        return governance.metadata()
+    model = _provider_model(provider)
+    return {
+        "provider": _provider_name(provider),
+        "model": model,
+        "model_version": _provider_model_version(provider) or f"alias:{model}",
+        "pinned": False,
+        "alias": True,
+        "source": "provider_metadata_unavailable",
+    }
 
 
 def _usage_value(usage: dict[str, Any], *keys: str) -> int | None:

@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "dataset_files": [
+    "stock",
+    "orders",
+    "products",
+    "cart",
+    "knowledge",
+    "escalation",
+    "multistep"
+  ],
+  "providers": {
+    "ollama": {
+      "provider": "ollama",
+      "model_env": "OLLAMA_MODEL",
+      "default_model": "llama3.1",
+      "api_key_envs": [],
+      "input_price_env": null,
+      "output_price_env": null,
+      "default_input_price_per_million": 0.0,
+      "default_output_price_per_million": 0.0,
+      "paid": false
+    },
+    "deepseek": {
+      "provider": "deepseek",
+      "model_env": "DEEPSEEK_MODEL",
+      "default_model": "deepseek-v4-flash",
+      "api_key_envs": ["DEEPSEEK_API_KEY"],
+      "input_price_env": "DEEPSEEK_BENCHMARK_INPUT_PRICE_PER_MILLION",
+      "output_price_env": "DEEPSEEK_BENCHMARK_OUTPUT_PRICE_PER_MILLION",
+      "default_input_price_per_million": null,
+      "default_output_price_per_million": null,
+      "paid": true
+    },
+    "kimi": {
+      "provider": "kimi",
+      "model_env": "KIMI_MODEL",
+      "default_model": "kimi-k2.6",
+      "api_key_envs": ["MOONSHOT_API_KEY", "KIMI_API_KEY"],
+      "input_price_env": "KIMI_BENCHMARK_INPUT_PRICE_PER_MILLION",
+      "output_price_env": "KIMI_BENCHMARK_OUTPUT_PRICE_PER_MILLION",
+      "default_input_price_per_million": null,
+      "default_output_price_per_million": null,
+      "paid": true
+    }
+  }
+}

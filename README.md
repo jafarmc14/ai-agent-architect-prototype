@@ -33,6 +33,9 @@ This system is a web-based chat interface powered by an AI model that supports s
 | 14 | **Domain Scope Control** | Route unknown non-store questions to a deterministic bilingual refusal so unsupported general knowledge never reaches the LLM agent loop. |
 | 15 | **Resource Abuse Protection** | Enforce request token, output, tool-call, agent-step, runtime, cost, per-user, per-tenant, per-workflow, and repetitive expensive-request limits. |
 | 16 | **Agent Loop Safety** | Stop repeated tool calls, cyclic plans, and low-progress loops at a hard step boundary, then hand unresolved work to human support. |
+| 17 | **Production Provider Integration** | Support config-only switching among OpenRouter, Ollama, DeepSeek, and Kimi while keeping paid providers disabled until their API keys are configured. |
+| 18 | **Provider Benchmarking** | Run one versioned evaluation suite across Ollama, DeepSeek, and Kimi, then compare quality, safety, accuracy, latency, token usage, and cost with paid execution explicitly gated. |
+| 19 | **Model Routing** | Deterministically route by task, complexity, confidence, and evidence quality; prefer cheap models where safe and track every premium-model call. |
 
 ---
 
@@ -42,7 +45,7 @@ This system is a web-based chat interface powered by an AI model that supports s
 |---|---|---|
 | **Frontend** | [Streamlit](https://streamlit.io/) (Python) | Web-based chat interface for user interaction. |
 | **Orchestrator** | [LangChain](https://www.langchain.com/) + Native LLM Tool Calling | Manages the AI agent loop — prompt → LLM → tool calls → reasoning → response. |
-| **LLM API** | LLM Gateway with OpenRouter by default, or local Ollama via `LLM_PROVIDER=ollama` | The large language model that powers intent recognition, reasoning, and response generation. |
+| **LLM API** | LLM Gateway with OpenRouter free by default, local Ollama, and key-gated DeepSeek/Kimi production adapters | The large language model that powers intent recognition, reasoning, and response generation. |
 | **Database** | [PostgreSQL](https://www.postgresql.org/) + pgvector | Primary runtime database storing products, inventory, orders, carts, support tickets, conversations, evaluation data, and vector-ready knowledge chunks. |
 | **Legacy/Fallback DB** | [SQLite](https://www.sqlite.org/) | Preserved as rollback prototype storage and SQLite-to-PostgreSQL migration source. |
 | **Knowledge Base** | Split Markdown documents (`knowledge_base/*.md`) with legacy fallback (`knowledge_base.txt`) | Store policies and FAQ documents searched by the AI agent for policy-related queries. |
@@ -80,8 +83,15 @@ Agent Runtime (`core/orchestration/runtime.py`)
   |
   +--> LLM Gateway (`core/llm/gateway.py`)
   |      |
+  |      +--> Model Router (`core/llm/model_routing.py`)
+  |      |      +--> task + complexity policy
+  |      |      +--> confidence + evidence gates
+  |      |      +--> cheap -> standard -> premium availability fallback
+  |      |
   |      +--> OpenRouterProvider
   |      +--> OllamaProvider
+  |      +--> DeepSeekProvider (paid, key-gated)
+  |      +--> KimiProvider (paid, key-gated)
   |      +--> PII redaction before external LLM payloads
   |      +--> per-task input budgets and output limits
   |      +--> component token accounting in `llm_requests`
@@ -130,6 +140,19 @@ Knowledge Base:
 `knowledge_base.txt` remains as a legacy fallback.
 PostgreSQL `documents` and `document_chunks` store ingested, embedded chunks for pgvector-backed retrieval.
 ```
+
+Provider evaluation is separated from the application runtime:
+
+```text
+Provider benchmark manifest (`evaluation/provider_benchmark.json`)
+  -> identical baseline datasets per provider
+  -> isolated SQLite benchmark database per provider
+  -> normalized provider reports
+  -> quality / hallucination / tool accuracy / RAG faithfulness
+  -> latency / token usage / cost / cost per correct answer comparison
+```
+
+The benchmark runner is dry-run by default. It requires `--execute`, configured credentials, and `--confirm-paid` before DeepSeek or Kimi can receive a request.
 
 Note: The current local runtime uses PostgreSQL when `DATABASE_PROVIDER=postgres` is set in `.env`. The LLM provider can be switched between OpenRouter and Ollama from the Streamlit sidebar or `.env`.
 
@@ -291,7 +314,7 @@ LLM Gateway (`core/llm/gateway.py`)
 LLM Provider Interface (`core/llm/base.py`)
   |
   v
-Provider Adapter (`core/llm/providers/openrouter_provider.py` or `core/llm/providers/ollama_provider.py`)
+Provider Adapter (`core/llm/providers/`)
   |
   v
 Tool (`core/tools/store_tools.py`)
@@ -650,8 +673,13 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `core/llm/base.py` | **LLM provider interface.** Defines the async provider contract with `generate()` and `generate_structured()`. |
 | `core/llm/gateway.py` | **LLM gateway.** Application-facing LLM entry point that hides provider-specific client details from orchestration. |
 | `core/llm/model_governance.py` | **Model version governance.** Normalizes provider/model/model_version metadata and marks alias vs pinned model usage. |
+| `core/llm/model_routing.py` | **Deterministic model router.** Selects an available cheap, standard, or premium tier from task, complexity, confidence, evidence quality, and credential availability. |
 | `core/llm/providers/openrouter_provider.py` | **OpenRouter provider adapter.** Wraps LangChain `ChatOpenAI` configured for OpenRouter and implements the provider contract. |
 | `core/llm/providers/ollama_provider.py` | **Ollama provider adapter.** Wraps Ollama's local OpenAI-compatible API for local development with `LLM_PROVIDER=ollama`. |
+| `core/llm/providers/deepseek_provider.py` | **DeepSeek provider adapter.** Production-ready OpenAI-compatible adapter, enabled only when `DEEPSEEK_API_KEY` is configured. |
+| `core/llm/providers/kimi_provider.py` | **Kimi provider adapter.** Production-ready Moonshot OpenAI-compatible adapter, enabled only when `MOONSHOT_API_KEY` is configured. |
+| `core/llm/providers/openai_compatible_provider.py` | **Hosted provider base adapter.** Shared Chat Completions, structured output, tool-call, usage, timeout, and model-governance behavior for paid OpenAI-compatible providers. |
+| `core/llm/provider_catalog.py` | **Provider catalog.** Defines UI model choices and exposes paid providers only when their credentials are configured. |
 | `core/observability/service.py` | **Observability service.** Correlates request lifecycle spans and exposes request/trace IDs across orchestration, tools, validation, and LLM calls. |
 | `core/repositories/observability_repository.py` | **Observability repository.** Persists request traces and spans to PostgreSQL with an in-memory test fallback. |
 | `core/auth/jwt.py` | **JWT session helper.** Creates and verifies signed HS256 session tokens for authenticated chat sessions. |
@@ -713,7 +741,11 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `evaluation/validate_golden_dataset.py` | **Golden dataset validator.** Verifies case count, required files, unique IDs, and schema shape. |
 | `evaluation/add_regression_case.py` | **Regression case helper.** Appends a new fixed bug to the regression dataset. |
 | `evaluation/generate_security_dataset.py` | **Security dataset generator.** Builds deterministic adversarial datasets at 100-500 case scale. |
-| `evaluation/run_baseline.py` | **Evaluation runner v1.** Runs baseline cases, traces tool calls, measures accuracy/latency/exceptions, and saves the latest report. |
+| `evaluation/run_baseline.py` | **Evaluation runner v1.** Runs baseline cases, traces tool calls, captures claim-audit/token evidence, measures accuracy/latency/exceptions, and saves the latest report. |
+| `evaluation/provider_benchmark.json` | **Provider benchmark manifest.** Pins the identical dataset suite and provider-specific model, credential, and optional pricing environment keys. |
+| `evaluation/run_provider_benchmark.py` | **Provider benchmark runner.** Defaults to no-call dry-run planning and, after explicit authorization, normalizes Ollama/DeepSeek/Kimi quality, safety, latency, token, and cost metrics. |
+| `evaluation/test_provider_benchmark.py` | **Provider benchmark tests.** Validates suite parity, secret-safe planning, metric normalization, ranking direction, and dry-run behavior without invoking a provider. |
+| `evaluation/test_model_routing.py` | **Model routing tests.** Verifies task/complexity/evidence routing, cheap-first behavior, missing-key fallback, and premium usage logging with fake providers only. |
 | `evaluation/run_product_search_evaluation.py` | **Product search evaluation runner.** Measures Precision@5, Recall@10, NDCG@10, and Hard Constraint Satisfaction. |
 | `evaluation/run_rag_evaluation.py` | **RAG evaluation runner.** Measures Recall@5, Precision@5, Faithfulness, Citation Correctness, Completeness, Correct Abstention, and Freshness Correctness. |
 | `evaluation/run_intent_evaluation.py` | **Intent router evaluation runner.** Measures per-intent precision/recall/F1 and Macro F1. |
@@ -890,6 +922,8 @@ Secret values include:
 ```text
 OPENROUTER_API_KEY
 OLLAMA_API_KEY
+DEEPSEEK_API_KEY
+MOONSHOT_API_KEY
 DATABASE_URL
 POSTGRES_PASSWORD
 DB_PASSWORD
@@ -1591,6 +1625,12 @@ OPENROUTER_MODEL_VERSION=stable-provider-version
 
 OLLAMA_MODEL=llama3.1
 OLLAMA_MODEL_VERSION=sha256-or-local-digest
+
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_MODEL_VERSION=provider-version
+
+KIMI_MODEL=kimi-k2.6
+KIMI_MODEL_VERSION=provider-version
 ```
 
 If `*_MODEL_VERSION` is empty, the runtime still logs the model alias as observable but unpinned:
@@ -1612,7 +1652,9 @@ py evaluation/test_model_governance.py
 
 Provider selection is config-only. The application calls `LLMGateway`, while tools, services, repositories, and database code do not import provider adapters directly.
 
-In the Streamlit UI, use the sidebar **LLM Provider** menu to switch between OpenRouter and Ollama during local testing. Changing the provider/model resets the current chat session so the conversation context stays aligned with the selected runtime.
+In the Streamlit UI, use the sidebar **LLM Provider** menu to switch providers. OpenRouter and Ollama are always available. DeepSeek and Kimi appear only after their paid API key is configured. Changing the provider/model resets the current chat session so the conversation context stays aligned with the selected runtime.
+
+Current development default remains free OpenRouter:
 
 Use OpenRouter non-secret config:
 
@@ -1633,6 +1675,94 @@ Use local Ollama:
 LLM_PROVIDER=ollama
 OLLAMA_MODEL=llama3.1
 OLLAMA_API_BASE=http://localhost:11434/v1
+```
+
+Future paid DeepSeek configuration:
+
+```ini
+LLM_PROVIDER=deepseek
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_API_BASE=https://api.deepseek.com
+DEEPSEEK_API_KEY=your-paid-key
+```
+
+Future paid Kimi configuration:
+
+```ini
+LLM_PROVIDER=kimi
+KIMI_MODEL=kimi-k2.6
+KIMI_API_BASE=https://api.moonshot.ai/v1
+MOONSHOT_API_KEY=your-paid-key
+```
+
+DeepSeek and Kimi use their official OpenAI-compatible Chat Completions endpoints. When enabling a paid provider, also set `MAX_INPUT_PRICE_PER_MILLION` and `MAX_OUTPUT_PRICE_PER_MILLION` to a conservative current price ceiling before deployment. Do not copy API keys into committed environment templates.
+
+Run provider integration tests without making external API calls:
+
+```powershell
+py evaluation/test_provider_integration.py
+```
+
+### Model Routing
+
+Phase 32 adds a deterministic policy in front of provider execution. It does not use another LLM to select a model:
+
+```text
+task + estimated complexity + confidence + evidence quality
+  -> cheap tier when safe
+  -> standard tier for normal reasoning/RAG
+  -> premium tier for high complexity or low confidence with usable evidence
+  -> lower available tier when a paid credential is missing
+```
+
+Missing evidence does not trigger a premium model because a more expensive model cannot create authoritative evidence. Existing RAG abstention and claim validation remain responsible for the final safety decision.
+
+Routing remains disabled by default, so the current `LLM_PROVIDER=openrouter` and `OPENROUTER_MODEL=openrouter/free` behavior is unchanged. After subscriptions are active and Phase 31 results identify suitable tiers, configure:
+
+```ini
+MODEL_ROUTING_ENABLED=true
+
+ROUTING_CHEAP_PROVIDER=openrouter
+ROUTING_CHEAP_MODEL=openrouter/free
+ROUTING_STANDARD_PROVIDER=deepseek
+ROUTING_STANDARD_MODEL=deepseek-v4-flash
+ROUTING_PREMIUM_PROVIDER=kimi
+ROUTING_PREMIUM_MODEL=kimi-k2.6
+
+ROUTING_CHEAP_TASKS=intent,extraction,product_search,orders,cart,escalation
+ROUTING_STANDARD_TASKS=simple_rag
+ROUTING_PREMIUM_TASKS=complex_rag,agentic_workflow
+ROUTING_CONFIDENCE_THRESHOLD=0.70
+ROUTING_EVIDENCE_THRESHOLD=0.65
+```
+
+The DeepSeek and Kimi values are configurable starting points, not permanent quality rankings. Update the tier assignments after measuring quality and cost with the provider benchmark.
+
+Before enabling paid routing, set `MAX_INPUT_PRICE_PER_MILLION` and `MAX_OUTPUT_PRICE_PER_MILLION` to conservative ceilings that cover the most expensive routed model, so Phase 28 cost admission remains effective.
+
+Routing decisions are recorded in `trace_spans.attributes.routing` and `llm_requests.metadata.routing`. Apply the routing metadata indexes:
+
+```powershell
+py database/migrate_sqlite_to_postgres.py --schema-only
+```
+
+Inspect premium usage in pgAdmin:
+
+```sql
+SELECT provider, model, task_type, cost_usd,
+       metadata->'routing'->>'selected_tier' AS routing_tier,
+       metadata->'routing'->>'complexity' AS complexity,
+       metadata->'routing'->>'reasons' AS reasons,
+       created_at
+FROM llm_requests
+WHERE metadata->'routing'->>'premium_model_used' = 'true'
+ORDER BY created_at DESC;
+```
+
+Run deterministic routing tests without provider calls:
+
+```powershell
+py evaluation/test_model_routing.py
 ```
 
 After changing provider config, restart Streamlit:

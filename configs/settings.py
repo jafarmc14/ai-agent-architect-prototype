@@ -60,6 +60,26 @@ class AppSettings:
     ollama_model: str
     ollama_model_version: str
     ollama_api_base: str
+    deepseek_api_key: str
+    deepseek_model: str
+    deepseek_model_version: str
+    deepseek_api_base: str
+    kimi_api_key: str
+    kimi_model: str
+    kimi_model_version: str
+    kimi_api_base: str
+    model_routing_enabled: bool
+    routing_cheap_provider: str
+    routing_cheap_model: str
+    routing_standard_provider: str
+    routing_standard_model: str
+    routing_premium_provider: str
+    routing_premium_model: str
+    routing_cheap_tasks: str
+    routing_standard_tasks: str
+    routing_premium_tasks: str
+    routing_confidence_threshold: float
+    routing_evidence_threshold: float
     high_risk_write_actions_enabled: bool
     max_input_tokens: int
     max_output_tokens: int
@@ -84,7 +104,14 @@ class AppSettings:
 @lru_cache(maxsize=1)
 def get_settings() -> AppSettings:
     app_env = _load_environment_files()
-    database_provider = os.getenv("DATABASE_PROVIDER", "sqlite").strip().lower()
+    benchmark_mode = os.getenv("PROVIDER_BENCHMARK_MODE", "false").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+    database_provider = (
+        os.getenv("BENCHMARK_DATABASE_PROVIDER", "sqlite")
+        if benchmark_mode
+        else os.getenv("DATABASE_PROVIDER", "sqlite")
+    ).strip().lower()
     if database_provider not in SUPPORTED_DATABASE_PROVIDERS:
         supported = ", ".join(sorted(SUPPORTED_DATABASE_PROVIDERS))
         raise ValueError(f"Unsupported DATABASE_PROVIDER {database_provider!r}. Supported values: {supported}.")
@@ -93,7 +120,10 @@ def get_settings() -> AppSettings:
         app_env=app_env,
         debug=os.getenv("DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"},
         database_provider=database_provider,
-        database_path=_path_from_env("DATABASE_PATH", PROJECT_ROOT / "toko.db"),
+        database_path=_path_from_env(
+            "BENCHMARK_DATABASE_PATH" if benchmark_mode else "DATABASE_PATH",
+            PROJECT_ROOT / "toko.db",
+        ),
         database_password=os.getenv("DB_PASSWORD", ""),
         postgres_database_url=os.getenv("DATABASE_URL", ""),
         knowledge_base_path=_path_from_env("KNOWLEDGE_BASE_PATH", PROJECT_ROOT / "knowledge_base.txt"),
@@ -112,6 +142,29 @@ def get_settings() -> AppSettings:
         ollama_model=os.getenv("OLLAMA_MODEL", "llama3.1"),
         ollama_model_version=os.getenv("OLLAMA_MODEL_VERSION", "").strip(),
         ollama_api_base=os.getenv("OLLAMA_API_BASE", "http://localhost:11434/v1"),
+        deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", ""),
+        deepseek_model=os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"),
+        deepseek_model_version=os.getenv("DEEPSEEK_MODEL_VERSION", "").strip(),
+        deepseek_api_base=os.getenv("DEEPSEEK_API_BASE", "https://api.deepseek.com"),
+        kimi_api_key=os.getenv("KIMI_API_KEY") or os.getenv("MOONSHOT_API_KEY", ""),
+        kimi_model=os.getenv("KIMI_MODEL", "kimi-k2.6"),
+        kimi_model_version=os.getenv("KIMI_MODEL_VERSION", "").strip(),
+        kimi_api_base=os.getenv("KIMI_API_BASE", "https://api.moonshot.ai/v1"),
+        model_routing_enabled=os.getenv("MODEL_ROUTING_ENABLED", "false").strip().lower()
+        in {"1", "true", "yes", "on"},
+        routing_cheap_provider=os.getenv("ROUTING_CHEAP_PROVIDER", "openrouter").strip().lower(),
+        routing_cheap_model=os.getenv("ROUTING_CHEAP_MODEL", "openrouter/free").strip(),
+        routing_standard_provider=os.getenv("ROUTING_STANDARD_PROVIDER", "deepseek").strip().lower(),
+        routing_standard_model=os.getenv("ROUTING_STANDARD_MODEL", "deepseek-v4-flash").strip(),
+        routing_premium_provider=os.getenv("ROUTING_PREMIUM_PROVIDER", "kimi").strip().lower(),
+        routing_premium_model=os.getenv("ROUTING_PREMIUM_MODEL", "kimi-k2.6").strip(),
+        routing_cheap_tasks=os.getenv(
+            "ROUTING_CHEAP_TASKS", "intent,extraction,product_search,orders,cart,escalation"
+        ),
+        routing_standard_tasks=os.getenv("ROUTING_STANDARD_TASKS", "simple_rag"),
+        routing_premium_tasks=os.getenv("ROUTING_PREMIUM_TASKS", "complex_rag,agentic_workflow"),
+        routing_confidence_threshold=float(os.getenv("ROUTING_CONFIDENCE_THRESHOLD", "0.70")),
+        routing_evidence_threshold=float(os.getenv("ROUTING_EVIDENCE_THRESHOLD", "0.65")),
         high_risk_write_actions_enabled=os.getenv("HIGH_RISK_WRITE_ACTIONS_ENABLED", "false").strip().lower()
         in {"1", "true", "yes", "on"},
         max_input_tokens=int(os.getenv("MAX_INPUT_TOKENS", "2000")),

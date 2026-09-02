@@ -771,3 +771,64 @@ py evaluation/test_agent_loop_safety.py
 ```
 
 The suite verifies the hard agent-step boundary, repeated identical tool-call detection, cyclic planning with changing arguments, low progress based on repeated evidence, and a single terminal escalation to human support. It does not call an LLM provider.
+
+## Provider Integration Tests
+
+Run the deterministic Phase 30 checks:
+
+```powershell
+py evaluation/test_provider_integration.py
+```
+
+The suite verifies DeepSeek and Kimi adapter defaults, gateway routing, the `moonshot` provider alias, external-provider PII redaction, and the current `openrouter/free` default. No paid provider request is made.
+
+## Provider Benchmark Pipeline
+
+Phase 31 defines one versioned suite for Ollama, DeepSeek, and Kimi in:
+
+```text
+evaluation/provider_benchmark.json
+```
+
+Preview the full plan safely:
+
+```powershell
+py evaluation/run_provider_benchmark.py
+```
+
+This is the default `dry-run` mode. It writes only `provider_benchmark_plan_latest.json` and never invokes any LLM provider. The runner uses the same stock, orders, products, cart, knowledge, escalation, and multistep datasets for every selected provider.
+
+When paid subscriptions and current prices are available, set the API keys in an ignored secret file and the non-secret benchmark prices in `.env`:
+
+```ini
+DEEPSEEK_BENCHMARK_INPUT_PRICE_PER_MILLION=
+DEEPSEEK_BENCHMARK_OUTPUT_PRICE_PER_MILLION=
+KIMI_BENCHMARK_INPUT_PRICE_PER_MILLION=
+KIMI_BENCHMARK_OUTPUT_PRICE_PER_MILLION=
+```
+
+Then explicitly run all providers:
+
+```powershell
+py evaluation/run_provider_benchmark.py --execute --confirm-paid
+```
+
+To run only local Ollama, no paid confirmation is needed:
+
+```powershell
+py evaluation/run_provider_benchmark.py --providers ollama --execute
+```
+
+Use `--limit-per-file 1` for a future smoke run. Every provider receives an isolated SQLite database, so benchmark write cases do not mutate the PostgreSQL application database or another provider's state.
+
+Live execution creates one normalized provider report and a comparison report under `evaluation/reports/provider_benchmark/`. The comparison includes quality score, hallucination rate, tool accuracy, RAG faithfulness, average latency, token usage, total cost, and cost per correct answer. Cost remains `null` when neither the provider nor verified benchmark pricing supplies enough evidence to calculate it.
+
+## Model Routing Tests
+
+Run the deterministic Phase 32 routing suite:
+
+```powershell
+py evaluation/test_model_routing.py
+```
+
+The suite verifies routing by task and complexity, confidence/evidence escalation, cheap-first selection, missing paid-key fallback, and premium usage metadata. All generated responses come from fake in-memory providers, so the test does not call OpenRouter, Ollama, DeepSeek, or Kimi.

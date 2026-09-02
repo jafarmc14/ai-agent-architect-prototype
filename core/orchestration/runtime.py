@@ -168,11 +168,13 @@ def configure_llm_provider(provider_name: str, model: str | None = None) -> dict
 
 def get_llm_config() -> dict:
     """Return the active LLM runtime configuration."""
+    settings = get_settings()
     return {
-        "environment": get_settings().app_env,
-        "database_provider": get_settings().database_provider,
+        "environment": settings.app_env,
+        "database_provider": settings.database_provider,
         "provider": LLM_PROVIDER,
         "model": LLM_MODEL,
+        "model_routing_enabled": settings.model_routing_enabled,
         "model_version": llm_gateway.model_version,
         "model_governance": llm_gateway.model_metadata,
         "prompt": get_system_prompt_metadata(),
@@ -801,7 +803,7 @@ def _ensure_rag_citations(response: str, tool_output: str) -> str:
 
 
 def _is_external_llm_provider() -> bool:
-    return llm_gateway.provider_name == "openrouter"
+    return llm_gateway.provider_name in {"openrouter", "deepseek", "kimi"}
 
 
 def _content_for_llm(content: str) -> str:
@@ -1240,4 +1242,26 @@ def _token_context(messages: list, user_input: str, task: str, retrieval_context
         "conversation": "\n".join(conversation),
         "retrieval_context": retrieval_context,
         "prompt_metadata": get_task_prompt_metadata(task),
+        "routing": _model_routing_context(task, retrieval_context),
+    }
+
+
+def _model_routing_context(task: str, evidence: str = "") -> dict:
+    complexity = "high" if task in {"complex_rag", "agentic_workflow"} else (
+        "medium" if task == "simple_rag" else "low"
+    )
+    if not evidence:
+        return {"complexity": complexity}
+
+    lowered = evidence.lower()
+    insufficient = any(marker in lowered for marker in (
+        "not enough authorized, fresh evidence",
+        "not enough verified evidence",
+        "abstain",
+        "below the minimum similarity threshold",
+    ))
+    return {
+        "complexity": complexity,
+        "confidence": 0.25 if insufficient else 0.95,
+        "evidence_score": 0.0 if insufficient else 1.0,
     }

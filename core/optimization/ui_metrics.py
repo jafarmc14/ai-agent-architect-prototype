@@ -28,6 +28,8 @@ def summarize_token_trace(trace: dict[str, Any]) -> dict[str, Any]:
         "within_budget": True,
         "llm_latency_ms": 0,
         "cost_usd": None,
+        "premium_model_calls": 0,
+        "routing_decisions": [],
         "resource_usage": trace.get("resource_usage") or {},
         "resource_limit": trace.get("resource_limit") or {},
         "agent_loop_safety": trace.get("agent_loop_safety") or {},
@@ -57,6 +59,19 @@ def summarize_token_trace(trace: dict[str, Any]) -> dict[str, Any]:
         _append_unique(tasks, breakdown.get("task"))
         _append_unique(providers, attributes.get("provider"))
         _append_unique(models, attributes.get("model"))
+        routing = attributes.get("routing") or {}
+        if routing:
+            summary["routing_decisions"].append({
+                "task": routing.get("task"),
+                "complexity": routing.get("complexity"),
+                "selected_tier": routing.get("selected_tier"),
+                "provider": routing.get("provider"),
+                "model": routing.get("model"),
+                "fallback_used": bool(routing.get("fallback_used")),
+                "reasons": list(routing.get("reasons") or []),
+            })
+            if routing.get("premium_model_used"):
+                summary["premium_model_calls"] += 1
 
     summary["total_tokens"] = summary["input_tokens"] + summary["output_tokens"]
     summary["context_utilization_ratio"] = round(summary["context_utilization_ratio"], 6)

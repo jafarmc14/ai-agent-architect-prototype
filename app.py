@@ -3,20 +3,12 @@ from uuid import uuid4
 
 from agent import configure_llm_provider, get_agent_response_with_trace, get_llm_config
 from core.auth import create_session_token, verify_session_token
+from core.llm.provider_catalog import build_provider_options
 from core.optimization import summarize_token_trace
 from core.repositories.user_repository import UserRepository
 
 
-PROVIDER_OPTIONS = {
-    "OpenRouter": {
-        "provider": "openrouter",
-        "models": ["openrouter/free"],
-    },
-    "Ollama": {
-        "provider": "ollama",
-        "models": ["llama3.1", "qwen2.5", "mistral"],
-    },
-}
+PROVIDER_OPTIONS = build_provider_options()
 
 WELCOME_MESSAGE = "Hello, I'm Ubichinon. How can I help you today?"
 
@@ -77,6 +69,15 @@ def render_token_usage(usage: dict | None) -> None:
     )
     if usage["cost_usd"] is not None:
         st.caption(f"Reported cost: ${usage['cost_usd']:.6f}")
+
+    routing_decisions = usage.get("routing_decisions") or []
+    if routing_decisions:
+        latest_route = routing_decisions[-1]
+        st.caption(
+            f"Route: {latest_route.get('selected_tier', 'configured')} | "
+            f"{latest_route.get('provider', 'unknown')} / {latest_route.get('model', 'unknown')}"
+        )
+        st.caption(f"Premium model calls: {usage.get('premium_model_calls', 0)}")
 
     with st.expander("Token breakdown"):
         st.caption(f"System prompt: {usage['system_prompt_tokens']:,}")
@@ -143,6 +144,10 @@ with st.sidebar:
     st.caption(f"Environment: {current_config['environment']}")
     st.caption(f"Database: {current_config['database_provider']}")
     st.caption(f"Active: {current_config['provider']} / {current_config['model']}")
+    st.caption(
+        "Model routing: enabled" if current_config.get("model_routing_enabled")
+        else "Model routing: disabled"
+    )
     model_governance = current_config.get("model_governance", {})
     st.caption(f"Model version: {current_config.get('model_version') or 'unknown'}")
     st.caption("Model pinned: yes" if model_governance.get("pinned") else "Model pinned: no (alias observed)")
