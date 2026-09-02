@@ -14,7 +14,8 @@ def summarize_token_trace(trace: dict[str, Any]) -> dict[str, Any]:
     """Aggregate safe numeric token metrics from all LLM spans in one request."""
     llm_events = [
         event for event in trace.get("lifecycle", [])
-        if event.get("stage") == "llm" and event.get("name", "").startswith("llm.")
+        if event.get("stage") == "llm"
+        and event.get("name") in {"llm.generate", "llm.generate_structured"}
     ]
     summary: dict[str, Any] = {
         "request_id": trace.get("request_id", ""),
@@ -30,6 +31,9 @@ def summarize_token_trace(trace: dict[str, Any]) -> dict[str, Any]:
         "cost_usd": None,
         "premium_model_calls": 0,
         "routing_decisions": [],
+        "provider_fallbacks": 0,
+        "fallback_decisions": [],
+        "circuit_open_skips": 0,
         "resource_usage": trace.get("resource_usage") or {},
         "resource_limit": trace.get("resource_limit") or {},
         "agent_loop_safety": trace.get("agent_loop_safety") or {},
@@ -72,6 +76,16 @@ def summarize_token_trace(trace: dict[str, Any]) -> dict[str, Any]:
             })
             if routing.get("premium_model_used"):
                 summary["premium_model_calls"] += 1
+        fallback = attributes.get("fallback") or {}
+        if fallback:
+            summary["fallback_decisions"].append(fallback)
+            if fallback.get("fallback_used"):
+                summary["provider_fallbacks"] += 1
+            summary["circuit_open_skips"] += sum(
+                1 for attempt in fallback.get("attempts") or []
+                if attempt.get("status") == "skipped"
+                and (attempt.get("failure") or {}).get("category") == "circuit_open"
+            )
 
     summary["total_tokens"] = summary["input_tokens"] + summary["output_tokens"]
     summary["context_utilization_ratio"] = round(summary["context_utilization_ratio"], 6)

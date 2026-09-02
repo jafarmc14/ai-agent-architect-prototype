@@ -80,6 +80,13 @@ class AppSettings:
     routing_premium_tasks: str
     routing_confidence_threshold: float
     routing_evidence_threshold: float
+    provider_fallback_enabled: bool
+    provider_fallback_chain: str
+    provider_fallback_max_attempts: int
+    provider_fallback_backoff_seconds: float
+    circuit_breaker_enabled: bool
+    circuit_breaker_failure_threshold: int
+    circuit_breaker_cooldown_seconds: float
     high_risk_write_actions_enabled: bool
     max_input_tokens: int
     max_output_tokens: int
@@ -165,6 +172,23 @@ def get_settings() -> AppSettings:
         routing_premium_tasks=os.getenv("ROUTING_PREMIUM_TASKS", "complex_rag,agentic_workflow"),
         routing_confidence_threshold=float(os.getenv("ROUTING_CONFIDENCE_THRESHOLD", "0.70")),
         routing_evidence_threshold=float(os.getenv("ROUTING_EVIDENCE_THRESHOLD", "0.65")),
+        provider_fallback_enabled=os.getenv("PROVIDER_FALLBACK_ENABLED", "false").strip().lower()
+        in {"1", "true", "yes", "on"},
+        provider_fallback_chain=os.getenv(
+            "PROVIDER_FALLBACK_CHAIN", "deepseek,kimi,openrouter,ollama"
+        ),
+        provider_fallback_max_attempts=max(1, int(os.getenv("PROVIDER_FALLBACK_MAX_ATTEMPTS", "3"))),
+        provider_fallback_backoff_seconds=max(
+            0.0, float(os.getenv("PROVIDER_FALLBACK_BACKOFF_SECONDS", "0.25"))
+        ),
+        circuit_breaker_enabled=os.getenv("CIRCUIT_BREAKER_ENABLED", "false").strip().lower()
+        in {"1", "true", "yes", "on"},
+        circuit_breaker_failure_threshold=max(
+            1, int(os.getenv("CIRCUIT_BREAKER_FAILURE_THRESHOLD", "3"))
+        ),
+        circuit_breaker_cooldown_seconds=max(
+            0.0, float(os.getenv("CIRCUIT_BREAKER_COOLDOWN_SECONDS", "60"))
+        ),
         high_risk_write_actions_enabled=os.getenv("HIGH_RISK_WRITE_ACTIONS_ENABLED", "false").strip().lower()
         in {"1", "true", "yes", "on"},
         max_input_tokens=int(os.getenv("MAX_INPUT_TOKENS", "2000")),

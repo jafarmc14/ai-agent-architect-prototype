@@ -832,3 +832,24 @@ py evaluation/test_model_routing.py
 ```
 
 The suite verifies routing by task and complexity, confidence/evidence escalation, cheap-first selection, missing paid-key fallback, and premium usage metadata. All generated responses come from fake in-memory providers, so the test does not call OpenRouter, Ollama, DeepSeek, or Kimi.
+
+## Provider Fallback Evaluation
+
+Run the Phase 33 unit and target evaluations:
+
+```powershell
+py evaluation/test_provider_fallback.py
+py evaluation/run_provider_fallback_evaluation.py
+```
+
+The suite fault-injects `429`, `500`, timeout, invalid response, and connection failure across provider-neutral gateway paths. The default evaluator runs 20 cases per failure type, requires at least 99% recovery, and saves only `evaluation/reports/provider_fallback_report_latest.json`. Scripted in-memory providers are used, so no external or paid API is contacted.
+
+## Circuit Breaker Tests
+
+Run the deterministic Phase 34 state-machine suite:
+
+```powershell
+py evaluation/test_circuit_breaker.py
+```
+
+The test uses a fake monotonic clock and scripted providers to verify repeated-failure detection, threshold opening, alternative-provider routing, one half-open probe after cooldown, recovery to closed, and health isolation per provider/model. It does not wait for real time or call an LLM API.

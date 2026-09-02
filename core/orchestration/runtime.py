@@ -175,6 +175,8 @@ def get_llm_config() -> dict:
         "provider": LLM_PROVIDER,
         "model": LLM_MODEL,
         "model_routing_enabled": settings.model_routing_enabled,
+        "provider_fallback_enabled": settings.provider_fallback_enabled,
+        "circuit_breaker_enabled": settings.circuit_breaker_enabled,
         "model_version": llm_gateway.model_version,
         "model_governance": llm_gateway.model_metadata,
         "prompt": get_system_prompt_metadata(),
@@ -803,7 +805,29 @@ def _ensure_rag_citations(response: str, tool_output: str) -> str:
 
 
 def _is_external_llm_provider() -> bool:
-    return llm_gateway.provider_name in {"openrouter", "deepseek", "kimi"}
+    external = {"openrouter", "deepseek", "kimi", "moonshot"}
+    if llm_gateway.provider_name in external:
+        return True
+
+    settings = get_settings()
+    possible_providers = set()
+    if settings.model_routing_enabled:
+        possible_providers.update({
+            settings.routing_cheap_provider,
+            settings.routing_standard_provider,
+            settings.routing_premium_provider,
+        })
+    if settings.provider_fallback_enabled:
+        possible_providers.update(
+            item.strip().lower() for item in settings.provider_fallback_chain.split(",") if item.strip()
+        )
+    configured_external = {
+        "openrouter": bool(settings.openrouter_api_key and settings.openrouter_api_key != "dummy"),
+        "deepseek": bool(settings.deepseek_api_key),
+        "kimi": bool(settings.kimi_api_key),
+        "moonshot": bool(settings.kimi_api_key),
+    }
+    return any(configured_external.get(provider, False) for provider in possible_providers & external)
 
 
 def _content_for_llm(content: str) -> str:

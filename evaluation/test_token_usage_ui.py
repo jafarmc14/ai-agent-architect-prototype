@@ -34,6 +34,19 @@ def test_token_trace_summary_aggregates_llm_calls():
                         "fallback_used": False,
                         "reasons": ["low_confidence_with_usable_evidence"],
                     },
+                    "fallback": {
+                        "fallback_used": True,
+                        "primary_provider": "deepseek",
+                        "final_provider": "kimi",
+                        "attempt_count": 2,
+                        "attempts": [
+                            {
+                                "status": "skipped",
+                                "failure": {"category": "circuit_open"},
+                            },
+                            {"status": "success", "failure": {}},
+                        ],
+                    },
                     "token_breakdown": {
                         "task": "simple_rag",
                         "system_prompt_tokens": 100,
@@ -60,6 +73,8 @@ def test_token_trace_summary_aggregates_llm_calls():
     assert summary["cost_usd"] == 0
     assert summary["premium_model_calls"] == 1
     assert summary["routing_decisions"][0]["selected_tier"] == "premium"
+    assert summary["provider_fallbacks"] == 1
+    assert summary["circuit_open_skips"] == 1
 
 
 def test_deterministic_request_reports_zero_llm_calls():
@@ -69,7 +84,21 @@ def test_deterministic_request_reports_zero_llm_calls():
     assert summary["request_latency_ms"] == 12
 
 
+def test_open_circuit_skip_is_not_counted_as_provider_call():
+    summary = summarize_token_trace({
+        "workflow": "orders",
+        "lifecycle": [{
+            "stage": "llm",
+            "name": "llm.circuit_open",
+            "attributes": {"provider": "deepseek", "status": "skipped"},
+        }],
+    })
+    assert summary["llm_calls"] == 0
+    assert summary["total_tokens"] == 0
+
+
 if __name__ == "__main__":
     test_token_trace_summary_aggregates_llm_calls()
     test_deterministic_request_reports_zero_llm_calls()
+    test_open_circuit_skip_is_not_counted_as_provider_call()
     print("Token usage UI tests passed.")

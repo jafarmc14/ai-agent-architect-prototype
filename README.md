@@ -36,6 +36,8 @@ This system is a web-based chat interface powered by an AI model that supports s
 | 17 | **Production Provider Integration** | Support config-only switching among OpenRouter, Ollama, DeepSeek, and Kimi while keeping paid providers disabled until their API keys are configured. |
 | 18 | **Provider Benchmarking** | Run one versioned evaluation suite across Ollama, DeepSeek, and Kimi, then compare quality, safety, accuracy, latency, token usage, and cost with paid execution explicitly gated. |
 | 19 | **Model Routing** | Deterministically route by task, complexity, confidence, and evidence quality; prefer cheap models where safe and track every premium-model call. |
+| 20 | **Provider Fallback** | Recover transient provider failures through an available, bounded fallback chain while preserving privacy, resource limits, and per-attempt observability. |
+| 21 | **Circuit Breaker** | Detect repeated transient failures per provider/model, temporarily skip unhealthy targets, and retry the primary through a bounded half-open probe after cooldown. |
 
 ---
 
@@ -87,6 +89,14 @@ Agent Runtime (`core/orchestration/runtime.py`)
   |      |      +--> task + complexity policy
   |      |      +--> confidence + evidence gates
   |      |      +--> cheap -> standard -> premium availability fallback
+  |      |
+  |      +--> Provider Fallback (`core/llm/provider_fallback.py`)
+  |      |      +--> 429 / 5xx / timeout / invalid response / connection failure
+  |      |      +--> bounded attempts + backoff + credential-aware targets
+  |      |
+  |      +--> Circuit Breaker (`core/llm/circuit_breaker.py`)
+  |      |      +--> CLOSED -> OPEN -> HALF_OPEN -> CLOSED
+  |      |      +--> per-provider/model health + cooldown recovery probe
   |      |
   |      +--> OpenRouterProvider
   |      +--> OllamaProvider
@@ -674,6 +684,8 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `core/llm/gateway.py` | **LLM gateway.** Application-facing LLM entry point that hides provider-specific client details from orchestration. |
 | `core/llm/model_governance.py` | **Model version governance.** Normalizes provider/model/model_version metadata and marks alias vs pinned model usage. |
 | `core/llm/model_routing.py` | **Deterministic model router.** Selects an available cheap, standard, or premium tier from task, complexity, confidence, evidence quality, and credential availability. |
+| `core/llm/provider_fallback.py` | **Provider fallback policy.** Classifies transient failures, validates provider responses, and builds credential-aware bounded fallback targets. |
+| `core/llm/circuit_breaker.py` | **Circuit breaker policy.** Maintains thread-safe provider/model health state, opens after repeated transient failures, and controls cooldown probes. |
 | `core/llm/providers/openrouter_provider.py` | **OpenRouter provider adapter.** Wraps LangChain `ChatOpenAI` configured for OpenRouter and implements the provider contract. |
 | `core/llm/providers/ollama_provider.py` | **Ollama provider adapter.** Wraps Ollama's local OpenAI-compatible API for local development with `LLM_PROVIDER=ollama`. |
 | `core/llm/providers/deepseek_provider.py` | **DeepSeek provider adapter.** Production-ready OpenAI-compatible adapter, enabled only when `DEEPSEEK_API_KEY` is configured. |
@@ -746,6 +758,9 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `evaluation/run_provider_benchmark.py` | **Provider benchmark runner.** Defaults to no-call dry-run planning and, after explicit authorization, normalizes Ollama/DeepSeek/Kimi quality, safety, latency, token, and cost metrics. |
 | `evaluation/test_provider_benchmark.py` | **Provider benchmark tests.** Validates suite parity, secret-safe planning, metric normalization, ranking direction, and dry-run behavior without invoking a provider. |
 | `evaluation/test_model_routing.py` | **Model routing tests.** Verifies task/complexity/evidence routing, cheap-first behavior, missing-key fallback, and premium usage logging with fake providers only. |
+| `evaluation/test_provider_fallback.py` | **Provider fallback tests.** Fault-injects required transient failures across sync, async, and structured gateway paths without external requests. |
+| `evaluation/run_provider_fallback_evaluation.py` | **Fallback evaluator.** Runs 100 deterministic recovery cases by default and enforces the 99% recovery target. |
+| `evaluation/test_circuit_breaker.py` | **Circuit breaker tests.** Uses a fake clock to verify thresholds, alternative routing, half-open concurrency, cooldown recovery, and provider/model isolation. |
 | `evaluation/run_product_search_evaluation.py` | **Product search evaluation runner.** Measures Precision@5, Recall@10, NDCG@10, and Hard Constraint Satisfaction. |
 | `evaluation/run_rag_evaluation.py` | **RAG evaluation runner.** Measures Recall@5, Precision@5, Faithfulness, Citation Correctness, Completeness, Correct Abstention, and Freshness Correctness. |
 | `evaluation/run_intent_evaluation.py` | **Intent router evaluation runner.** Measures per-intent precision/recall/F1 and Macro F1. |
@@ -1763,6 +1778,116 @@ Run deterministic routing tests without provider calls:
 
 ```powershell
 py evaluation/test_model_routing.py
+```
+
+### Provider Fallback
+
+Phase 33 provides bounded automatic recovery for provider-level transient failures:
+
+```text
+primary provider
+  -> 429 / 5xx / timeout / invalid response / connection failure
+  -> next configured and credentialed provider
+  -> stop after max attempts or a non-retryable error
+```
+
+Fallback does not run for `400`, `401`, `403`, business validation failures, or resource-limit blocks. `PROVIDER_FALLBACK_MAX_ATTEMPTS` includes the primary attempt. Each attempt passes Phase 28 resource admission, so retries remain inside runtime, token, and cost limits.
+
+Fallback remains disabled by default. After paid API keys and quotas are ready:
+
+```ini
+PROVIDER_FALLBACK_ENABLED=true
+PROVIDER_FALLBACK_CHAIN=deepseek,kimi,openrouter,ollama
+PROVIDER_FALLBACK_MAX_ATTEMPTS=3
+PROVIDER_FALLBACK_BACKOFF_SECONDS=0.25
+```
+
+Only targets whose credentials are configured are included; Ollama is considered locally available but its server must be running. If routing or fallback can reach a hosted provider, the request is treated as external and PII redaction is applied before gateway execution, even when the primary provider is local Ollama.
+
+Every failed attempt and final recovery is recorded in `llm_requests.metadata.fallback`; the final LLM span contains primary provider, final provider, attempt count, categories, and whether fallback was used. Apply the Phase 33 indexes:
+
+```powershell
+py database/migrate_sqlite_to_postgres.py --schema-only
+```
+
+Inspect fallback reliability and failure categories in pgAdmin:
+
+```sql
+SELECT provider, model, status, error_message,
+       metadata->'fallback'->>'fallback_used' AS fallback_used,
+       metadata->'fallback'->'attempt'->'failure'->>'category' AS failure_category,
+       metadata->'fallback' AS fallback_detail,
+       created_at
+FROM llm_requests
+WHERE metadata ? 'fallback'
+ORDER BY created_at DESC;
+```
+
+Run deterministic fault injection:
+
+```powershell
+py evaluation/test_provider_fallback.py
+py evaluation/run_provider_fallback_evaluation.py
+```
+
+The evaluator runs 100 cases by default and requires `recovery_rate >= 0.99`. It uses scripted in-memory providers and makes zero external API calls.
+
+### Circuit Breaker
+
+Phase 34 prevents repeated requests from continuously hitting an unhealthy provider:
+
+```text
+CLOSED
+  -> transient failures reach threshold
+OPEN
+  -> primary is skipped and fallback provider is used
+  -> cooldown expires
+HALF_OPEN
+  -> one primary probe is allowed
+  -> success: CLOSED
+  -> failure: OPEN and cooldown restarts
+```
+
+Only retryable provider failures counted by Phase 33 affect circuit health. Authentication/configuration errors and business/resource validation do not open the circuit. State is isolated by `provider:model`, so one broken model does not disable every model from that provider.
+
+The feature remains disabled by default. Enable it together with a tested fallback chain after paid credentials are ready:
+
+```ini
+PROVIDER_FALLBACK_ENABLED=true
+CIRCUIT_BREAKER_ENABLED=true
+CIRCUIT_BREAKER_FAILURE_THRESHOLD=3
+CIRCUIT_BREAKER_COOLDOWN_SECONDS=60
+```
+
+Circuit state is currently thread-safe and process-local. Each application replica protects itself independently; a future shared state backend can be added for a globally coordinated circuit when horizontal deployment requires it.
+
+Open-circuit skips are written as `llm.circuit_open` trace spans. Failed provider attempts also include circuit state before and after the call in `llm_requests.metadata.fallback`. Apply the observability indexes:
+
+```powershell
+py database/migrate_sqlite_to_postgres.py --schema-only
+```
+
+Inspect open transitions and skipped calls in pgAdmin:
+
+```sql
+SELECT provider, model, status,
+       metadata->'fallback'->'attempt'->'circuit'->'after'->>'state' AS circuit_state,
+       metadata->'fallback'->'attempt'->'failure'->>'category' AS failure_category,
+       created_at
+FROM llm_requests
+WHERE metadata->'fallback'->'attempt'->'circuit'->'after'->>'state' = 'open'
+ORDER BY created_at DESC;
+
+SELECT name, attributes, started_at
+FROM trace_spans
+WHERE name = 'llm.circuit_open'
+ORDER BY started_at DESC;
+```
+
+Run the no-network state-machine tests:
+
+```powershell
+py evaluation/test_circuit_breaker.py
 ```
 
 After changing provider config, restart Streamlit:

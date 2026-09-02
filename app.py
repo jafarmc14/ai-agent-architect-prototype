@@ -78,6 +78,10 @@ def render_token_usage(usage: dict | None) -> None:
             f"{latest_route.get('provider', 'unknown')} / {latest_route.get('model', 'unknown')}"
         )
         st.caption(f"Premium model calls: {usage.get('premium_model_calls', 0)}")
+    if usage.get("provider_fallbacks"):
+        st.caption(f"Provider fallbacks: {usage['provider_fallbacks']}")
+    if usage.get("circuit_open_skips"):
+        st.caption(f"Open-circuit skips: {usage['circuit_open_skips']}")
 
     with st.expander("Token breakdown"):
         st.caption(f"System prompt: {usage['system_prompt_tokens']:,}")
@@ -147,6 +151,14 @@ with st.sidebar:
     st.caption(
         "Model routing: enabled" if current_config.get("model_routing_enabled")
         else "Model routing: disabled"
+    )
+    st.caption(
+        "Provider fallback: enabled" if current_config.get("provider_fallback_enabled")
+        else "Provider fallback: disabled"
+    )
+    st.caption(
+        "Circuit breaker: enabled" if current_config.get("circuit_breaker_enabled")
+        else "Circuit breaker: disabled"
     )
     model_governance = current_config.get("model_governance", {})
     st.caption(f"Model version: {current_config.get('model_version') or 'unknown'}")

@@ -4,9 +4,15 @@ from typing import Any
 
 from configs import get_settings
 from core.llm.base import LLMProvider, LLMResponse, Message, StructuredSchema, ToolDefinition
+from core.llm.circuit_breaker import CircuitOpenError, ProviderCircuitBreaker
 from core.llm.model_routing import ModelRouter, RoutingDecision
+from core.llm.provider_fallback import (
+    ProviderFallbackExhausted,
+    ProviderFallbackPolicy,
+    validate_provider_response,
+)
 from core.llm.providers import DeepSeekProvider, KimiProvider, OllamaProvider, OpenRouterProvider
-from core.observability import current_trace_ids, observed_span
+from core.observability import current_trace_ids, observed_span, record_trace_event
 from core.optimization import account_llm_context, estimate_tokens
 from core.privacy import redact_for_logs
 from core.prompts import get_system_prompt_metadata
@@ -20,6 +26,8 @@ class LLMGateway:
     def __init__(self, provider: LLMProvider | None = None):
         self.provider = provider or self._build_provider()
         self.model_router = ModelRouter(get_settings())
+        self.fallback_policy = ProviderFallbackPolicy(get_settings())
+        self.circuit_breaker = ProviderCircuitBreaker(get_settings())
         self._provider_cache = {(self.provider_name, self.model or ""): self.provider}
         self.request_repository = LLMRequestRepository()
 
@@ -61,6 +69,7 @@ class LLMGateway:
         """Switch the active provider at runtime without touching business code."""
         self.provider = self._build_provider(provider_name=provider_name, model=model)
         self.model_router = ModelRouter(get_settings())
+        self.fallback_policy = ProviderFallbackPolicy(get_settings())
         self._provider_cache = {(self.provider_name, self.model or ""): self.provider}
 
     def _build_provider(
@@ -92,8 +101,6 @@ class LLMGateway:
     ) -> LLMResponse:
         accounting = self._account_context(messages, tools, task, token_context, provider=self.provider)
         provider, routing = self._route_provider(task, accounting, tools, token_context)
-        accounting = self._account_context(messages, tools, task, token_context, provider=provider)
-        self._apply_output_limit(kwargs, self._prepare_call(accounting))
         start = time.perf_counter()
         with observed_span(
             "llm",
@@ -103,18 +110,37 @@ class LLMGateway:
             ),
         ) as span:
             try:
-                response = await provider.generate(messages, tools=tools, temperature=temperature, **kwargs)
+                response, actual_provider, accounting, fallback_attempts = await self._invoke_async_with_fallback(
+                    provider,
+                    messages=messages,
+                    tools=tools,
+                    task=task,
+                    token_context=token_context,
+                    kwargs=kwargs,
+                    structured=False,
+                    routing=routing,
+                    operation=lambda candidate, call_kwargs: candidate.generate(
+                        messages, tools=tools, temperature=temperature, **call_kwargs
+                    ),
+                )
                 latency_ms = _latency_ms(start)
                 accounting = self._with_output(accounting, response)
                 self._complete_call(response, accounting)
                 span.set_attributes(
-                    **self._usage_attributes(response, latency_ms, provider), token_breakdown=accounting.to_dict()
+                    **self._usage_attributes(response, latency_ms, actual_provider),
+                    provider=_provider_name(actual_provider),
+                    model=_provider_model(actual_provider),
+                    token_breakdown=accounting.to_dict(),
+                    fallback=_fallback_summary(provider, actual_provider, fallback_attempts),
                 )
                 self._log_request(
                     messages, tools, response, "success", latency_ms=latency_ms,
-                    accounting=accounting, token_context=token_context, provider=provider, routing=routing,
+                    accounting=accounting, token_context=token_context, provider=actual_provider, routing=routing,
+                    metadata={"fallback": _fallback_summary(provider, actual_provider, fallback_attempts)},
                 )
                 return response
+            except ProviderFallbackExhausted as exc:
+                raise exc.original_error
             except Exception as exc:
                 self._log_request(
                     messages, tools, None, "error", error_message=str(exc), latency_ms=_latency_ms(start),
@@ -133,8 +159,6 @@ class LLMGateway:
     ) -> Any:
         accounting = self._account_context(messages, None, task, token_context, provider=self.provider)
         provider, routing = self._route_provider(task, accounting, None, token_context)
-        accounting = self._account_context(messages, None, task, token_context, provider=provider)
-        self._apply_output_limit(kwargs, self._prepare_call(accounting))
         start = time.perf_counter()
         with observed_span(
             "llm",
@@ -144,7 +168,19 @@ class LLMGateway:
             ),
         ) as span:
             try:
-                response = await provider.generate_structured(messages, schema=schema, temperature=temperature, **kwargs)
+                response, actual_provider, accounting, fallback_attempts = await self._invoke_async_with_fallback(
+                    provider,
+                    messages=messages,
+                    tools=None,
+                    task=task,
+                    token_context=token_context,
+                    kwargs=kwargs,
+                    structured=True,
+                    routing=routing,
+                    operation=lambda candidate, call_kwargs: candidate.generate_structured(
+                        messages, schema=schema, temperature=temperature, **call_kwargs
+                    ),
+                )
                 latency_ms = _latency_ms(start)
                 accounting = self._with_structured_output(accounting, response)
                 self._complete_call(response, accounting)
@@ -152,13 +188,22 @@ class LLMGateway:
                     latency_ms=latency_ms,
                     tokens_unavailable=True,
                     token_breakdown=accounting.to_dict(),
-                    **self._cost_attributes({}, provider),
+                    provider=_provider_name(actual_provider),
+                    model=_provider_model(actual_provider),
+                    fallback=_fallback_summary(provider, actual_provider, fallback_attempts),
+                    **self._cost_attributes({}, actual_provider),
                 )
                 self._log_request(
-                    messages, None, None, "success", latency_ms=latency_ms, metadata={"structured": True},
-                    accounting=accounting, token_context=token_context, provider=provider, routing=routing,
+                    messages, None, None, "success", latency_ms=latency_ms,
+                    accounting=accounting, token_context=token_context, provider=actual_provider, routing=routing,
+                    metadata={
+                        "structured": True,
+                        "fallback": _fallback_summary(provider, actual_provider, fallback_attempts),
+                    },
                 )
                 return response
+            except ProviderFallbackExhausted as exc:
+                raise exc.original_error
             except Exception as exc:
                 self._log_request(
                     messages, None, None, "error", error_message=str(exc), latency_ms=_latency_ms(start),
@@ -187,8 +232,6 @@ class LLMGateway:
                 token_context=token_context,
                 **kwargs,
             ))
-        accounting = self._account_context(messages, tools, task, token_context, provider=provider)
-        self._apply_output_limit(kwargs, self._prepare_call(accounting))
         start = time.perf_counter()
         with observed_span(
             "llm",
@@ -198,18 +241,37 @@ class LLMGateway:
             ),
         ) as span:
             try:
-                response = provider.generate_sync(messages, tools=tools, temperature=temperature, **kwargs)
+                response, actual_provider, accounting, fallback_attempts = self._invoke_sync_with_fallback(
+                    provider,
+                    messages=messages,
+                    tools=tools,
+                    task=task,
+                    token_context=token_context,
+                    kwargs=kwargs,
+                    structured=False,
+                    routing=routing,
+                    operation=lambda candidate, call_kwargs: candidate.generate_sync(
+                        messages, tools=tools, temperature=temperature, **call_kwargs
+                    ),
+                )
                 latency_ms = _latency_ms(start)
                 accounting = self._with_output(accounting, response)
                 self._complete_call(response, accounting)
                 span.set_attributes(
-                    **self._usage_attributes(response, latency_ms, provider), token_breakdown=accounting.to_dict()
+                    **self._usage_attributes(response, latency_ms, actual_provider),
+                    provider=_provider_name(actual_provider),
+                    model=_provider_model(actual_provider),
+                    token_breakdown=accounting.to_dict(),
+                    fallback=_fallback_summary(provider, actual_provider, fallback_attempts),
                 )
                 self._log_request(
                     messages, tools, response, "success", latency_ms=latency_ms,
-                    accounting=accounting, token_context=token_context, provider=provider, routing=routing,
+                    accounting=accounting, token_context=token_context, provider=actual_provider, routing=routing,
+                    metadata={"fallback": _fallback_summary(provider, actual_provider, fallback_attempts)},
                 )
                 return response
+            except ProviderFallbackExhausted as exc:
+                raise exc.original_error
             except Exception as exc:
                 self._log_request(
                     messages, tools, None, "error", error_message=str(exc), latency_ms=_latency_ms(start),
@@ -237,8 +299,6 @@ class LLMGateway:
                 token_context=token_context,
                 **kwargs,
             ))
-        accounting = self._account_context(messages, None, task, token_context, provider=provider)
-        self._apply_output_limit(kwargs, self._prepare_call(accounting))
         start = time.perf_counter()
         with observed_span(
             "llm",
@@ -248,7 +308,19 @@ class LLMGateway:
             ),
         ) as span:
             try:
-                response = provider.generate_structured_sync(messages, schema=schema, temperature=temperature, **kwargs)
+                response, actual_provider, accounting, fallback_attempts = self._invoke_sync_with_fallback(
+                    provider,
+                    messages=messages,
+                    tools=None,
+                    task=task,
+                    token_context=token_context,
+                    kwargs=kwargs,
+                    structured=True,
+                    routing=routing,
+                    operation=lambda candidate, call_kwargs: candidate.generate_structured_sync(
+                        messages, schema=schema, temperature=temperature, **call_kwargs
+                    ),
+                )
                 latency_ms = _latency_ms(start)
                 accounting = self._with_structured_output(accounting, response)
                 self._complete_call(response, accounting)
@@ -256,13 +328,22 @@ class LLMGateway:
                     latency_ms=latency_ms,
                     tokens_unavailable=True,
                     token_breakdown=accounting.to_dict(),
-                    **self._cost_attributes({}, provider),
+                    provider=_provider_name(actual_provider),
+                    model=_provider_model(actual_provider),
+                    fallback=_fallback_summary(provider, actual_provider, fallback_attempts),
+                    **self._cost_attributes({}, actual_provider),
                 )
                 self._log_request(
-                    messages, None, None, "success", latency_ms=latency_ms, metadata={"structured": True},
-                    accounting=accounting, token_context=token_context, provider=provider, routing=routing,
+                    messages, None, None, "success", latency_ms=latency_ms,
+                    accounting=accounting, token_context=token_context, provider=actual_provider, routing=routing,
+                    metadata={
+                        "structured": True,
+                        "fallback": _fallback_summary(provider, actual_provider, fallback_attempts),
+                    },
                 )
                 return response
+            except ProviderFallbackExhausted as exc:
+                raise exc.original_error
             except Exception as exc:
                 self._log_request(
                     messages, None, None, "error", error_message=str(exc), latency_ms=_latency_ms(start),
@@ -393,6 +474,175 @@ class LLMGateway:
             self._provider_cache[key] = self._build_provider(decision.provider, decision.model)
         return self._provider_cache[key], decision
 
+    def _fallback_candidates(self, primary: LLMProvider) -> list[LLMProvider]:
+        candidates = []
+        for target in self.fallback_policy.targets(_provider_name(primary), _provider_model(primary)):
+            key = (target.provider, target.model)
+            if key == (_provider_name(primary), _provider_model(primary)):
+                candidate = primary
+            else:
+                if key not in self._provider_cache:
+                    self._provider_cache[key] = self._build_provider(target.provider, target.model)
+                candidate = self._provider_cache[key]
+            candidates.append(candidate)
+        return candidates
+
+    async def _invoke_async_with_fallback(
+        self,
+        primary: LLMProvider,
+        *,
+        messages,
+        tools,
+        task: str,
+        token_context,
+        kwargs: dict[str, Any],
+        structured: bool,
+        operation,
+        routing: RoutingDecision,
+    ):
+        attempts = []
+        candidates = self._fallback_candidates(primary)
+        for index, candidate in enumerate(candidates, start=1):
+            circuit_before = self.circuit_breaker.before_request(
+                _provider_name(candidate), _provider_model(candidate)
+            )
+            if not circuit_before.allowed:
+                attempt = _fallback_attempt(
+                    index, candidate, "skipped", 0,
+                    {"category": "circuit_open", "retryable": True},
+                    circuit={"before": circuit_before.metadata()},
+                )
+                attempts.append(attempt)
+                record_trace_event(
+                    "llm", "llm.circuit_open", status="blocked", attributes=attempt,
+                )
+                continue
+            accounting = self._account_context(
+                messages, tools, task, token_context, provider=candidate,
+            )
+            call_kwargs = dict(kwargs)
+            self._apply_output_limit(call_kwargs, self._prepare_call(accounting))
+            started = time.perf_counter()
+            try:
+                response = await operation(candidate, call_kwargs)
+                validate_provider_response(response, structured=structured)
+                circuit_after = self.circuit_breaker.record_success(
+                    _provider_name(candidate), _provider_model(candidate)
+                )
+                attempts.append(_fallback_attempt(
+                    index, candidate, "success", _latency_ms(started),
+                    circuit={"before": circuit_before.metadata(), "after": circuit_after.metadata()},
+                ))
+                return response, candidate, accounting, attempts
+            except Exception as exc:
+                classification = self.fallback_policy.classify(exc)
+                circuit_after = (
+                    self.circuit_breaker.record_failure(
+                        _provider_name(candidate), _provider_model(candidate)
+                    )
+                    if classification.retryable
+                    else self.circuit_breaker.record_success(
+                        _provider_name(candidate), _provider_model(candidate)
+                    )
+                )
+                attempt = _fallback_attempt(
+                    index, candidate, "error", _latency_ms(started), classification.metadata(),
+                    circuit={"before": circuit_before.metadata(), "after": circuit_after.metadata()},
+                )
+                attempts.append(attempt)
+                self._log_request(
+                    messages, tools, None, "error", error_message=str(exc),
+                    latency_ms=attempt["latency_ms"], accounting=accounting,
+                    token_context=token_context, provider=candidate, routing=routing,
+                    metadata={"fallback": {"attempt": attempt, "will_retry": (
+                        classification.retryable and index < len(candidates)
+                    )}},
+                )
+                if not classification.retryable or index >= len(candidates):
+                    raise ProviderFallbackExhausted(exc, attempts) from exc
+                await asyncio.sleep(self.fallback_policy.settings.provider_fallback_backoff_seconds * index)
+        raise ProviderFallbackExhausted(
+            CircuitOpenError("All provider candidates currently have an open circuit."), attempts
+        )
+
+    def _invoke_sync_with_fallback(
+        self,
+        primary: LLMProvider,
+        *,
+        messages,
+        tools,
+        task: str,
+        token_context,
+        kwargs: dict[str, Any],
+        structured: bool,
+        operation,
+        routing: RoutingDecision,
+    ):
+        attempts = []
+        candidates = self._fallback_candidates(primary)
+        for index, candidate in enumerate(candidates, start=1):
+            circuit_before = self.circuit_breaker.before_request(
+                _provider_name(candidate), _provider_model(candidate)
+            )
+            if not circuit_before.allowed:
+                attempt = _fallback_attempt(
+                    index, candidate, "skipped", 0,
+                    {"category": "circuit_open", "retryable": True},
+                    circuit={"before": circuit_before.metadata()},
+                )
+                attempts.append(attempt)
+                record_trace_event(
+                    "llm", "llm.circuit_open", status="blocked", attributes=attempt,
+                )
+                continue
+            accounting = self._account_context(
+                messages, tools, task, token_context, provider=candidate,
+            )
+            call_kwargs = dict(kwargs)
+            self._apply_output_limit(call_kwargs, self._prepare_call(accounting))
+            started = time.perf_counter()
+            try:
+                response = operation(candidate, call_kwargs)
+                validate_provider_response(response, structured=structured)
+                circuit_after = self.circuit_breaker.record_success(
+                    _provider_name(candidate), _provider_model(candidate)
+                )
+                attempts.append(_fallback_attempt(
+                    index, candidate, "success", _latency_ms(started),
+                    circuit={"before": circuit_before.metadata(), "after": circuit_after.metadata()},
+                ))
+                return response, candidate, accounting, attempts
+            except Exception as exc:
+                classification = self.fallback_policy.classify(exc)
+                circuit_after = (
+                    self.circuit_breaker.record_failure(
+                        _provider_name(candidate), _provider_model(candidate)
+                    )
+                    if classification.retryable
+                    else self.circuit_breaker.record_success(
+                        _provider_name(candidate), _provider_model(candidate)
+                    )
+                )
+                attempt = _fallback_attempt(
+                    index, candidate, "error", _latency_ms(started), classification.metadata(),
+                    circuit={"before": circuit_before.metadata(), "after": circuit_after.metadata()},
+                )
+                attempts.append(attempt)
+                self._log_request(
+                    messages, tools, None, "error", error_message=str(exc),
+                    latency_ms=attempt["latency_ms"], accounting=accounting,
+                    token_context=token_context, provider=candidate, routing=routing,
+                    metadata={"fallback": {"attempt": attempt, "will_retry": (
+                        classification.retryable and index < len(candidates)
+                    )}},
+                )
+                if not classification.retryable or index >= len(candidates):
+                    raise ProviderFallbackExhausted(exc, attempts) from exc
+                time.sleep(self.fallback_policy.settings.provider_fallback_backoff_seconds * index)
+        raise ProviderFallbackExhausted(
+            CircuitOpenError("All provider candidates currently have an open circuit."), attempts
+        )
+
     def _prepare_call(self, accounting) -> int:
         settings = get_settings()
         if accounting.total_input_tokens > settings.max_input_tokens:
@@ -505,6 +755,46 @@ def _provider_metadata(provider: LLMProvider) -> dict[str, Any]:
         "pinned": False,
         "alias": True,
         "source": "provider_metadata_unavailable",
+    }
+
+
+def _fallback_attempt(
+    index: int,
+    provider: LLMProvider,
+    status: str,
+    latency_ms: int,
+    failure: dict[str, Any] | None = None,
+    circuit: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "attempt": index,
+        "provider": _provider_name(provider),
+        "model": _provider_model(provider),
+        "status": status,
+        "latency_ms": latency_ms,
+        "failure": failure or {},
+        "circuit": circuit or {},
+    }
+
+
+def _fallback_summary(
+    primary: LLMProvider,
+    actual: LLMProvider,
+    attempts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "fallback_triggered": len(attempts) > 1,
+        "fallback_used": (
+            _provider_name(primary), _provider_model(primary)
+        ) != (
+            _provider_name(actual), _provider_model(actual)
+        ),
+        "primary_provider": _provider_name(primary),
+        "primary_model": _provider_model(primary),
+        "final_provider": _provider_name(actual),
+        "final_model": _provider_model(actual),
+        "attempt_count": len(attempts),
+        "attempts": attempts,
     }
 
 
