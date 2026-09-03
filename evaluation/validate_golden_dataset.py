@@ -60,12 +60,18 @@ def main() -> int:
 
     ids = {}
     duplicate_ids = []
+    query_ids = {}
+    duplicate_queries = []
     case_errors = []
     for row in rows:
         row_id = row.get("id")
         if row_id in ids:
             duplicate_ids.append(row_id)
         ids[row_id] = True
+        query = row.get("query")
+        if query in query_ids:
+            duplicate_queries.append(query)
+        query_ids[query] = True
         errors = validate_case(row)
         for error in errors:
             case_errors.append(f"{row.get('_file')}:{row.get('_line')} {row_id}: {error}")
@@ -78,16 +84,23 @@ def main() -> int:
         counts_by_category[category] = counts_by_category.get(category, 0) + 1
 
     total_cases = len(rows)
-    target_pass = 450 <= total_cases <= 550 and not missing_files and not duplicate_ids and not case_errors
+    target_pass = (
+        1000 <= total_cases <= 2000
+        and not missing_files
+        and not duplicate_ids
+        and not duplicate_queries
+        and not case_errors
+    )
     report = {
         "name": "golden_dataset_validation_v1",
         "dataset_dir": str(DATASET_DIR),
         "total_cases": total_cases,
-        "target_case_count_range": "450-550",
+        "target_case_count_range": "1000-2000",
         "counts_by_file": counts_by_file,
         "counts_by_category": counts_by_category,
         "missing_files": missing_files,
         "duplicate_ids": duplicate_ids,
+        "duplicate_queries": duplicate_queries,
         "case_errors": case_errors,
         "target_pass": target_pass,
     }

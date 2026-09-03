@@ -1,15 +1,29 @@
 {
-  "name": "production_quality_baseline_v2",
-  "description": "Phase 42 production quality gate. Pinned deterministic targets for pull-request and pre-production regression checks.",
-  "metrics": [
+  "name": "quality_regression_gate_v1",
+  "created_at": "2026-09-03T18:32:12.677112+00:00",
+  "baseline": "D:\\AI-Agent Arch Prot\\evaluation\\baselines\\quality_baseline.json",
+  "report_dir": "D:\\AI-Agent Arch Prot\\evaluation\\reports",
+  "summary": {
+    "metrics_total": 13,
+    "metrics_evaluated": 13,
+    "metrics_passed": 12,
+    "errors": 0,
+    "quality_regression_blocked": true,
+    "pass": false
+  },
+  "results": [
     {
       "name": "product_precision_at_5",
       "report": "product_search_report_latest.json",
       "path": "summary.precision_at_5",
       "direction": "higher",
       "baseline": 0.92,
-      "minimum": 0.90,
-      "max_regression": 0.02
+      "candidate": 0.92,
+      "max_regression": 0.02,
+      "regression": 0.0,
+      "effective_limit": 0.9,
+      "comparison": ">=",
+      "pass": true
     },
     {
       "name": "product_recall_at_10",
@@ -17,8 +31,12 @@
       "path": "summary.recall_at_10",
       "direction": "higher",
       "baseline": 0.96,
-      "minimum": 0.95,
-      "max_regression": 0.01
+      "candidate": 0.96,
+      "max_regression": 0.01,
+      "regression": 0.0,
+      "effective_limit": 0.95,
+      "comparison": ">=",
+      "pass": true
     },
     {
       "name": "product_ndcg_at_10",
@@ -26,8 +44,12 @@
       "path": "summary.ndcg_at_10",
       "direction": "higher",
       "baseline": 0.9112,
-      "minimum": 0.85,
-      "max_regression": 0.03
+      "candidate": 0.9112,
+      "max_regression": 0.03,
+      "regression": 0.0,
+      "effective_limit": 0.8812,
+      "comparison": ">=",
+      "pass": true
     },
     {
       "name": "hard_constraint_satisfaction",
@@ -35,8 +57,12 @@
       "path": "summary.hard_constraint_satisfaction",
       "direction": "higher",
       "baseline": 1.0,
-      "minimum": 0.99,
-      "max_regression": 0.01
+      "candidate": 1.0,
+      "max_regression": 0.01,
+      "regression": 0.0,
+      "effective_limit": 0.99,
+      "comparison": ">=",
+      "pass": true
     },
     {
       "name": "intent_macro_f1",
@@ -44,8 +70,12 @@
       "path": "summary.macro_f1",
       "direction": "higher",
       "baseline": 1.0,
-      "minimum": 0.95,
-      "max_regression": 0.01
+      "candidate": 1.0,
+      "max_regression": 0.01,
+      "regression": 0.0,
+      "effective_limit": 0.99,
+      "comparison": ">=",
+      "pass": true
     },
     {
       "name": "structured_schema_validity",
@@ -53,8 +83,12 @@
       "path": "summary.schema_validity_rate",
       "direction": "higher",
       "baseline": 1.0,
-      "minimum": 0.999,
-      "max_regression": 0.001
+      "candidate": 1.0,
+      "max_regression": 0.001,
+      "regression": 0.0,
+      "effective_limit": 0.999,
+      "comparison": ">=",
+      "pass": true
     },
     {
       "name": "hallucination_detector_match_rate",
@@ -62,17 +96,25 @@
       "path": "summary.expected_detector_match_rate",
       "direction": "higher",
       "baseline": 1.0,
-      "minimum": 0.99,
-      "max_regression": 0.01
+      "candidate": 1.0,
+      "max_regression": 0.01,
+      "regression": 0.0,
+      "effective_limit": 0.99,
+      "comparison": ">=",
+      "pass": true
     },
     {
       "name": "unsupported_critical_claims",
       "report": "hallucination_report_latest.json",
       "path": "summary.unsupported_critical_claims",
       "direction": "lower",
-      "baseline": 0,
-      "maximum": 0,
-      "max_regression": 0
+      "baseline": 0.0,
+      "candidate": 0.0,
+      "max_regression": 0.0,
+      "regression": 0.0,
+      "effective_limit": 0.0,
+      "comparison": "<=",
+      "pass": true
     },
     {
       "name": "rag_recall_at_5",
@@ -80,8 +122,12 @@
       "path": "summary.recall_at_5",
       "direction": "higher",
       "baseline": 0.95,
-      "minimum": 0.95,
-      "max_regression": 0.0
+      "candidate": 1.0,
+      "max_regression": 0.0,
+      "regression": -0.05,
+      "effective_limit": 0.95,
+      "comparison": ">=",
+      "pass": true
     },
     {
       "name": "rag_faithfulness",
@@ -89,8 +135,12 @@
       "path": "summary.faithfulness",
       "direction": "higher",
       "baseline": 0.95,
-      "minimum": 0.95,
-      "max_regression": 0.0
+      "candidate": 1.0,
+      "max_regression": 0.0,
+      "regression": -0.05,
+      "effective_limit": 0.95,
+      "comparison": ">=",
+      "pass": true
     },
     {
       "name": "rag_citation_correctness",
@@ -98,8 +148,12 @@
       "path": "summary.citation_correctness",
       "direction": "higher",
       "baseline": 0.98,
-      "minimum": 0.98,
-      "max_regression": 0.0
+      "candidate": 1.0,
+      "max_regression": 0.0,
+      "regression": -0.02,
+      "effective_limit": 0.98,
+      "comparison": ">=",
+      "pass": true
     },
     {
       "name": "tool_selection_rate",
@@ -107,8 +161,12 @@
       "path": "summary.tool_selection_rate",
       "direction": "higher",
       "baseline": 0.98,
-      "minimum": 0.98,
-      "max_regression": 0.0
+      "candidate": 1.0,
+      "max_regression": 0.0,
+      "regression": -0.02,
+      "effective_limit": 0.98,
+      "comparison": ">=",
+      "pass": true
     },
     {
       "name": "argument_accuracy_rate",
@@ -116,8 +174,13 @@
       "path": "summary.argument_accuracy_rate",
       "direction": "higher",
       "baseline": 0.99,
-      "minimum": 0.99,
-      "max_regression": 0.0
+      "candidate": 0.6667,
+      "max_regression": 0.0,
+      "regression": 0.3233,
+      "effective_limit": 0.99,
+      "comparison": ">=",
+      "pass": false
     }
-  ]
+  ],
+  "errors": []
 }

@@ -78,3 +78,73 @@
 {"id":"ambiguous_078","query":"I need a gift #8","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
 {"id":"ambiguous_079","query":"Something premium please #8","expected_tool":"search_products","expected_arguments":{"query":"premium"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
 {"id":"ambiguous_080","query":"Can I return it? #8","expected_tool":"search_knowledge_base","expected_arguments":{"query":"return policy"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_081","query":"I need shoes #9","expected_tool":"search_products","expected_arguments":{"category":"Shoes"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_082","query":"Show me something for work #9","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_083","query":"Can you help with my order? #9","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_084","query":"I want the black one #9","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_085","query":"Is it available? #9","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_086","query":"Make it cheaper #9","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_087","query":"Do you have accessories? #9","expected_tool":"search_products","expected_arguments":{"category":"Accessories"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_088","query":"I need a gift #9","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_089","query":"Something premium please #9","expected_tool":"search_products","expected_arguments":{"query":"premium"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_090","query":"Can I return it? #9","expected_tool":"search_knowledge_base","expected_arguments":{"query":"return policy"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_091","query":"I need shoes #10","expected_tool":"search_products","expected_arguments":{"category":"Shoes"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_092","query":"Show me something for work #10","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_093","query":"Can you help with my order? #10","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_094","query":"I want the black one #10","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_095","query":"Is it available? #10","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_096","query":"Make it cheaper #10","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_097","query":"Do you have accessories? #10","expected_tool":"search_products","expected_arguments":{"category":"Accessories"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_098","query":"I need a gift #10","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_099","query":"Something premium please #10","expected_tool":"search_products","expected_arguments":{"query":"premium"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_100","query":"Can I return it? #10","expected_tool":"search_knowledge_base","expected_arguments":{"query":"return policy"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_101","query":"I need shoes #11","expected_tool":"search_products","expected_arguments":{"category":"Shoes"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_102","query":"Show me something for work #11","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_103","query":"Can you help with my order? #11","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_104","query":"I want the black one #11","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_105","query":"Is it available? #11","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_106","query":"Make it cheaper #11","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_107","query":"Do you have accessories? #11","expected_tool":"search_products","expected_arguments":{"category":"Accessories"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_108","query":"I need a gift #11","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_109","query":"Something premium please #11","expected_tool":"search_products","expected_arguments":{"query":"premium"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_110","query":"Can I return it? #11","expected_tool":"search_knowledge_base","expected_arguments":{"query":"return policy"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_111","query":"I need shoes #12","expected_tool":"search_products","expected_arguments":{"category":"Shoes"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_112","query":"Show me something for work #12","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_113","query":"Can you help with my order? #12","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_114","query":"I want the black one #12","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_115","query":"Is it available? #12","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_116","query":"Make it cheaper #12","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_117","query":"Do you have accessories? #12","expected_tool":"search_products","expected_arguments":{"category":"Accessories"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_118","query":"I need a gift #12","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_119","query":"Something premium please #12","expected_tool":"search_products","expected_arguments":{"query":"premium"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_120","query":"Can I return it? #12","expected_tool":"search_knowledge_base","expected_arguments":{"query":"return policy"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_121","query":"I need shoes #13","expected_tool":"search_products","expected_arguments":{"category":"Shoes"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_122","query":"Show me something for work #13","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_123","query":"Can you help with my order? #13","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_124","query":"I want the black one #13","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_125","query":"Is it available? #13","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_126","query":"Make it cheaper #13","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_127","query":"Do you have accessories? #13","expected_tool":"search_products","expected_arguments":{"category":"Accessories"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_128","query":"I need a gift #13","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_129","query":"Something premium please #13","expected_tool":"search_products","expected_arguments":{"query":"premium"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_130","query":"Can I return it? #13","expected_tool":"search_knowledge_base","expected_arguments":{"query":"return policy"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_131","query":"I need shoes #14","expected_tool":"search_products","expected_arguments":{"category":"Shoes"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_132","query":"Show me something for work #14","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_133","query":"Can you help with my order? #14","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_134","query":"I want the black one #14","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_135","query":"Is it available? #14","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_136","query":"Make it cheaper #14","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_137","query":"Do you have accessories? #14","expected_tool":"search_products","expected_arguments":{"category":"Accessories"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_138","query":"I need a gift #14","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_139","query":"Something premium please #14","expected_tool":"search_products","expected_arguments":{"query":"premium"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_140","query":"Can I return it? #14","expected_tool":"search_knowledge_base","expected_arguments":{"query":"return policy"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_141","query":"I need shoes #15","expected_tool":"search_products","expected_arguments":{"category":"Shoes"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_142","query":"Show me something for work #15","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_143","query":"Can you help with my order? #15","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_144","query":"I want the black one #15","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_145","query":"Is it available? #15","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_146","query":"Make it cheaper #15","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_147","query":"Do you have accessories? #15","expected_tool":"search_products","expected_arguments":{"category":"Accessories"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_148","query":"I need a gift #15","expected_tool":null,"expected_arguments":{},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_149","query":"Something premium please #15","expected_tool":"search_products","expected_arguments":{"query":"premium"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}
+{"id":"ambiguous_150","query":"Can I return it? #15","expected_tool":"search_knowledge_base","expected_arguments":{"query":"return policy"},"expected_behavior":"","access":"READ","risk":"LOW","category":"ambiguous"}

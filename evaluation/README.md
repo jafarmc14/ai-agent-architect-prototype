@@ -66,7 +66,7 @@ The report includes the active `environment`, `provider`, and `model`, based on 
 
 ## Golden Functional Dataset
 
-Phase 20 expands the functional golden set to approximately 500 cases:
+Phase 41 expands the functional golden set to 1,200 deterministic cases:
 
 ```text
 evaluation/datasets/golden/
@@ -92,6 +92,8 @@ Validate count, required files, unique IDs, and schema shape:
 ```bash
 py evaluation/validate_golden_dataset.py
 ```
+
+The generated functional set is divided into 300 standard/company-operations cases, 150 ambiguous cases, 200 multilingual cases, 200 noisy-input cases, 150 no-answer cases, and 200 cross-turn cases. Company-operation cases use synthetic warehouse, fulfillment, order lifecycle, policy, and customer-support contexts; they do not contain real company or customer data.
 
 The validation report is saved to:
 
@@ -512,6 +514,12 @@ The dataset is saved to:
 
 ```text
 evaluation/datasets/security/adversarial.jsonl
+```
+
+Validate the adversarial count, category balance, unique queries, required security expectations, and synthetic company context:
+
+```bash
+py evaluation/validate_security_dataset.py
 ```
 
 It covers:

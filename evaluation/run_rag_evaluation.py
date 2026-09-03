@@ -17,6 +17,13 @@ if str(PROJECT_ROOT) not in sys.path:
 from core.privacy import redact_for_logs  # noqa: E402
 
 
+TARGETS = {
+    "recall_at_5": 0.95,
+    "faithfulness": 0.95,
+    "citation_correctness": 0.98,
+}
+
+
 def load_cases(path: Path) -> list[dict[str, Any]]:
     cases = []
     with path.open("r", encoding="utf-8") as handle:
@@ -119,6 +126,14 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
         "freshness_correctness": avg("freshness_correctness"),
         "avg_latency_ms": round(sum(result["latency_ms"] for result in evaluated) / len(evaluated), 2)
         if evaluated else 0,
+        "targets": TARGETS,
+        "target_pass": {
+            metric: avg(metric) >= target
+            for metric, target in TARGETS.items()
+        },
+        "all_targets_pass": all(
+            avg(metric) >= target for metric, target in TARGETS.items()
+        ) and len(evaluated) > 0,
     }
 
 

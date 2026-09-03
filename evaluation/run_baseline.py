@@ -20,6 +20,12 @@ from core.privacy import redact_for_logs  # noqa: E402
 from core.optimization import summarize_token_trace  # noqa: E402
 
 
+TOOL_TARGETS = {
+    "tool_selection_rate": 0.98,
+    "argument_accuracy_rate": 0.99,
+}
+
+
 def load_cases(dataset_dir: Path) -> list[dict]:
     cases = []
     for path in sorted(dataset_dir.glob("*.jsonl")):
@@ -269,6 +275,15 @@ def summarize(results: list[dict]) -> dict:
         "avg_latency_ms": round(sum(latencies) / evaluated_total, 2) if evaluated_total else 0,
         "max_latency_ms": max(latencies) if latencies else 0,
         "min_latency_ms": min(latencies) if latencies else 0,
+        "tool_targets": TOOL_TARGETS,
+        "tool_target_pass": {
+            "tool_selection_rate": (
+                (count("tool_selection_pass") / evaluated_total) >= TOOL_TARGETS["tool_selection_rate"]
+            ) if evaluated_total else False,
+            "argument_accuracy_rate": (
+                (count("argument_accuracy_pass") / evaluated_total) >= TOOL_TARGETS["argument_accuracy_rate"]
+            ) if evaluated_total else False,
+        },
     }
 
 

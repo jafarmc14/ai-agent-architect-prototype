@@ -1,14 +1,14 @@
 {
   "name": "golden_functional_dataset_v1",
-  "target_case_count": "approximately 500",
-  "total_cases": 525,
+  "target_case_count": 1200,
+  "total_cases": 1200,
   "files": {
-    "standard.jsonl": 45,
-    "ambiguous.jsonl": 80,
-    "multilingual.jsonl": 120,
-    "noisy.jsonl": 120,
-    "no_answer.jsonl": 80,
-    "cross_turn.jsonl": 80
+    "standard.jsonl": 300,
+    "ambiguous.jsonl": 150,
+    "multilingual.jsonl": 200,
+    "noisy.jsonl": 200,
+    "no_answer.jsonl": 150,
+    "cross_turn.jsonl": 200
   },
   "coverage": [
     "standard functional cases",

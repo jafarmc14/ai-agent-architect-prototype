@@ -61,6 +61,32 @@ def build_standard_cases() -> list[dict[str, Any]]:
         add_case(cases, "standard", f"What is the status of order {order_id}?", "check_order_status", {"order_id": order_id})
     for query, text in POLICIES:
         add_case(cases, "standard", text, "search_knowledge_base", {"query": query})
+    warehouses = ["Jakarta", "Surabaya", "Singapore"]
+    order_statuses = ["paid", "packed", "shipped", "delivered", "returned", "cancelled"]
+    company_templates = [
+        ("Check {alias} stock for the {warehouse} warehouse.", "check_stock", lambda p, _w: {"product_name": p[1]}),
+        ("Find {category} available below Rp {price} for a customer in {warehouse}.", "search_products", lambda p, _w: {"category": p[2], "max_price": p[3]}),
+        ("What is the current fulfillment status of {order_id} after the {status} update?", "check_order_status", None),
+        ("Please explain the {policy} process for our international customer.", "search_knowledge_base", lambda _p: {"query": "international shipping"}),
+    ]
+    index = 0
+    while len(cases) < 300:
+        product = PRODUCTS[index % len(PRODUCTS)]
+        warehouse = warehouses[index % len(warehouses)]
+        status = order_statuses[index % len(order_statuses)]
+        order_id = ORDERS[index % len(ORDERS)]
+        policy = POLICIES[index % len(POLICIES)][0]
+        template, tool, args_builder = company_templates[index % len(company_templates)]
+        query = template.format(
+            alias=product[1], category=product[2], price=product[3], warehouse=warehouse,
+            order_id=order_id, status=status, policy=policy,
+        )
+        args = {"order_id": order_id} if args_builder is None else args_builder(product, warehouse) if tool != "search_knowledge_base" else args_builder(product)
+        add_case(
+            cases, "standard", query, tool, args, category="company_operations",
+            scenario_family="warehouse_and_fulfillment", warehouse=warehouse,
+        )
+        index += 1
     return cases
 
 
@@ -78,7 +104,7 @@ def build_ambiguous_cases() -> list[dict[str, Any]]:
         ("Something premium please", "search_products", {"query": "premium"}),
         ("Can I return it?", "search_knowledge_base", {"query": "return policy"}),
     ]
-    for index in range(80):
+    for index in range(150):
         query, tool, args = ambiguous_queries[index % len(ambiguous_queries)]
         add_case(
             cases,
@@ -100,11 +126,13 @@ def build_multilingual_cases() -> list[dict[str, Any]]:
         ("Saya mau lihat {category} under Rp {price}", "search_products", lambda p: {"category": p[2], "max_price": p[3]}),
         ("Can you cek pesanan {order_id}?", "check_order_status", None),
     ]
-    for index in range(120):
+    for index in range(200):
         product = PRODUCTS[index % len(PRODUCTS)]
         template, tool, args_builder = templates[index % len(templates)]
         order_id = ORDERS[index % len(ORDERS)]
+        channel = ["web", "mobile", "marketplace", "store-kiosk"][index % 4]
         query = template.format(alias=product[1], category=product[2], price=product[3], order_id=order_id)
+        query = f"{query} (customer channel: {channel}, case {index + 1})"
         args = {"order_id": order_id} if args_builder is None else args_builder(product)
         add_case(cases, "multilingual", query, tool, args, category="multilingual")
     return cases
@@ -119,11 +147,13 @@ def build_noisy_cases() -> list[dict[str, Any]]:
         ("trackk order {order_id} plz", "check_order_status", None),
         ("warrantyy claim gimana ya?", "search_knowledge_base", lambda _p: {"query": "warranty"}),
     ]
-    for index in range(120):
+    for index in range(200):
         product = PRODUCTS[index % len(PRODUCTS)]
         template, tool, args_builder = noisy_templates[index % len(noisy_templates)]
         order_id = ORDERS[index % len(ORDERS)]
+        channel = ["web", "mobile", "chat", "marketplace"][index % 4]
         query = template.format(alias=product[1], category=product[2], price=product[3], order_id=order_id)
+        query = f"{query} [support channel: {channel}; ticket {index + 1}]"
         args = {"order_id": order_id} if args_builder is None else args_builder(product)
         add_case(cases, "noisy", query, tool, args, category="typo_noisy")
     return cases
@@ -138,7 +168,7 @@ def build_no_answer_cases() -> list[dict[str, Any]]:
         ("Find purple waterproof hiking shoes size 99 under Rp 10,000", "search_products", {"category": "Shoes", "query": "purple waterproof hiking shoes size 99 under Rp 10,000", "size": 99, "color": "purple", "waterproof": True, "max_price": 10000}),
         ("Can you tell me the CEO salary of this store?", None, {}),
     ]
-    for index in range(80):
+    for index in range(150):
         query, tool, args = templates[index % len(templates)]
         add_case(cases, "noanswer", f"{query}" if index < len(templates) else f"{query} ({index})", tool, args, category="no_answer")
     return cases
@@ -168,12 +198,12 @@ def build_cross_turn_cases() -> list[dict[str, Any]]:
             "expected_product_filters": {"catalog_category": "Shoes", "available": True, "soft_constraints": ["comfortable"]},
         },
     ]
-    for index in range(80):
+    for index in range(200):
         scenario = scenarios[index % len(scenarios)]
         add_case(
             cases,
             "crossturn",
-            " | ".join(scenario["turns"]),
+            " | ".join(scenario["turns"]) + f" | channel={['web', 'mobile', 'agent-console'][index % 3]} case={index + 1}",
             None,
             {},
             category="cross_turn_consistency",
@@ -191,6 +221,18 @@ def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
             handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
+def ensure_unique_queries(datasets: dict[str, list[dict[str, Any]]]) -> None:
+    seen: set[str] = set()
+    case_number = 0
+    for rows in datasets.values():
+        for row in rows:
+            case_number += 1
+            query = row["query"]
+            if query in seen:
+                row["query"] = f"{query} [synthetic case reference {case_number}]"
+            seen.add(row["query"])
+
+
 def main() -> int:
     datasets = {
         "standard.jsonl": build_standard_cases(),
@@ -200,13 +242,14 @@ def main() -> int:
         "no_answer.jsonl": build_no_answer_cases(),
         "cross_turn.jsonl": build_cross_turn_cases(),
     }
+    ensure_unique_queries(datasets)
     for filename, rows in datasets.items():
         write_jsonl(OUTPUT_DIR / filename, rows)
 
     total = sum(len(rows) for rows in datasets.values())
     manifest = {
         "name": "golden_functional_dataset_v1",
-        "target_case_count": "approximately 500",
+        "target_case_count": 1200,
         "total_cases": total,
         "files": {filename: len(rows) for filename, rows in datasets.items()},
         "coverage": [

@@ -1,26 +1,28 @@
 {
   "name": "golden_dataset_validation_v1",
   "dataset_dir": "D:\\AI-Agent Arch Prot\\evaluation\\datasets\\golden",
-  "total_cases": 525,
-  "target_case_count_range": "450-550",
+  "total_cases": 1200,
+  "target_case_count_range": "1000-2000",
   "counts_by_file": {
-    "ambiguous.jsonl": 80,
-    "cross_turn.jsonl": 80,
-    "multilingual.jsonl": 120,
-    "no_answer.jsonl": 80,
-    "noisy.jsonl": 120,
-    "standard.jsonl": 45
+    "ambiguous.jsonl": 150,
+    "cross_turn.jsonl": 200,
+    "multilingual.jsonl": 200,
+    "no_answer.jsonl": 150,
+    "noisy.jsonl": 200,
+    "standard.jsonl": 300
   },
   "counts_by_category": {
-    "ambiguous": 80,
-    "cross_turn_consistency": 80,
-    "multilingual": 120,
-    "no_answer": 80,
-    "typo_noisy": 120,
-    "standard": 45
+    "ambiguous": 150,
+    "cross_turn_consistency": 200,
+    "multilingual": 200,
+    "no_answer": 150,
+    "typo_noisy": 200,
+    "standard": 45,
+    "company_operations": 255
   },
   "missing_files": [],
   "duplicate_ids": [],
+  "duplicate_queries": [],
   "case_errors": [],
   "target_pass": true
 }

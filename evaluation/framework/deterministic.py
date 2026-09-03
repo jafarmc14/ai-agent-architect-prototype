@@ -57,14 +57,14 @@ def deterministic_metrics_from_reports(reports: dict[str, dict[str, Any]]) -> di
             "rate": baseline_summary.get("tool_selection_rate"),
             "passed": baseline_summary.get("tool_selection_passed"),
             "total": baseline_summary.get("evaluated_cases"),
-            "pass": _rate_at_least(baseline_summary.get("tool_selection_rate"), 0.95),
+            "pass": _rate_at_least(baseline_summary.get("tool_selection_rate"), 0.98),
         },
         "arguments": {
             "source": "baseline.argument_accuracy_rate",
             "rate": baseline_summary.get("argument_accuracy_rate"),
             "passed": baseline_summary.get("argument_accuracy_passed"),
             "total": baseline_summary.get("evaluated_cases"),
-            "pass": _rate_at_least(baseline_summary.get("argument_accuracy_rate"), 0.95),
+            "pass": _rate_at_least(baseline_summary.get("argument_accuracy_rate"), 0.99),
         },
         "authorization": {
             "source": "authorization.unauthorized_successes",
@@ -74,7 +74,7 @@ def deterministic_metrics_from_reports(reports: dict[str, dict[str, Any]]) -> di
         "citation": {
             "source": "rag.citation_correctness",
             "rate": rag_summary.get("citation_correctness"),
-            "pass": _rate_at_least(rag_summary.get("citation_correctness"), 0.99),
+            "pass": _rate_at_least(rag_summary.get("citation_correctness"), 0.98),
         },
         "schema": {
             "source": "structured_output.schema_validity_rate",
