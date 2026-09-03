@@ -1,7 +1,9 @@
 import streamlit as st
 from uuid import uuid4
 
+from api.client import AgentAPIClient, AgentAPIClientError
 from agent import configure_llm_provider, get_agent_response_with_trace, get_llm_config
+from configs import get_settings
 from core.auth import create_session_token, verify_session_token
 from core.llm.provider_catalog import build_provider_options
 from core.optimization import summarize_token_trace
@@ -11,6 +13,61 @@ from core.repositories.user_repository import UserRepository
 PROVIDER_OPTIONS = build_provider_options()
 
 WELCOME_MESSAGE = "Hello, I'm Ubichinon. How can I help you today?"
+
+
+def build_api_client() -> AgentAPIClient | None:
+    settings = get_settings()
+    if not settings.streamlit_api_client_enabled:
+        return None
+    return AgentAPIClient(settings.api_base_url)
+
+
+def read_llm_config(api_client: AgentAPIClient | None) -> dict:
+    if api_client is None:
+        return get_llm_config()
+    try:
+        return api_client.get_config()
+    except AgentAPIClientError as exc:
+        st.session_state.api_client_error = str(exc)
+        return get_llm_config()
+
+
+def update_llm_config(api_client: AgentAPIClient | None, provider: str, model: str) -> dict:
+    if api_client is None:
+        return configure_llm_provider(provider, model)
+    try:
+        return api_client.configure_llm(provider, model)
+    except AgentAPIClientError as exc:
+        st.session_state.api_client_error = str(exc)
+        return configure_llm_provider(provider, model)
+
+
+def run_chat_request(
+    api_client: AgentAPIClient | None,
+    prompt: str,
+    *,
+    auth_token: str | None,
+    session_id: str,
+) -> dict:
+    if api_client is None:
+        return get_agent_response_with_trace(
+            prompt,
+            auth_token=auth_token,
+            session_id=session_id,
+        )
+    try:
+        return api_client.chat(
+            prompt,
+            auth_token=auth_token,
+            session_id=session_id,
+        )
+    except AgentAPIClientError as exc:
+        return {
+            "response": "",
+            "exception": str(exc),
+            "workflow": "api_client",
+            "lifecycle": [],
+        }
 
 
 def reset_ui_chat() -> None:
@@ -36,6 +93,25 @@ def render_token_usage(usage: dict | None) -> None:
             f"Runtime: {resource.get('runtime_ms', 0):,} ms | "
             f"Cost: ${float(resource.get('cost_usd', 0)):.6f}"
         )
+    cost_governance = usage.get("cost_governance") or {}
+    if cost_governance:
+        st.subheader("Cost Governance")
+        st.caption(
+            f"Request: ${float(cost_governance.get('request_cost_usd', 0)):.6f} | "
+            f"Session: ${float(cost_governance.get('session_cost_usd', 0)):.6f} | "
+            f"Customer: ${float(cost_governance.get('customer_cost_usd', 0)):.6f}"
+        )
+        budget = float(cost_governance.get("monthly_budget_usd", 0))
+        tenant_cost = float(cost_governance.get("tenant_cost_usd", 0))
+        utilization = float(cost_governance.get("utilization_ratio", 0))
+        st.caption(
+            f"Tenant {cost_governance.get('period', '')}: ${tenant_cost:.6f} / "
+            f"${budget:.2f} ({utilization:.1%})"
+        )
+        if cost_governance.get("exhausted"):
+            st.error("Monthly tenant AI budget exhausted. Premium models are restricted.")
+        elif cost_governance.get("warning"):
+            st.warning("Monthly tenant AI budget reached its warning threshold. Cheaper routing is active.")
     if usage.get("resource_limit"):
         st.warning(f"Blocked by: {usage['resource_limit'].get('code', 'resource limit')}")
     loop_safety = usage.get("agent_loop_safety") or {}
@@ -101,7 +177,11 @@ st.set_page_config(
 st.title("Store AI-Agent Architect")
 st.markdown("Autonomous AI assistant for e-commerce (Prototype).")
 
-active_config = get_llm_config()
+api_client = build_api_client()
+if "api_client_error" not in st.session_state:
+    st.session_state.api_client_error = ""
+
+active_config = read_llm_config(api_client)
 provider_labels = list(PROVIDER_OPTIONS.keys())
 active_provider_label = next(
     (
@@ -140,14 +220,20 @@ with st.sidebar:
 
     provider_key = f"{selected_provider}:{selected_model}"
     if st.session_state.get("llm_provider_key") != provider_key:
-        configure_llm_provider(selected_provider, selected_model)
+        update_llm_config(api_client, selected_provider, selected_model)
         st.session_state.llm_provider_key = provider_key
         reset_ui_chat()
 
-    current_config = get_llm_config()
+    current_config = read_llm_config(api_client)
     st.caption(f"Environment: {current_config['environment']}")
     st.caption(f"Database: {current_config['database_provider']}")
     st.caption(f"Active: {current_config['provider']} / {current_config['model']}")
+    st.caption(
+        f"Client: FastAPI ({get_settings().api_base_url})" if api_client
+        else "Client: direct runtime"
+    )
+    if st.session_state.api_client_error:
+        st.warning(st.session_state.api_client_error)
     st.caption(
         "Model routing: enabled" if current_config.get("model_routing_enabled")
         else "Model routing: disabled"
@@ -159,6 +245,10 @@ with st.sidebar:
     st.caption(
         "Circuit breaker: enabled" if current_config.get("circuit_breaker_enabled")
         else "Circuit breaker: disabled"
+    )
+    st.caption(
+        "Cost governance: enabled" if current_config.get("cost_governance_enabled")
+        else "Cost governance: disabled"
     )
     model_governance = current_config.get("model_governance", {})
     st.caption(f"Model version: {current_config.get('model_version') or 'unknown'}")
@@ -221,7 +311,8 @@ if prompt := st.chat_input("Type your message here..."):
         st.markdown(prompt)
 
     with st.spinner("Agent is thinking..."):
-        result = get_agent_response_with_trace(
+        result = run_chat_request(
+            api_client,
             prompt,
             auth_token=st.session_state.get("auth_token"),
             session_id=st.session_state.session_id,
@@ -230,7 +321,7 @@ if prompt := st.chat_input("Type your message here..."):
             f"*(System Message)* Sorry, an error occurred while contacting the AI model: {result.get('exception')}"
         )
         if current_config["environment"] == "development":
-            st.session_state.last_token_usage = summarize_token_trace(result)
+            st.session_state.last_token_usage = result.get("token_usage") or summarize_token_trace(result)
             if token_usage_placeholder is not None:
                 token_usage_placeholder.empty()
                 with token_usage_placeholder.container():

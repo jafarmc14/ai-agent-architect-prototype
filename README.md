@@ -38,6 +38,9 @@ This system is a web-based chat interface powered by an AI model that supports s
 | 19 | **Model Routing** | Deterministically route by task, complexity, confidence, and evidence quality; prefer cheap models where safe and track every premium-model call. |
 | 20 | **Provider Fallback** | Recover transient provider failures through an available, bounded fallback chain while preserving privacy, resource limits, and per-attempt observability. |
 | 21 | **Circuit Breaker** | Detect repeated transient failures per provider/model, temporarily skip unhealthy targets, and retry the primary through a bounded half-open probe after cooldown. |
+| 22 | **Cost Governance** | Track AI cost per request, session, customer, and tenant; warn at 80% of monthly tenant budget, prefer cheaper models at high usage, and restrict premium models when exhausted. |
+| 23 | **API Architecture** | Expose the AI/business runtime behind FastAPI while keeping Streamlit as a temporary development client. |
+| 24 | **Frontend Migration** | Add a stateless Next.js/React client for the stabilized FastAPI backend, keeping the UI operational and restrained. |
 
 ---
 
@@ -45,7 +48,9 @@ This system is a web-based chat interface powered by an AI model that supports s
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| **Frontend** | [Streamlit](https://streamlit.io/) (Python) | Web-based chat interface for user interaction. |
+| **Development Client** | [Streamlit](https://streamlit.io/) (Python) | Temporary web-based chat client for local development and manual testing. |
+| **New Frontend** | [Next.js](https://nextjs.org/) + React + TypeScript + Tailwind CSS | Stateless API-backed chat console intended to replace Streamlit after backend stabilization. |
+| **API Layer** | [FastAPI](https://fastapi.tiangolo.com/) + Uvicorn | HTTP boundary for chat, provider configuration, health checks, and future production clients. |
 | **Orchestrator** | [LangChain](https://www.langchain.com/) + Native LLM Tool Calling | Manages the AI agent loop — prompt → LLM → tool calls → reasoning → response. |
 | **LLM API** | LLM Gateway with OpenRouter free by default, local Ollama, and key-gated DeepSeek/Kimi production adapters | The large language model that powers intent recognition, reasoning, and response generation. |
 | **Database** | [PostgreSQL](https://www.postgresql.org/) + pgvector | Primary runtime database storing products, inventory, orders, carts, support tickets, conversations, evaluation data, and vector-ready knowledge chunks. |
@@ -58,7 +63,27 @@ This system is a web-based chat interface powered by an AI model that supports s
 Current runtime architecture:
 
 ```text
-Streamlit UI (`app.py`)
+Client
+  |
+  +--> Streamlit dev client (`app.py`)
+  |      |
+  |      +--> direct runtime mode (default development)
+  |      +--> FastAPI client mode when `STREAMLIT_API_CLIENT_ENABLED=true`
+  |
+  +--> Next.js/React frontend (`frontend/`)
+  |      |
+  |      +--> stateless API client using `NEXT_PUBLIC_API_BASE_URL`
+  |      +--> chat, quick prompts, runtime status, and latest request metrics
+  |
+  +--> Future web/mobile/backend clients
+  |
+  v
+FastAPI API Boundary (`api/main.py`)
+  |
+  +--> `GET /health`
+  +--> `GET /api/v1/config`
+  +--> `POST /api/v1/config/llm`
+  +--> `POST /api/v1/chat`
   |
   v
 Agent Runtime (`core/orchestration/runtime.py`)
@@ -70,6 +95,9 @@ Agent Runtime (`core/orchestration/runtime.py`)
   |      +--> per-user, per-tenant, and per-workflow quotas
   |      +--> repetitive expensive-request detection
   |      +--> atomic PostgreSQL admission in `resource_usage_events`
+  |      +--> monthly Cost Governance (`core/cost_governance/`)
+  |             +--> request / session / customer / tenant cost totals
+  |             +--> tenant budget warning and exhausted states
   |
   +--> Intent Router (`core/workflows/intent_router.py`)
   |      |
@@ -89,6 +117,7 @@ Agent Runtime (`core/orchestration/runtime.py`)
   |      |      +--> task + complexity policy
   |      |      +--> confidence + evidence gates
   |      |      +--> cheap -> standard -> premium availability fallback
+  |      |      +--> budget pressure -> cheap/non-premium enforcement
   |      |
   |      +--> Provider Fallback (`core/llm/provider_fallback.py`)
   |      |      +--> 429 / 5xx / timeout / invalid response / connection failure
@@ -678,7 +707,12 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 
 | File | Purpose |
 |---|---|
-| `app.py` | **Frontend entry point.** Defines the Streamlit chat interface, manages session-based chat history, captures user input, and displays AI responses. |
+| `app.py` | **Streamlit development client.** Defines the chat interface, manages session-based UI state, and can call either the runtime directly or the FastAPI API when `STREAMLIT_API_CLIENT_ENABLED=true`. |
+| `api/main.py` | **FastAPI entry point.** Exposes health, LLM configuration, provider switching, and chat endpoints over HTTP. |
+| `api/schemas.py` | **API contracts.** Defines Pydantic request and response models for chat and configuration. |
+| `api/services.py` | **API application services.** Keeps HTTP handlers thin while delegating AI/business execution to the existing orchestration runtime. |
+| `api/client.py` | **Development API client.** Small stdlib HTTP client used by Streamlit when it runs as a temporary API-backed client. |
+| `frontend/` | **Next.js/React frontend.** Stateless API-backed client for the FastAPI runtime with an operational console layout. |
 | `agent.py` | **Compatibility facade.** Re-exports the public agent API so existing imports from `app.py` and evaluation code continue to work. |
 | `core/llm/base.py` | **LLM provider interface.** Defines the async provider contract with `generate()` and `generate_structured()`. |
 | `core/llm/gateway.py` | **LLM gateway.** Application-facing LLM entry point that hides provider-specific client details from orchestration. |
@@ -834,7 +868,7 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 cd "D:\AI-Agent Arch Prot"
 
 # 2. Install all required Python packages
-py -m pip install streamlit langchain langchain-openai python-dotenv
+py -m pip install -r requirements.txt
 
 # 3. Configure runtime settings
 #    Open the .env file and set non-secret settings:
@@ -852,6 +886,75 @@ py database.py
 # 5. Launch the application
 py -m streamlit run app.py
 ```
+
+### FastAPI Runtime Boundary
+
+Phase 36 adds FastAPI as the HTTP boundary in front of the AI/business runtime. Streamlit remains available as a temporary development client.
+
+Run the API:
+
+```bash
+py -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Chat endpoint:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/chat ^
+  -H "Content-Type: application/json" ^
+  -d "{\"message\":\"Find shoes under Rp 1,500,000\",\"session_id\":\"manual-test\"}"
+```
+
+To make Streamlit call FastAPI instead of the runtime directly, set:
+
+```bash
+STREAMLIT_API_CLIENT_ENABLED=true
+API_BASE_URL=http://127.0.0.1:8000
+```
+
+Then run:
+
+```bash
+py -m streamlit run app.py
+```
+
+### Next.js/React Frontend
+
+Phase 37 adds a separate React client in `frontend/`. The frontend uses Tailwind CSS and is intentionally stateless where possible: chat messages live only in browser memory for the current page session, and all AI/business behavior goes through FastAPI.
+
+Start the backend first:
+
+```bash
+py -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Run the frontend:
+
+```bash
+cd frontend
+npm.cmd install
+npm.cmd run dev
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+Configure the API URL with:
+
+```ini
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+```
+
+The UI is built as an operations console: fixed runtime status, focused chat lane, compact request inspector, command queue, and small stable controls. It avoids decorative hero sections, large marketing blocks, gradient backgrounds, and feature-explainer copy.
 
 ### Local Ollama Provider
 
@@ -1889,6 +1992,64 @@ Run the no-network state-machine tests:
 ```powershell
 py evaluation/test_circuit_breaker.py
 ```
+
+### Cost Governance
+
+Phase 35 records actual provider-reported cost when available and otherwise uses the configured conservative price estimate from Phase 28. Cost is aggregated by request, Streamlit session, authenticated customer, and tenant for the current calendar month.
+
+The policy is disabled by default, so current `openrouter/free` behavior is unchanged:
+
+```ini
+COST_GOVERNANCE_ENABLED=false
+TENANT_MONTHLY_AI_BUDGET_USD=100
+TENANT_MONTHLY_AI_BUDGET_WARNING_THRESHOLD=0.80
+```
+
+When enabled, utilization at or above 80% forces the cheapest available configured tier. At 100%, premium models are restricted; requests continue through a cheap or standard target when one is available, and are blocked only if every available target is premium. This budget override is enforced even when normal task-based model routing is disabled.
+
+The environment value is the default for every tenant. Add an optional tenant-specific override in pgAdmin:
+
+```sql
+INSERT INTO tenant_ai_budgets (
+    tenant_id, monthly_budget_usd, warning_threshold, enabled
+) VALUES (
+    'default', 100.00, 0.80, true
+)
+ON CONFLICT (tenant_id) DO UPDATE SET
+    monthly_budget_usd = EXCLUDED.monthly_budget_usd,
+    warning_threshold = EXCLUDED.warning_threshold,
+    enabled = EXCLUDED.enabled,
+    updated_at = now();
+```
+
+Inspect cost per request, session, customer, and tenant:
+
+```sql
+SELECT request_id, session_id, user_id, tenant_id, cost_usd,
+       metadata->'cost_governance'->>'status' AS budget_status,
+       created_at
+FROM resource_usage_events
+WHERE completed_at IS NOT NULL
+ORDER BY created_at DESC
+LIMIT 50;
+
+SELECT tenant_id,
+       date_trunc('month', created_at) AS month,
+       SUM(cost_usd) AS tenant_cost_usd
+FROM resource_usage_events
+WHERE completed_at IS NOT NULL
+GROUP BY tenant_id, date_trunc('month', created_at)
+ORDER BY month DESC, tenant_id;
+```
+
+In development, the Streamlit sidebar shows the latest request cost, current session and customer totals, monthly tenant spend, utilization, and warning/exhausted status. Apply the schema and run deterministic tests with:
+
+```powershell
+py database/migrate_sqlite_to_postgres.py --schema-only
+py evaluation/test_cost_governance.py
+```
+
+The test uses an in-memory clock and fake routing targets. It does not call an external or paid LLM provider.
 
 After changing provider config, restart Streamlit:
 

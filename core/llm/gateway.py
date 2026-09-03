@@ -456,6 +456,10 @@ class LLMGateway:
         token_context: dict[str, Any] | None,
     ) -> tuple[LLMProvider, RoutingDecision]:
         context = token_context or {}
+        route_context = dict(context.get("routing") or {})
+        guard = active_resource_guard()
+        if guard is not None and guard.cost_governance:
+            route_context["cost_governance"] = guard.cost_governance
         decision = self.model_router.decide(
             task=task,
             base_provider=self.provider_name,
@@ -463,8 +467,13 @@ class LLMGateway:
             estimated_input_tokens=accounting.total_input_tokens,
             input_budget=accounting.input_budget,
             tool_count=len(tools or []),
-            route_context=context.get("routing") or {},
+            route_context=route_context,
         )
+        if decision.selected_tier == "blocked":
+            raise ResourceLimitExceeded(
+                "tenant_monthly_ai_budget",
+                "The tenant monthly AI budget is exhausted and no non-premium model is available.",
+            )
         if not decision.enabled or (
             decision.provider == self.provider_name and decision.model == (self.model or "")
         ):

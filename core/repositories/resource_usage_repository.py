@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import json
 from typing import Any
 
 from configs import get_settings
@@ -15,6 +16,8 @@ class ResourceUsageRepository:
         trace_id: str,
         tenant_id: str,
         identity_key: str,
+        session_id: str,
+        user_id: str | None,
         workflow: str,
         input_hash: str,
         input_tokens: int,
@@ -87,6 +90,8 @@ class ResourceUsageRepository:
                     trace_id=trace_id,
                     tenant_id=tenant_id,
                     identity_key=identity_key,
+                    session_id=session_id,
+                    user_id=user_id,
                     workflow=workflow,
                     input_hash=input_hash,
                     status="blocked" if code else "accepted",
@@ -128,15 +133,36 @@ class ResourceUsageRepository:
         except Exception:  # noqa: BLE001
             return
 
+    def set_cost_governance(self, request_id: str, metadata: dict[str, Any]) -> None:
+        if get_settings().database_provider != "postgres":
+            return
+        try:
+            with get_postgres_connection() as conn:
+                conn.execute(
+                    """
+                    UPDATE resource_usage_events
+                    SET metadata = jsonb_set(
+                        COALESCE(metadata, '{}'::jsonb),
+                        '{cost_governance}',
+                        %s::jsonb,
+                        true
+                    )
+                    WHERE request_id = NULLIF(%s, '')::uuid
+                    """,
+                    (json.dumps(metadata), request_id),
+                )
+        except Exception:  # noqa: BLE001
+            return
+
     @staticmethod
     def _insert_event(conn, **values: Any) -> None:
         conn.execute(
             """
             INSERT INTO resource_usage_events (
-                request_id, trace_id, tenant_id, identity_key, workflow,
+                request_id, trace_id, tenant_id, identity_key, session_id, user_id, workflow,
                 input_hash, status, limit_code, input_tokens, cost_usd
             ) VALUES (
-                NULLIF(%s, '')::uuid, NULLIF(%s, '')::uuid, %s, %s, %s,
+                NULLIF(%s, '')::uuid, NULLIF(%s, '')::uuid, %s, %s, %s, NULLIF(%s, ''), %s,
                 %s, %s, NULLIF(%s, ''), %s, %s
             )
             """,
@@ -145,6 +171,8 @@ class ResourceUsageRepository:
                 values["trace_id"],
                 values["tenant_id"],
                 values["identity_key"],
+                values["session_id"],
+                values.get("user_id") or "",
                 values["workflow"],
                 values["input_hash"],
                 values["status"],

@@ -35,6 +35,7 @@ def summarize_token_trace(trace: dict[str, Any]) -> dict[str, Any]:
         "fallback_decisions": [],
         "circuit_open_skips": 0,
         "resource_usage": trace.get("resource_usage") or {},
+        "cost_governance": (trace.get("resource_usage") or {}).get("cost_governance") or {},
         "resource_limit": trace.get("resource_limit") or {},
         "agent_loop_safety": trace.get("agent_loop_safety") or {},
         **{component: 0 for component in TOKEN_COMPONENTS},
@@ -72,6 +73,9 @@ def summarize_token_trace(trace: dict[str, Any]) -> dict[str, Any]:
                 "provider": routing.get("provider"),
                 "model": routing.get("model"),
                 "fallback_used": bool(routing.get("fallback_used")),
+                "premium_restricted": bool(routing.get("premium_restricted")),
+                "budget_status": routing.get("budget_status"),
+                "budget_utilization_ratio": routing.get("budget_utilization_ratio"),
                 "reasons": list(routing.get("reasons") or []),
             })
             if routing.get("premium_model_used"):

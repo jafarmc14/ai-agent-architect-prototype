@@ -202,6 +202,8 @@ Run regression for specific change areas:
 py evaluation/run_regression.py --quick --areas prompt model
 py evaluation/run_regression.py --quick --areas embedding retrieval reranker chunking
 py evaluation/run_regression.py --quick --areas tools business_rules authorization
+py evaluation/run_regression.py --quick --areas api
+py evaluation/run_regression.py --quick --areas frontend
 ```
 
 Run heavier deterministic regression, including retrieval/RAG runners:
@@ -853,3 +855,13 @@ py evaluation/test_circuit_breaker.py
 ```
 
 The test uses a fake monotonic clock and scripted providers to verify repeated-failure detection, threshold opening, alternative-provider routing, one half-open probe after cooldown, recovery to closed, and health isolation per provider/model. It does not wait for real time or call an LLM API.
+
+## Cost Governance Tests
+
+Run the deterministic Phase 35 suite:
+
+```powershell
+py evaluation/test_cost_governance.py
+```
+
+The suite verifies cost totals per request, session, authenticated customer, and tenant; the 80% warning; the 100% exhausted state; cheaper routing under budget pressure; and premium restriction when the budget is exhausted. It uses only in-memory fixtures and makes no provider request.

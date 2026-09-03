@@ -160,6 +160,9 @@ docker compose -f docker-compose.postgres.yml up -d
 
 The project container maps host port `5435` to PostgreSQL's internal port `5432`, so it can run alongside other local PostgreSQL containers that already use `5433` or `5434`.
 
+Migration `V022__add_cost_governance.sql` adds session/customer dimensions to `resource_usage_events`, monthly cost indexes, and `tenant_ai_budgets` for per-tenant monthly policy overrides.
+Migration `V023__include_completed_failures_in_cost_index.sql` ensures provider cost already incurred by a completed failed or limited request remains part of monthly governance totals.
+
 Set `DATABASE_URL` in `.env.secrets` or `.env`:
 
 ```bash

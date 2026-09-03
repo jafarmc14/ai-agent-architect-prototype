@@ -90,6 +90,8 @@ class RequestResourceGuard:
     request_id: str
     identity_key: str
     tenant_id: str
+    session_id: str
+    user_id: str | None
     workflow: str
     input_hash: str
     input_tokens: int
@@ -98,6 +100,7 @@ class RequestResourceGuard:
     agent_steps: int = 0
     output_tokens: int = 0
     cost_usd: float = 0.0
+    cost_governance: dict[str, Any] | None = None
 
     def check_runtime(self) -> None:
         if self.elapsed_seconds > self.limits.max_agent_runtime_seconds:

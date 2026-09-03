@@ -23,6 +23,7 @@ CHANGE_AREA_COMMANDS = {
         ["evaluation/test_token_optimization.py"],
     ],
     "model": [
+        ["evaluation/test_cost_governance.py"],
         ["evaluation/test_circuit_breaker.py"],
         ["evaluation/test_provider_fallback.py"],
         ["evaluation/test_model_routing.py"],
@@ -62,6 +63,7 @@ CHANGE_AREA_COMMANDS = {
         ["evaluation/test_observability.py"],
     ],
     "business_rules": [
+        ["evaluation/test_cost_governance.py"],
         ["evaluation/test_agent_loop_safety.py"],
         ["evaluation/test_resource_protection.py"],
         ["evaluation/test_controlled_write_actions.py"],
@@ -75,6 +77,12 @@ CHANGE_AREA_COMMANDS = {
         ["evaluation/test_rbac_authorization.py"],
         ["evaluation/run_authorization_evaluation.py"],
     ],
+    "api": [
+        ["evaluation/test_api_architecture.py"],
+    ],
+    "frontend": [
+        ["evaluation/test_frontend_migration.py"],
+    ],
 }
 
 DEFAULT_AREAS = [
@@ -87,6 +95,8 @@ DEFAULT_AREAS = [
     "tools",
     "business_rules",
     "authorization",
+    "api",
+    "frontend",
 ]
 
 

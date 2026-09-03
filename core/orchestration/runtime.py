@@ -177,6 +177,7 @@ def get_llm_config() -> dict:
         "model_routing_enabled": settings.model_routing_enabled,
         "provider_fallback_enabled": settings.provider_fallback_enabled,
         "circuit_breaker_enabled": settings.circuit_breaker_enabled,
+        "cost_governance_enabled": settings.cost_governance_enabled,
         "model_version": llm_gateway.model_version,
         "model_governance": llm_gateway.model_metadata,
         "prompt": get_system_prompt_metadata(),
@@ -811,7 +812,7 @@ def _is_external_llm_provider() -> bool:
 
     settings = get_settings()
     possible_providers = set()
-    if settings.model_routing_enabled:
+    if settings.model_routing_enabled or settings.cost_governance_enabled:
         possible_providers.update({
             settings.routing_cheap_provider,
             settings.routing_standard_provider,
@@ -988,6 +989,11 @@ def _execute_with_resource_limits(user_input: str, trace: dict) -> tuple[str, bo
             attributes=trace["resource_limit"],
         )
         return exc.user_message(_detect_response_language(user_input)), False
+    except Exception:
+        if guard is not None:
+            resource_protection_service.finish_request(guard, status="error")
+            trace["resource_usage"] = _resource_usage_trace(guard)
+        raise
 
 
 def _dispatch_agent_request(user_input: str, trace: dict) -> str:
@@ -1101,6 +1107,7 @@ def _resource_usage_trace(guard) -> dict:
         "agent_steps": guard.agent_steps,
         "runtime_ms": int(guard.elapsed_seconds * 1000),
         "cost_usd": round(guard.cost_usd, 10),
+        "cost_governance": guard.cost_governance or {},
         "limits": {
             "max_input_tokens": guard.limits.max_input_tokens,
             "max_output_tokens": guard.limits.max_output_tokens,

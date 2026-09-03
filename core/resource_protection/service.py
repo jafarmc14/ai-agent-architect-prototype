@@ -6,6 +6,7 @@ from collections import deque
 from dataclasses import dataclass
 
 from configs import get_settings
+from core.cost_governance import CostGovernanceService, cost_governance_service
 from core.optimization import estimate_tokens
 from core.repositories.resource_usage_repository import ResourceUsageRepository
 from core.workflows import route_intent
@@ -40,6 +41,7 @@ class ResourceProtectionService:
         repository: ResourceUsageRepository | None = None,
         use_postgres: bool | None = None,
         workflow_limits: dict[str, int] | None = None,
+        cost_service: CostGovernanceService | None = None,
     ):
         self.limits = limits or ResourceLimits.from_settings(get_settings())
         self.repository = repository or ResourceUsageRepository()
@@ -47,6 +49,9 @@ class ResourceProtectionService:
             get_settings().database_provider == "postgres" if use_postgres is None else use_postgres
         )
         self.workflow_limits = dict(workflow_limits or WORKFLOW_REQUEST_LIMITS)
+        self.cost_service = cost_service or (
+            cost_governance_service if self.use_postgres else CostGovernanceService(use_postgres=False)
+        )
         self._events: deque[_MemoryEvent] = deque()
         self._lock = threading.RLock()
 
@@ -61,6 +66,7 @@ class ResourceProtectionService:
         input_hash = _input_hash(user_input)
         workflow_limit = self.workflow_limits.get(workflow, self.limits.user_rate_limit_requests)
         expensive = workflow in EXPENSIVE_WORKFLOWS
+        cost_snapshot = self.cost_service.assess(context)
 
         if self.use_postgres:
             allowed, code, retry_after = self.repository.admit(
@@ -68,6 +74,8 @@ class ResourceProtectionService:
                 trace_id=context.trace_id,
                 tenant_id=tenant_id,
                 identity_key=identity_key,
+                session_id=context.session_id,
+                user_id=context.user_id,
                 workflow=workflow,
                 input_hash=input_hash,
                 input_tokens=input_tokens,
@@ -94,15 +102,20 @@ class ResourceProtectionService:
             request_id=context.request_id,
             identity_key=identity_key,
             tenant_id=tenant_id,
+            session_id=context.session_id,
+            user_id=context.user_id,
             workflow=workflow,
             input_hash=input_hash,
             input_tokens=input_tokens,
             started_at=time.monotonic(),
+            cost_governance=cost_snapshot.metadata(),
         )
 
     def finish_request(self, guard: RequestResourceGuard, status: str = "completed", limit_code: str = "") -> None:
         if self.use_postgres:
             self.repository.finish(guard, status=status, limit_code=limit_code)
+            guard.cost_governance = self.cost_service.record(guard).metadata()
+            self.repository.set_cost_governance(guard.request_id, guard.cost_governance)
             return
         with self._lock:
             for event in reversed(self._events):
@@ -116,6 +129,7 @@ class ResourceProtectionService:
                     event.cost_usd = guard.cost_usd
                     event.status = status
                     break
+        guard.cost_governance = self.cost_service.record(guard).metadata()
 
     def _admit_memory(
         self, request_id, identity, tenant, workflow, input_hash, input_tokens, workflow_limit, expensive

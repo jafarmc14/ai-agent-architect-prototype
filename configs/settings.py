@@ -40,6 +40,11 @@ def _path_from_env(name: str, default: Path) -> Path:
 class AppSettings:
     app_env: str
     debug: bool
+    api_host: str
+    api_port: int
+    api_base_url: str
+    api_cors_origins: str
+    streamlit_api_client_enabled: bool
     database_provider: str
     database_path: Path
     database_password: str
@@ -87,6 +92,9 @@ class AppSettings:
     circuit_breaker_enabled: bool
     circuit_breaker_failure_threshold: int
     circuit_breaker_cooldown_seconds: float
+    cost_governance_enabled: bool
+    tenant_monthly_ai_budget_usd: float
+    tenant_monthly_ai_budget_warning_threshold: float
     high_risk_write_actions_enabled: bool
     max_input_tokens: int
     max_output_tokens: int
@@ -126,6 +134,15 @@ def get_settings() -> AppSettings:
     return AppSettings(
         app_env=app_env,
         debug=os.getenv("DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"},
+        api_host=os.getenv("API_HOST", "127.0.0.1").strip(),
+        api_port=int(os.getenv("API_PORT", "8000")),
+        api_base_url=os.getenv("API_BASE_URL", "http://127.0.0.1:8000").rstrip("/"),
+        api_cors_origins=os.getenv(
+            "API_CORS_ORIGINS",
+            "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8501,http://127.0.0.1:8501",
+        ),
+        streamlit_api_client_enabled=os.getenv("STREAMLIT_API_CLIENT_ENABLED", "false").strip().lower()
+        in {"1", "true", "yes", "on"},
         database_provider=database_provider,
         database_path=_path_from_env(
             "BENCHMARK_DATABASE_PATH" if benchmark_mode else "DATABASE_PATH",
@@ -188,6 +205,15 @@ def get_settings() -> AppSettings:
         ),
         circuit_breaker_cooldown_seconds=max(
             0.0, float(os.getenv("CIRCUIT_BREAKER_COOLDOWN_SECONDS", "60"))
+        ),
+        cost_governance_enabled=os.getenv("COST_GOVERNANCE_ENABLED", "false").strip().lower()
+        in {"1", "true", "yes", "on"},
+        tenant_monthly_ai_budget_usd=max(
+            0.0, float(os.getenv("TENANT_MONTHLY_AI_BUDGET_USD", "100"))
+        ),
+        tenant_monthly_ai_budget_warning_threshold=min(
+            1.0,
+            max(0.0001, float(os.getenv("TENANT_MONTHLY_AI_BUDGET_WARNING_THRESHOLD", "0.80"))),
         ),
         high_risk_write_actions_enabled=os.getenv("HIGH_RISK_WRITE_ACTIONS_ENABLED", "false").strip().lower()
         in {"1", "true", "yes", "on"},

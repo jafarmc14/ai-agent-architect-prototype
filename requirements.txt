@@ -1,4 +1,6 @@
 streamlit>=1.55,<2
+fastapi>=0.124,<1
+uvicorn[standard]>=0.38,<1
 langchain>=1.2,<2
 langchain-core>=1.2,<2
 langchain-openai>=1.1,<2

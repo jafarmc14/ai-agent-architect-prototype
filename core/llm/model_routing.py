@@ -26,7 +26,10 @@ class RoutingDecision:
     model: str
     cheap_first: bool
     premium_model_used: bool
+    premium_restricted: bool
     fallback_used: bool
+    budget_status: str
+    budget_utilization_ratio: float
     reasons: tuple[str, ...]
 
     def metadata(self) -> dict[str, Any]:
@@ -67,6 +70,10 @@ class ModelRouter:
         route_context: dict[str, Any] | None = None,
     ) -> RoutingDecision:
         context = route_context or {}
+        budget = context.get("cost_governance") or {}
+        budget_status = str(budget.get("status") or "disabled").strip().lower()
+        budget_pressure = bool(budget.get("enabled")) and budget_status in {"warning", "exhausted"}
+        budget_utilization = _non_negative_float(budget.get("utilization_ratio"))
         confidence = _score(context.get("confidence"))
         evidence_score = _score(context.get("evidence_score"))
         complexity = self._complexity(
@@ -76,7 +83,7 @@ class ModelRouter:
             input_budget=input_budget,
             tool_count=tool_count,
         )
-        if not self.settings.model_routing_enabled:
+        if not self.settings.model_routing_enabled and not budget_pressure:
             return RoutingDecision(
                 enabled=False,
                 task=task,
@@ -89,7 +96,10 @@ class ModelRouter:
                 model=base_model,
                 cheap_first=False,
                 premium_model_used=False,
+                premium_restricted=False,
                 fallback_used=False,
+                budget_status=budget_status,
+                budget_utilization_ratio=budget_utilization,
                 reasons=("routing_disabled",),
             )
 
@@ -99,6 +109,51 @@ class ModelRouter:
             confidence=confidence,
             evidence_score=evidence_score,
         )
+        if budget_pressure:
+            target = self._budget_target(
+                RoutingTarget("configured", base_provider, base_model, True)
+            )
+            reasons.extend((
+                f"tenant_monthly_budget_{budget_status}",
+                "budget_forced_cheap" if target and target.tier == "cheap" else "budget_avoided_premium",
+            ))
+            if target is None:
+                return RoutingDecision(
+                    enabled=True,
+                    task=task,
+                    complexity=complexity,
+                    confidence=confidence,
+                    evidence_score=evidence_score,
+                    requested_tier=requested_tier,
+                    selected_tier="blocked",
+                    provider="",
+                    model="",
+                    cheap_first=True,
+                    premium_model_used=False,
+                    premium_restricted=budget_status == "exhausted",
+                    fallback_used=True,
+                    budget_status=budget_status,
+                    budget_utilization_ratio=budget_utilization,
+                    reasons=tuple(reasons + ["no_non_premium_target_available"]),
+                )
+            return RoutingDecision(
+                enabled=True,
+                task=task,
+                complexity=complexity,
+                confidence=confidence,
+                evidence_score=evidence_score,
+                requested_tier=requested_tier,
+                selected_tier=target.tier,
+                provider=target.provider,
+                model=target.model,
+                cheap_first=True,
+                premium_model_used=False,
+                premium_restricted=budget_status == "exhausted",
+                fallback_used=target.tier != requested_tier,
+                budget_status=budget_status,
+                budget_utilization_ratio=budget_utilization,
+                reasons=tuple(reasons),
+            )
         target, fallback_used = self._available_target(
             requested_tier,
             RoutingTarget("configured", base_provider, base_model, True),
@@ -117,9 +172,27 @@ class ModelRouter:
             model=target.model,
             cheap_first=requested_tier == "cheap",
             premium_model_used=target.tier == "premium",
+            premium_restricted=False,
             fallback_used=fallback_used,
+            budget_status=budget_status,
+            budget_utilization_ratio=budget_utilization,
             reasons=tuple(reasons),
         )
+
+    def _budget_target(self, configured: RoutingTarget) -> RoutingTarget | None:
+        cheap = self.targets["cheap"]
+        if cheap.available and cheap.provider and cheap.model:
+            return cheap
+        premium = self.targets["premium"]
+        configured_is_premium = (
+            configured.provider == premium.provider and configured.model == premium.model
+        )
+        if configured.provider and configured.model and not configured_is_premium:
+            return configured
+        standard = self.targets["standard"]
+        if standard.available and standard.provider and standard.model:
+            return standard
+        return None
 
     def _requested_tier(
         self,
@@ -217,6 +290,13 @@ def _score(value: Any) -> float | None:
         return min(1.0, max(0.0, float(value)))
     except (TypeError, ValueError):
         return None
+
+
+def _non_negative_float(value: Any) -> float:
+    try:
+        return max(0.0, float(value or 0.0))
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _csv_set(value: str) -> set[str]:
