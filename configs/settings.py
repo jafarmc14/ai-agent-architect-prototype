@@ -5,6 +5,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from .secrets import get_secret
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SUPPORTED_ENVIRONMENTS = {"development", "testing", "staging", "production"}
@@ -56,6 +58,7 @@ class AppSettings:
     embedding_api_key: str
     vector_dimension: int
     jwt_secret: str
+    jwt_secret_previous: str
     llm_provider: str
     openrouter_api_key: str
     openrouter_model: str
@@ -148,29 +151,35 @@ def get_settings() -> AppSettings:
             "BENCHMARK_DATABASE_PATH" if benchmark_mode else "DATABASE_PATH",
             PROJECT_ROOT / "toko.db",
         ),
-        database_password=os.getenv("DB_PASSWORD", ""),
-        postgres_database_url=os.getenv("DATABASE_URL", ""),
+        database_password=get_secret("DB_PASSWORD"),
+        postgres_database_url=get_secret("DATABASE_URL"),
         knowledge_base_path=_path_from_env("KNOWLEDGE_BASE_PATH", PROJECT_ROOT / "knowledge_base.txt"),
         knowledge_base_dir=_path_from_env("KNOWLEDGE_BASE_DIR", PROJECT_ROOT / "knowledge_base"),
         embedding_model=os.getenv("EMBEDDING_MODEL", "nomic-embed-text"),
         embedding_api_base=os.getenv("EMBEDDING_API_BASE", "http://localhost:11434/v1"),
-        embedding_api_key=os.getenv("EMBEDDING_API_KEY", "ollama"),
+        embedding_api_key=get_secret("EMBEDDING_API_KEY", default="ollama"),
         vector_dimension=int(os.getenv("VECTOR_DIMENSION", "768")),
-        jwt_secret=os.getenv("JWT_SECRET", ""),
+        jwt_secret=get_secret(
+            "JWT_SECRET_CURRENT",
+            aliases=("JWT_SECRET",),
+            default="" if app_env == "production" else "",
+            required=app_env == "production",
+        ),
+        jwt_secret_previous=get_secret("JWT_SECRET_PREVIOUS"),
         llm_provider=os.getenv("LLM_PROVIDER", "openrouter").strip().lower(),
-        openrouter_api_key=os.getenv("OPENROUTER_API_KEY", "dummy"),
+        openrouter_api_key=get_secret("OPENROUTER_API_KEY", default="dummy"),
         openrouter_model=os.getenv("OPENROUTER_MODEL", "openrouter/free"),
         openrouter_model_version=os.getenv("OPENROUTER_MODEL_VERSION", "").strip(),
         openrouter_api_base=os.getenv("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1"),
-        ollama_api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
+        ollama_api_key=get_secret("OLLAMA_API_KEY", default="ollama"),
         ollama_model=os.getenv("OLLAMA_MODEL", "llama3.1"),
         ollama_model_version=os.getenv("OLLAMA_MODEL_VERSION", "").strip(),
         ollama_api_base=os.getenv("OLLAMA_API_BASE", "http://localhost:11434/v1"),
-        deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", ""),
+        deepseek_api_key=get_secret("DEEPSEEK_API_KEY"),
         deepseek_model=os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"),
         deepseek_model_version=os.getenv("DEEPSEEK_MODEL_VERSION", "").strip(),
         deepseek_api_base=os.getenv("DEEPSEEK_API_BASE", "https://api.deepseek.com"),
-        kimi_api_key=os.getenv("KIMI_API_KEY") or os.getenv("MOONSHOT_API_KEY", ""),
+        kimi_api_key=get_secret("KIMI_API_KEY", aliases=("MOONSHOT_API_KEY",)),
         kimi_model=os.getenv("KIMI_MODEL", "kimi-k2.6"),
         kimi_model_version=os.getenv("KIMI_MODEL_VERSION", "").strip(),
         kimi_api_base=os.getenv("KIMI_API_BASE", "https://api.moonshot.ai/v1"),

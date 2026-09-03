@@ -2,10 +2,14 @@
 .github
 .env
 .env.*
+.secrets
 !.env.example
 !.env.secrets.example
 .venv
 venv
+frontend/node_modules
+frontend/.next
+frontend/out
 __pycache__
 *.py[cod]
 *.db

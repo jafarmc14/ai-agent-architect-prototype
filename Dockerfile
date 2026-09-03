@@ -12,6 +12,9 @@ RUN python -m pip install --upgrade pip \
 
 COPY . .
 
-EXPOSE 8501 8000
+RUN chmod +x /app/docker/backend-entrypoint.sh
 
-CMD ["python", "-m", "streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+EXPOSE 8000
+
+ENTRYPOINT ["/app/docker/backend-entrypoint.sh"]
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

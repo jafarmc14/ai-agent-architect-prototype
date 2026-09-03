@@ -2562,3 +2562,31 @@ User: Thank you for your help!
 | ORD006 | Lina Susanti | Eiger Backpack | 1 | 450,000 | Shipped |
 | ORD007 | Hendra Gunawan | Birkenstock Sandals | 1 | 1,100,000 | Completed |
 | ORD008 | Maya Putri | Premium Skincare Set | 2 | 998,000 | Processing |
+
+## Docker
+
+The development stack runs the Next.js frontend, FastAPI backend, pgvector PostgreSQL, and Redis. Ollama is expected to run directly on the host:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Start Ollama on the host and download models there when needed:
+
+```bash
+ollama serve
+ollama pull llama3.1
+ollama pull nomic-embed-text
+```
+
+The containers reach host Ollama through `http://host.docker.internal:11434`. Pull `llama3.1` when `LLM_PROVIDER=ollama` is used for chat. Pull `nomic-embed-text` for Ollama-backed embeddings and vector search. The backend applies pending PostgreSQL migrations automatically before starting. Development data is stored in named volumes; remove them with `docker compose -f docker-compose.dev.yml down -v` when a clean database is required.
+
+The production stack runs the frontend, backend, PostgreSQL, and Redis. Ollama is intentionally excluded; configure an external production provider through environment variables or secrets:
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+Production uses Docker Secrets from `PRODUCTION_SECRETS_DIR` (default `.secrets/`) and requires these files: `database_url`, `postgres_password`, `jwt_secret_current`, `jwt_secret_previous`, `openrouter_api_key`, `deepseek_api_key`, `kimi_api_key`, and `embedding_api_key`. Secret files are never copied into an image. Set `NEXT_PUBLIC_API_BASE_URL` to the public browser-reachable backend URL before building the frontend image. Redis is provisioned for infrastructure use but is not consumed by the application runtime yet.
+
+For local development, keep one stable `JWT_SECRET` in the ignored `.env.secrets` file. Production signs new tokens with `jwt_secret_current` and accepts the previous key through `jwt_secret_previous`; rotate by replacing both files and recreating the backend, then remove the old key after its token lifetime has elapsed. Secret access audit logs contain only the secret name and source, never the value.

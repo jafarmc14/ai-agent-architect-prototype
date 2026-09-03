@@ -32,7 +32,7 @@ def create_session_token(
         "exp": now + expires_in_seconds,
     }
     signing_input = f"{_b64_json(header)}.{_b64_json(payload)}"
-    signature = _sign(signing_input)
+    signature = _sign(signing_input, get_settings().jwt_secret)
     return f"{signing_input}.{signature}"
 
 
@@ -42,8 +42,11 @@ def verify_session_token(token: str) -> dict[str, Any]:
         raise AuthError("Invalid session token format.")
 
     signing_input = f"{parts[0]}.{parts[1]}"
-    expected_signature = _sign(signing_input)
-    if not hmac.compare_digest(parts[2], expected_signature):
+    settings = get_settings()
+    signatures = [_sign(signing_input, settings.jwt_secret)]
+    if settings.jwt_secret_previous:
+        signatures.append(_sign(signing_input, settings.jwt_secret_previous))
+    if not any(hmac.compare_digest(parts[2], signature) for signature in signatures):
         raise AuthError("Invalid session token signature.")
 
     payload = json.loads(_b64_decode(parts[1]).decode("utf-8"))
@@ -55,8 +58,9 @@ def verify_session_token(token: str) -> dict[str, Any]:
     return payload
 
 
-def _sign(signing_input: str) -> str:
-    secret = get_settings().jwt_secret or "development-only-change-me"
+def _sign(signing_input: str, secret: str) -> str:
+    if not secret:
+        raise AuthError("JWT signing secret is not configured.")
     digest = hmac.new(secret.encode("utf-8"), signing_input.encode("utf-8"), hashlib.sha256).digest()
     return _b64_bytes(digest)
 
