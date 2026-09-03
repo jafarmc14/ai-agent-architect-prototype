@@ -812,7 +812,9 @@ def _is_external_llm_provider() -> bool:
 
     settings = get_settings()
     possible_providers = set()
-    if settings.model_routing_enabled or settings.cost_governance_enabled:
+    if getattr(settings, "model_routing_enabled", False) or getattr(
+        settings, "cost_governance_enabled", False
+    ):
         possible_providers.update({
             settings.routing_cheap_provider,
             settings.routing_standard_provider,
