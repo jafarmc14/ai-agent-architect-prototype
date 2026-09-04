@@ -3,10 +3,9 @@
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { setAuthSession } from "../../lib/auth";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
-const TOKEN_KEY = "ai_agent_token";
-const USER_KEY = "ai_agent_user";
 
 type LoginResponse = {
   token: string;
@@ -42,8 +41,7 @@ export default function LoginPage() {
 
       if (response.ok) {
         const data = (await response.json()) as LoginResponse;
-        localStorage.setItem(TOKEN_KEY, data.token);
-        localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        setAuthSession(data.token, data.user);
         router.replace("/");
         return;
       }

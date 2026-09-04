@@ -29,12 +29,16 @@ def test_next_frontend_scaffold_exists():
     assert expected.issubset(existing)
 
 
-def test_frontend_is_api_backed_and_stateless():
+def test_frontend_is_api_backed_and_auth_gated():
     page = read_frontend_file("app/page.tsx")
+    auth_lib = read_frontend_file("lib/auth.ts")
     assert "NEXT_PUBLIC_API_BASE_URL" in page
     assert "/api/v1/chat" in page
     assert "/api/v1/config" in page
     assert "useEffect" in page
+    assert "Authorization" in page
+    assert "Bearer" in page
+    assert "localStorage" in auth_lib
     assert "localStorage" not in page
     assert "sessionStorage" not in page
     assert "document.cookie" not in page
@@ -48,8 +52,9 @@ def test_frontend_visual_language_is_operational():
     assert "@tailwind components" in css
     assert "@tailwind utilities" in css
     assert "grid min-h-screen grid-cols-1 xl:grid-cols" in page
-    assert "rounded-lg" in page
-    assert "shadow-panel" in page
+    assert "bg-surface-950" in page
+    assert "bg-amber-action" in page
+    assert "rounded-md" in page
     assert "linear-gradient" not in css
     assert "hero" not in page.lower()
     assert "landing" not in page.lower()
@@ -67,7 +72,7 @@ def test_frontend_dependency_manifest():
 
 if __name__ == "__main__":
     test_next_frontend_scaffold_exists()
-    test_frontend_is_api_backed_and_stateless()
+    test_frontend_is_api_backed_and_auth_gated()
     test_frontend_visual_language_is_operational()
     test_frontend_dependency_manifest()
     print("Frontend migration tests passed.")

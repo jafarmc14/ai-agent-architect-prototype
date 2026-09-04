@@ -10,6 +10,7 @@ import {
   X
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { getAuthToken, getAuthUser, signOut } from "../lib/auth";
 
 type ChatRole = "assistant" | "user";
 
@@ -60,21 +61,8 @@ type ChatResponse = {
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
-const TOKEN_KEY = "ai_agent_token";
-const USER_KEY = "ai_agent_user";
 
 const suggestions = ["Search for a product", "Check an order", "Ask about a policy"];
-
-function getAuthToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(TOKEN_KEY);
-}
-
-function signOut() {
-  window.localStorage.removeItem(TOKEN_KEY);
-  window.localStorage.removeItem(USER_KEY);
-  window.location.href = "/login";
-}
 
 export default function Home() {
   const [checkedAuth, setCheckedAuth] = useState(false);
@@ -111,12 +99,7 @@ export default function Home() {
       window.location.replace("/login");
       return;
     }
-    try {
-      const raw = window.localStorage.getItem(USER_KEY);
-      if (raw) setCurrentUser(JSON.parse(raw) as { name?: string; email?: string });
-    } catch {
-      setCurrentUser(null);
-    }
+    setCurrentUser(getAuthUser());
     setCheckedAuth(true);
     void refreshConfig();
   }, []);
