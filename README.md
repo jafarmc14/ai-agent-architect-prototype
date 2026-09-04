@@ -729,6 +729,8 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `core/observability/service.py` | **Observability service.** Correlates request lifecycle spans and exposes request/trace IDs across orchestration, tools, validation, and LLM calls. |
 | `core/repositories/observability_repository.py` | **Observability repository.** Persists request traces and spans to PostgreSQL with an in-memory test fallback. |
 | `core/auth/jwt.py` | **JWT session helper.** Creates and verifies signed HS256 session tokens for authenticated chat sessions. |
+| `core/auth/password.py` | **Password hashing helper.** Bcrypt `hash_password`/`verify_password` for the login endpoint. |
+| `core/auth/login_throttle.py` | **Login brute-force protection.** In-memory per-username lockout (5 failures → 15-minute block) and per-IP sliding-window throttle (20/hour). |
 | `core/auth/request_context.py` | **Request context.** Stores authenticated user, tenant, role, and session ID for the current request. |
 | `core/auth/rbac.py` | **Authorization and RBAC policy.** Defines roles, tool permissions, workflow permissions, ownership filters, and knowledge access mapping. |
 | `core/privacy/pii.py` | **PII and privacy utilities.** Defines PII inventory, redaction patterns, leak detection, LLM payload redaction, and sensitive log filtering helpers. |
@@ -796,6 +798,7 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `evaluation/test_provider_fallback.py` | **Provider fallback tests.** Fault-injects required transient failures across sync, async, and structured gateway paths without external requests. |
 | `evaluation/run_provider_fallback_evaluation.py` | **Fallback evaluator.** Runs 100 deterministic recovery cases by default and enforces the 99% recovery target. |
 | `evaluation/test_circuit_breaker.py` | **Circuit breaker tests.** Uses a fake clock to verify thresholds, alternative routing, half-open concurrency, cooldown recovery, and provider/model isolation. |
+| `evaluation/test_login_security.py` | **Login security tests.** Verifies bcrypt hashing, per-username lockout, per-IP throttle, generic 401 responses, and 429 on repeated failures via the FastAPI test client. |
 | `evaluation/run_product_search_evaluation.py` | **Product search evaluation runner.** Measures Precision@5, Recall@10, NDCG@10, and Hard Constraint Satisfaction. |
 | `evaluation/run_rag_evaluation.py` | **RAG evaluation runner.** Measures Recall@5, Precision@5, Faithfulness, Citation Correctness, Completeness, Correct Abstention, and Freshness Correctness. |
 | `evaluation/run_intent_evaluation.py` | **Intent router evaluation runner.** Measures per-intent precision/recall/F1 and Macro F1. |
@@ -850,6 +853,7 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `database/sync_prompt_versions.py` | **Prompt metadata sync script.** Upserts prompt version metadata into PostgreSQL. |
 | `database/embed_products.py` | **Product embedding script.** Builds semantic product text from relevant fields and stores pgvector embeddings in PostgreSQL. |
 | `database/ingest_knowledge_base.py` | **Knowledge ingestion script.** Runs parse-clean-chunk-embed-store for split knowledge documents. |
+| `database/provision_login_account.py` | **Login account provisioner.** Creates or updates a PostgreSQL login account (bcrypt-hashed) used by the frontend login gate. Defaults to `admin@example.local`. |
 | `docs/postgresql_schema.md` | **PostgreSQL schema design.** Documents table purpose, relationships, and design notes. |
 | `docs/disaster-recovery.md` | **Disaster recovery runbook (Phase 44).** Defines RPO (≤24h) and RTO (≤30min), backup schedule and retention, restore procedure, and the mandatory automated restore test. |
 | `scripts/backup_postgres.sh` | **PostgreSQL backup script.** Runs `pg_dump -Fc`, writes a timestamped dump plus JSON manifest, and prunes backups older than `BACKUP_RETENTION_DAYS`. |
@@ -859,6 +863,40 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `README.md` | **This file.** Full project documentation in English. |
 
 ---
+
+## 4a. Login & Authentication
+
+The Next.js frontend shows a **login page** (`/login`) before the agent workspace. After a successful login the JWT is stored in `localStorage` and sent as `Authorization: Bearer <token>` on `/api/v1/chat`.
+
+### Endpoint
+
+`POST /api/v1/auth/login` with `{"username": "<email>", "password": "<password>"}`:
+
+- **200** — returns `{ "token", "user": { id, name, email, role } }`.
+- **401** — `"Invalid username or password."` (identical for unknown user and wrong password to prevent user enumeration).
+- **429** — `"Too many login attempts."` with a `Retry-After` header (brute-force block).
+- **503** — login requires PostgreSQL (not available in SQLite mode).
+
+### Default account
+
+The provisioner creates `admin@example.local` with password `Admin@2026!` (role `admin`) by default. **Change it for any real deployment**:
+
+```powershell
+$env:DATABASE_PROVIDER="postgres"
+$env:DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ai_agent"
+py database/provision_login_account.py --email admin@example.local --password '<STRONG-PASSWORD>'
+```
+
+Custom credentials can be set via `LOGIN_USERNAME` / `LOGIN_PASSWORD`, or as CLI args `--email` / `--password`.
+
+### Brute-force protection
+
+- **Per-username lockout:** 5 consecutive failed attempts locks that account for 15 minutes (`LoginThrottle`).
+- **Per-IP throttle:** max 20 failed attempts per source IP per hour (sliding window).
+- Failed logins return HTTP 429 with `Retry-After`; the login page surfaces the wait time.
+- State is **in-memory** (consistent with the circuit breaker) and resets on process restart. It is single-instance only.
+
+Run the deterministic suite with `py evaluation/test_login_security.py`.
 
 ## 5. Installation & Setup
 

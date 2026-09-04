@@ -1,24 +1,14 @@
 "use client";
 
 import {
-  AlertTriangle,
-  Bot,
-  Check,
-  CircleDollarSign,
-  Clock3,
-  Database,
-  Gauge,
-  GitBranch,
+  ChevronRight,
   Loader2,
-  MessageSquareText,
+  LogOut,
   RefreshCw,
   Send,
   ServerCog,
-  ShieldCheck,
-  TerminalSquare,
-  UserRound
+  X
 } from "lucide-react";
-import type { ReactNode } from "react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type ChatRole = "assistant" | "user";
@@ -69,16 +59,26 @@ type ChatResponse = {
   exception?: string | null;
 };
 
-const quickPrompts = [
-  "Find shoes under Rp 1,500,000",
-  "What is the return policy?",
-  "Add 2 Nike shoes to my cart",
-  "I was charged twice, this is a payment dispute."
-];
-
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+const TOKEN_KEY = "ai_agent_token";
+const USER_KEY = "ai_agent_user";
+
+const suggestions = ["Search for a product", "Check an order", "Ask about a policy"];
+
+function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(TOKEN_KEY);
+}
+
+function signOut() {
+  window.localStorage.removeItem(TOKEN_KEY);
+  window.localStorage.removeItem(USER_KEY);
+  window.location.href = "/login";
+}
 
 export default function Home() {
+  const [checkedAuth, setCheckedAuth] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ name?: string; email?: string } | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -94,15 +94,30 @@ export default function Home() {
   const [selectedProviderLabel, setSelectedProviderLabel] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [apiError, setApiError] = useState("");
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [traceOpen, setTraceOpen] = useState(false);
   const sessionId = useRef(`next-${crypto.randomUUID()}`);
 
+  const isEmptyState = messages.length <= 1 && !isLoading;
+
   const status = useMemo(() => {
-    if (apiError) return { label: "Disconnected", tone: "danger" };
-    if (isLoading) return { label: "Processing", tone: "working" };
-    return { label: "Ready", tone: "ok" };
+    if (apiError) return { label: "Disconnected", dot: "bg-danger-action" };
+    if (isLoading) return { label: "Processing", dot: "bg-warning" };
+    return { label: "Ready", dot: "bg-success" };
   }, [apiError, isLoading]);
 
   useEffect(() => {
+    if (!getAuthToken()) {
+      window.location.replace("/login");
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(USER_KEY);
+      if (raw) setCurrentUser(JSON.parse(raw) as { name?: string; email?: string });
+    } catch {
+      setCurrentUser(null);
+    }
+    setCheckedAuth(true);
     void refreshConfig();
   }, []);
 
@@ -177,20 +192,26 @@ export default function Home() {
     setIsLoading(true);
 
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const token = getAuthToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
       const response = await fetch(`${apiBaseUrl}/api/v1/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           message: trimmed,
           session_id: sessionId.current
         })
       });
+      if (response.status === 401) {
+        signOut();
+        return;
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = (await response.json()) as ChatResponse;
       const assistantText =
         data.response || `Sorry, the API returned an empty response.${data.exception ? ` ${data.exception}` : ""}`;
       setLastResponse(data);
-      setConfig((current) => current ?? {});
       setApiError("");
       setMessages((current) => [
         ...current,
@@ -217,124 +238,126 @@ export default function Home() {
     void sendMessage(input);
   }
 
+  if (!checkedAuth) {
+    return null;
+  }
+
+  const latency = lastResponse?.request_latency_ms ?? 0;
+  const tokens = lastResponse?.token_usage?.total_tokens ?? 0;
+  const llmCalls = lastResponse?.token_usage?.llm_calls ?? 0;
+  const cost =
+    typeof lastResponse?.token_usage?.cost_usd === "number"
+      ? `$${lastResponse.token_usage.cost_usd.toFixed(4)}`
+      : "$0.0000";
+
   return (
     <main className="min-h-screen bg-surface-950 text-ink">
-      <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
-        <aside className="border-b border-line bg-surface-900 px-5 py-5 xl:border-b-0 xl:border-r">
-          <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-amber-action text-surface-950">
-              <Bot size={18} aria-hidden />
+      <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[224px_minmax(0,1fr)_auto]">
+        <aside className="flex flex-col border-b border-line bg-surface-900 px-4 py-5 xl:border-b-0 xl:border-r">
+          <div className="flex items-center gap-2.5">
+            <div className="grid h-9 w-9 place-items-center rounded-md bg-amber-soft text-sm font-semibold text-amber-action">
+              U
             </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Store Ops</p>
-              <h1 className="truncate text-xl font-semibold tracking-normal">Ubichinon</h1>
-            </div>
+            <span className="text-lg font-semibold tracking-tight">Ubichinon</span>
           </div>
 
-          <section className="mt-6 rounded-lg border border-line bg-surface-850 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <StatusPill tone={status.tone}>{status.label}</StatusPill>
-              <button
-                className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-surface-900 text-muted transition hover:border-slate-500 hover:text-ink"
-                type="button"
-                onClick={refreshConfig}
-                aria-label="Refresh config"
-                title="Refresh config"
-              >
-                <RefreshCw size={16} aria-hidden />
-              </button>
-            </div>
-            {apiError ? (
-              <div className="mt-3 rounded-lg border border-red-900/80 bg-danger-soft px-3 py-2 text-sm text-red-100">
-                {apiError}
+          <div className="mt-auto space-y-3 pt-8">
+            {currentUser?.email ? (
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-850 text-sm font-semibold text-amber-action">
+                  {((currentUser.name || currentUser.email)[0] ?? "U").toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-ink">
+                    {currentUser.name || currentUser.email}
+                  </p>
+                  <p className="truncate text-xs text-faint">{currentUser.email}</p>
+                </div>
               </div>
             ) : null}
-          </section>
-
-          <dl className="mt-6 space-y-4 text-sm">
-            <MetaRow label="API" value={apiBaseUrl} />
-            <MetaRow label="Environment" value={config?.environment ?? "unknown"} />
-            <MetaRow label="Database" value={config?.database_provider ?? "unknown"} />
-            <MetaRow
-              label="Provider"
-              value={config?.provider && config?.model ? `${config.provider} / ${config.model}` : "unknown"}
-            />
-          </dl>
-
-          <section className="mt-6 rounded-lg border border-line bg-surface-850 p-3">
-            <div className="flex items-center gap-2 text-muted">
-              <ServerCog size={16} aria-hidden />
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em]">Provider</p>
-            </div>
-            <div className="mt-3 grid gap-3">
-              <label className="grid gap-1 text-xs font-bold text-muted">
-                Runtime
-                <select
-                  value={selectedProviderLabel}
-                  onChange={(event) => void updateProvider(event.target.value)}
-                  disabled={isLoading || Object.keys(providerOptions).length === 0}
-                  className="h-10 rounded-lg border border-line bg-surface-900 px-3 text-sm font-semibold text-ink outline-none"
-                >
-                  {Object.keys(providerOptions).map((label) => (
-                    <option key={label} value={label}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-xs font-bold text-muted">
-                Model
-                <select
-                  value={selectedModel}
-                  onChange={(event) => void updateProvider(selectedProviderLabel, event.target.value)}
-                  disabled={isLoading || !selectedProviderLabel}
-                  className="h-10 rounded-lg border border-line bg-surface-900 px-3 text-sm font-semibold text-ink outline-none"
-                >
-                  {(providerOptions[selectedProviderLabel]?.models ?? []).map((model) => (
-                    <option key={model} value={model}>
-                      {model}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </section>
+            <button
+              className="inline-flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-sm font-medium text-danger-action transition hover:bg-danger-soft"
+              type="button"
+              onClick={signOut}
+            >
+              <LogOut size={15} aria-hidden />
+              Sign out
+            </button>
+          </div>
         </aside>
 
         <section className="grid min-h-screen grid-rows-[auto_minmax(0,1fr)_auto] bg-surface-950">
-          <header className="border-b border-line px-5 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Development client</p>
-                <h2 className="mt-1 text-2xl font-semibold tracking-normal">Agent workspace</h2>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <HeaderBadge icon={<TerminalSquare size={14} />} label="FastAPI" />
-                <HeaderBadge icon={<GitBranch size={14} />} label={config?.model_version ?? "alias"} />
-              </div>
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight text-ink">Assistant</h2>
+              <p className="text-sm text-muted">Store operations</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className="inline-flex h-8 items-center gap-2 rounded-md border border-line bg-surface-850 px-3 text-xs font-medium text-muted transition hover:text-ink"
+                type="button"
+                onClick={() => setDetailsOpen((open) => !open)}
+                title="Environment & infrastructure"
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} aria-hidden />
+                {status.label}
+              </button>
+              <button
+                className="inline-flex h-8 items-center rounded-md border border-line bg-surface-850 px-3 text-xs font-medium text-muted transition hover:text-ink"
+                type="button"
+                onClick={() => setDetailsOpen((open) => !open)}
+              >
+                Details
+              </button>
             </div>
           </header>
 
-          <div className="min-h-0 overflow-y-auto px-5 py-5">
-            <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
-              {messages.map((message) => (
-                <ChatBubble key={message.id} message={message} />
-              ))}
-              {isLoading ? (
-                <div className="flex items-start gap-3">
-                  <Avatar role="assistant">
-                    <Loader2 className="animate-spin" size={17} />
-                  </Avatar>
-                  <div className="rounded-lg border border-line bg-surface-850 px-4 py-3 text-sm text-muted">
-                    Working on it...
-                  </div>
+          <div className="min-h-0 overflow-y-auto px-5 py-8">
+            {isEmptyState ? (
+              <div className="mx-auto flex w-full max-w-xl flex-col items-center pt-16 text-center">
+                <h3 className="text-2xl font-semibold tracking-tight text-ink">What can I help with?</h3>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  Search inventory, check an order, or ask about a store policy.
+                </p>
+                <div className="mt-9 grid w-full gap-2.5">
+                  {suggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => void sendMessage(suggestion)}
+                      className="rounded-md border border-line bg-surface-900 px-4 py-3 text-left text-sm text-ink transition hover:border-slate-600 hover:bg-surface-850"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
                 </div>
-              ) : null}
-            </div>
+              </div>
+            ) : (
+              <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+                {messages.map((message) => (
+                  <MessageRow key={message.id} message={message} />
+                ))}
+                {isLoading ? (
+                  <div className="grid gap-1.5">
+                    <p className="text-xs font-medium text-faint">Ubichinon</p>
+                    <div className="flex items-center gap-2 px-0.5 text-sm text-muted">
+                      <Loader2 className="animate-spin" size={15} aria-hidden />
+                      Working on it…
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
 
-          <div className="border-t border-line bg-surface-900/70 px-5 py-4">
-            <form className="mx-auto flex max-w-4xl items-end gap-3" onSubmit={onSubmit}>
+          <div className="border-t border-line bg-surface-900/50 px-5 py-4">
+            {apiError ? (
+              <p className="mx-auto mb-3 max-w-[760px] text-sm text-danger-action">{apiError}</p>
+            ) : null}
+            <form
+              className="mx-auto flex max-w-[760px] items-end gap-2 rounded-lg border border-line bg-surface-900 px-3 py-2 transition focus-within:border-slate-600"
+              onSubmit={onSubmit}
+            >
               <label htmlFor="messageInput" className="sr-only">
                 Message
               </label>
@@ -348,137 +371,146 @@ export default function Home() {
                     void sendMessage(input);
                   }
                 }}
-                placeholder="Ask about products, orders, policies, carts, or support..."
-                rows={2}
-                className="min-h-[52px] flex-1 resize-y rounded-lg border border-line bg-surface-800 px-4 py-3 text-[15px] leading-6 text-ink outline-none placeholder:text-slate-500"
+                placeholder="Ask about products, orders, customers, or policies"
+                rows={1}
+                className="max-h-40 min-h-[24px] flex-1 resize-none bg-transparent px-1 py-1.5 text-[15px] leading-6 text-ink outline-none placeholder:text-faint"
               />
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="grid h-[52px] w-[52px] place-items-center rounded-lg bg-amber-action text-surface-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-amber-action text-surface-950 transition hover:bg-amber-hover disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Send message"
                 title="Send"
               >
-                <Send size={18} aria-hidden />
+                <Send size={16} aria-hidden />
               </button>
             </form>
           </div>
         </section>
 
-        <aside className="border-t border-line bg-surface-900 px-5 py-5 xl:border-l xl:border-t-0">
-          <section>
+        {detailsOpen ? (
+          <aside className="w-full border-t border-line bg-surface-900 px-5 py-5 xl:w-[300px] xl:border-l xl:border-t-0">
             <div className="flex items-center justify-between">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Command Queue</p>
-              <MessageSquareText size={16} className="text-muted" aria-hidden />
+              <p className="text-sm font-semibold text-ink">Details</p>
+              <button
+                className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-surface-850 hover:text-ink"
+                type="button"
+                onClick={() => setDetailsOpen(false)}
+                aria-label="Close details"
+                title="Close"
+              >
+                <X size={15} aria-hidden />
+              </button>
             </div>
-            <div className="mt-3 grid gap-2">
-              {quickPrompts.map((prompt) => (
+
+            <div className="mt-4 rounded-md border border-line bg-surface-850 px-3 py-2.5 font-mono text-xs leading-6 text-muted">
+              {latency} ms · {tokens.toLocaleString()} tokens · {llmCalls} LLM calls · {cost}
+            </div>
+
+            <button
+              className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-muted transition hover:text-ink"
+              type="button"
+              onClick={() => setTraceOpen((open) => !open)}
+            >
+              View trace
+              <ChevronRight size={13} aria-hidden />
+            </button>
+            {traceOpen ? (
+              <dl className="mt-2 grid gap-2 font-mono text-xs text-muted">
+                <MetaRow label="Request" value={lastResponse?.request_id ?? "none"} />
+                <MetaRow label="Trace" value={lastResponse?.trace_id ?? "none"} />
+                <MetaRow label="Intent" value={lastResponse?.intent ?? "none"} />
+                <MetaRow label="Workflow" value={lastResponse?.workflow ?? "none"} />
+                <MetaRow
+                  label="Limit"
+                  value={lastResponse?.resource_limit ? JSON.stringify(lastResponse.resource_limit) : "clear"}
+                />
+              </dl>
+            ) : null}
+
+            <section className="mt-7">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-faint">Environment</p>
                 <button
-                  key={prompt}
+                  className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-surface-850 hover:text-ink"
                   type="button"
-                  onClick={() => void sendMessage(prompt)}
-                  disabled={isLoading}
-                  className="rounded-lg border border-line bg-surface-850 px-3 py-2 text-left text-sm leading-5 text-ink transition hover:border-slate-500 hover:bg-surface-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={refreshConfig}
+                  aria-label="Refresh config"
+                  title="Refresh"
                 >
-                  {prompt}
+                  <RefreshCw size={14} aria-hidden />
                 </button>
-              ))}
-            </div>
-          </section>
+              </div>
+              <dl className="mt-3 grid gap-2 text-sm">
+                <MetaRow label="API" value={apiBaseUrl} />
+                <MetaRow label="Environment" value={config?.environment ?? "unknown"} />
+                <MetaRow label="Database" value={config?.database_provider ?? "unknown"} />
+                <MetaRow
+                  label="Model"
+                  value={config?.provider && config?.model ? `${config.provider} / ${config.model}` : "unknown"}
+                />
+              </dl>
+            </section>
 
-          <section className="mt-6">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Last Request</p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Metric icon={<Clock3 size={15} />} label="Latency" value={`${lastResponse?.request_latency_ms ?? 0} ms`} />
-              <Metric icon={<Database size={15} />} label="Tokens" value={`${lastResponse?.token_usage?.total_tokens ?? 0}`} />
-              <Metric icon={<ShieldCheck size={15} />} label="Workflow" value={lastResponse?.workflow ?? "none"} />
-              <Metric icon={<Gauge size={15} />} label="LLM calls" value={`${lastResponse?.token_usage?.llm_calls ?? 0}`} />
-              <Metric
-                icon={<CircleDollarSign size={15} />}
-                label="Cost"
-                value={
-                  typeof lastResponse?.token_usage?.cost_usd === "number"
-                    ? `$${lastResponse.token_usage.cost_usd.toFixed(6)}`
-                    : "$0.000000"
-                }
-              />
-              <Metric icon={<Check size={15} />} label="Intent" value={lastResponse?.intent ?? "none"} />
-            </div>
-          </section>
-
-          <section className="mt-6 rounded-lg border border-line bg-surface-850 p-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Trace</p>
-            <dl className="mt-3 space-y-3 text-sm">
-              <MetaRow label="Request" value={lastResponse?.request_id ?? "none"} />
-              <MetaRow label="Trace" value={lastResponse?.trace_id ?? "none"} />
-              <MetaRow
-                label="Limit"
-                value={lastResponse?.resource_limit ? JSON.stringify(lastResponse.resource_limit) : "clear"}
-              />
-            </dl>
-          </section>
-        </aside>
+            <section className="mt-7 rounded-md border border-line bg-surface-850 p-3">
+              <div className="flex items-center gap-2 text-muted">
+                <ServerCog size={14} aria-hidden />
+                <p className="text-xs font-medium">Runtime</p>
+              </div>
+              <div className="mt-3 grid gap-3">
+                <label className="grid gap-1.5 text-xs text-faint">
+                  Provider
+                  <select
+                    value={selectedProviderLabel}
+                    onChange={(event) => void updateProvider(event.target.value)}
+                    disabled={isLoading || Object.keys(providerOptions).length === 0}
+                    className="h-9 rounded-md border border-line bg-surface-900 px-2.5 text-sm text-ink outline-none"
+                  >
+                    {Object.keys(providerOptions).map((label) => (
+                      <option key={label} value={label}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1.5 text-xs text-faint">
+                  Model
+                  <select
+                    value={selectedModel}
+                    onChange={(event) => void updateProvider(selectedProviderLabel, event.target.value)}
+                    disabled={isLoading || !selectedProviderLabel}
+                    className="h-9 rounded-md border border-line bg-surface-900 px-2.5 text-sm text-ink outline-none"
+                  >
+                    {(providerOptions[selectedProviderLabel]?.models ?? []).map((model) => (
+                      <option key={model} value={model}>
+                        {model}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </section>
+          </aside>
+        ) : null}
       </div>
     </main>
   );
 }
 
-function ChatBubble({ message }: { message: ChatMessage }) {
+function MessageRow({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   return (
-    <article className={`flex items-start gap-3 ${isUser ? "justify-end" : ""}`}>
-      {!isUser ? (
-        <Avatar role="assistant">
-          <Bot size={17} />
-        </Avatar>
-      ) : null}
+    <div className="grid gap-1.5">
+      <p className="text-xs font-medium text-faint">{isUser ? "You" : "Ubichinon"}</p>
       <div
-        className={`max-w-[760px] rounded-lg border px-4 py-3 text-[15px] leading-7 shadow-panel ${
+        className={
           isUser
-            ? "border-slate-700 bg-surface-750 text-ink"
-            : "border-line bg-surface-850 text-ink"
-        }`}
+            ? "max-w-[720px] rounded-md bg-surface-850 px-4 py-3 text-[15px] leading-7 text-ink"
+            : "max-w-[760px] px-0.5 text-[15px] leading-7 text-ink"
+        }
       >
         <p className="whitespace-pre-wrap">{message.content}</p>
       </div>
-      {isUser ? (
-        <Avatar role="user">
-          <UserRound size={17} />
-        </Avatar>
-      ) : null}
-    </article>
-  );
-}
-
-function Avatar({ role, children }: { role: ChatRole; children: ReactNode }) {
-  return (
-    <div
-      className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
-        role === "assistant" ? "bg-amber-action text-surface-950" : "bg-danger-action text-surface-950"
-      }`}
-      aria-hidden
-    >
-      {children}
-    </div>
-  );
-}
-
-function Metric({
-  icon,
-  label,
-  value
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="min-w-0 rounded-lg border border-line bg-surface-850 p-3">
-      <div className="flex items-center gap-2 text-muted">
-        {icon}
-        <span className="truncate text-xs font-bold">{label}</span>
-      </div>
-      <strong className="mt-2 block truncate text-sm font-semibold text-ink">{value}</strong>
     </div>
   );
 }
@@ -486,28 +518,8 @@ function Metric({
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs font-bold text-muted">{label}</dt>
-      <dd className="mt-1 break-words text-sm leading-5 text-ink">{value}</dd>
+      <dt className="text-xs text-faint">{label}</dt>
+      <dd className="mt-0.5 break-words leading-5 text-muted">{value}</dd>
     </div>
-  );
-}
-
-function HeaderBadge({ icon, label }: { icon: ReactNode; label: string }) {
-  return (
-    <span className="inline-flex h-8 max-w-[260px] items-center gap-2 rounded-lg border border-line bg-surface-850 px-3 text-xs font-semibold text-muted">
-      {icon}
-      <span className="truncate">{label}</span>
-    </span>
-  );
-}
-
-function StatusPill({ tone, children }: { tone: string; children: ReactNode }) {
-  const dot =
-    tone === "danger" ? "bg-red-400" : tone === "working" ? "bg-yellow-300" : "bg-emerald-400";
-  return (
-    <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
-      <span className={`h-2.5 w-2.5 rounded-full ${dot}`} />
-      {children}
-    </span>
   );
 }

@@ -46,6 +46,23 @@ class ChatRequest(BaseModel):
     auth_token: str | None = None
 
 
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=320)
+    password: str = Field(min_length=1, max_length=256)
+
+
+class LoginUser(BaseModel):
+    id: str
+    name: str = ""
+    email: str = ""
+    role: str = "customer"
+
+
+class LoginResponse(BaseModel):
+    token: str
+    user: LoginUser
+
+
 class ChatResponse(BaseModel):
     response: str
     request_id: str | None = None

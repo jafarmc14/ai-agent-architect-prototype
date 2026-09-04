@@ -27,3 +27,15 @@ class UserRepository:
                 (user_id,),
             ).fetchone()
         return dict(row) if row else None
+
+    def find_login_user(self, email: str):
+        with get_postgres_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT id, external_id, name, email, password_hash, metadata
+                FROM users
+                WHERE email = %s
+                """,
+                (email,),
+            ).fetchone()
+        return dict(row) if row else None

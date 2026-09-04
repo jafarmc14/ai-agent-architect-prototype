@@ -896,6 +896,16 @@ py evaluation/test_circuit_breaker.py
 
 The test uses a fake monotonic clock and scripted providers to verify repeated-failure detection, threshold opening, alternative-provider routing, one half-open probe after cooldown, recovery to closed, and health isolation per provider/model. It does not wait for real time or call an LLM API.
 
+## Login Security Tests
+
+Run the login brute-force suite:
+
+```powershell
+py evaluation/test_login_security.py
+```
+
+The suite verifies bcrypt hashing, per-username lockout (5 failures → block), per-IP sliding-window throttle, generic 401 responses (no user enumeration), and the 429 + `Retry-After` response after repeated failures — via the FastAPI test client with a fake user repository. It makes no provider or network request.
+
 ## Cost Governance Tests
 
 Run the deterministic Phase 35 suite:
