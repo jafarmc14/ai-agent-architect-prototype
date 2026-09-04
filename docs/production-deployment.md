@@ -7,8 +7,8 @@ Deploys the full Ubichinon stack to a Hostinger VPS: Nginx (reverse proxy + TLS)
 | Item | Value |
 |---|---|
 | VPS | 2 vCPU, 8 GB RAM, Ubuntu (Hostinger) |
-| Public IP | `187.124.6.155` |
-| Domain | `ikarpedia.cloud` (DNS A record → 187.124.6.155) |
+| Public IP | `<VPS-PUBLIC-IP>` |
+| Domain | `ikarpedia.cloud` (DNS A record → `<VPS-PUBLIC-IP>`) |
 | Repo | `https://github.com/jafarmc14/ai-agent-architect-prototype.git` (public) |
 | Deploy dir | `/opt/ai-agent` |
 | Compose project | `ai-agent` (`COMPOSE_PROJECT_NAME=ai-agent`) |
