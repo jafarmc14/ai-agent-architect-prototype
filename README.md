@@ -790,6 +790,7 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `evaluation/run_baseline.py` | **Evaluation runner v1.** Runs baseline cases, traces tool calls, captures claim-audit/token evidence, measures accuracy/latency/exceptions, and saves the latest report. |
 | `evaluation/provider_benchmark.json` | **Provider benchmark manifest.** Pins the identical dataset suite and provider-specific model, credential, and optional pricing environment keys. |
 | `evaluation/run_provider_benchmark.py` | **Provider benchmark runner.** Defaults to no-call dry-run planning and, after explicit authorization, normalizes Ollama/DeepSeek/Kimi quality, safety, latency, token, and cost metrics. |
+| `evaluation/run_load_test.py` | **Load test runner (Phase 43).** Hammers `POST /api/v1/chat` at 1/5/10/25/50 concurrent users, samples process CPU/RAM (psutil) and PostgreSQL connections (`pg_stat_activity`), and reports P50/P95/P99 latency (HTTP/app/LLM), RPS, error rate, and fallback rate. |
 | `evaluation/test_provider_benchmark.py` | **Provider benchmark tests.** Validates suite parity, secret-safe planning, metric normalization, ranking direction, and dry-run behavior without invoking a provider. |
 | `evaluation/test_model_routing.py` | **Model routing tests.** Verifies task/complexity/evidence routing, cheap-first behavior, missing-key fallback, and premium usage logging with fake providers only. |
 | `evaluation/test_provider_fallback.py` | **Provider fallback tests.** Fault-injects required transient failures across sync, async, and structured gateway paths without external requests. |
@@ -850,6 +851,10 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `database/embed_products.py` | **Product embedding script.** Builds semantic product text from relevant fields and stores pgvector embeddings in PostgreSQL. |
 | `database/ingest_knowledge_base.py` | **Knowledge ingestion script.** Runs parse-clean-chunk-embed-store for split knowledge documents. |
 | `docs/postgresql_schema.md` | **PostgreSQL schema design.** Documents table purpose, relationships, and design notes. |
+| `docs/disaster-recovery.md` | **Disaster recovery runbook (Phase 44).** Defines RPO (≤24h) and RTO (≤30min), backup schedule and retention, restore procedure, and the mandatory automated restore test. |
+| `scripts/backup_postgres.sh` | **PostgreSQL backup script.** Runs `pg_dump -Fc`, writes a timestamped dump plus JSON manifest, and prunes backups older than `BACKUP_RETENTION_DAYS`. |
+| `scripts/restore_postgres.sh` | **PostgreSQL restore script.** Restores a dump into a target database (optional drop/create) with `pg_restore`. |
+| `scripts/test_backup_restore.sh` | **Backup restore test.** Restores the latest dump into a scratch DB, verifies key table row counts, `schema_migrations`, and the `vector` extension, then drops the scratch DB. |
 | `mvp.txt` | **Original PRD document** (in Bahasa Indonesia) outlining the initial project requirements. |
 | `README.md` | **This file.** Full project documentation in English. |
 
@@ -2590,3 +2595,20 @@ docker compose -f docker-compose.prod.yml up --build -d
 Production uses Docker Secrets from `PRODUCTION_SECRETS_DIR` (default `.secrets/`) and requires these files: `database_url`, `postgres_password`, `jwt_secret_current`, `jwt_secret_previous`, `openrouter_api_key`, `deepseek_api_key`, `kimi_api_key`, and `embedding_api_key`. Secret files are never copied into an image. Set `NEXT_PUBLIC_API_BASE_URL` to the public browser-reachable backend URL before building the frontend image. Redis is provisioned for infrastructure use but is not consumed by the application runtime yet.
 
 For local development, keep one stable `JWT_SECRET` in the ignored `.env.secrets` file. Production signs new tokens with `jwt_secret_current` and accepts the previous key through `jwt_secret_previous`; rotate by replacing both files and recreating the backend, then remove the old key after its token lifetime has elapsed. Secret access audit logs contain only the secret name and source, never the value.
+
+## Disaster Recovery
+
+The DR posture is defined in `docs/disaster-recovery.md`; the short version:
+
+- **RPO ≤ 24 hours, RTO ≤ 30 minutes.**
+- **Backup:** daily `pg_dump -Fc` with 14-day rolling retention (`BACKUP_RETENTION_DAYS`).
+- **Automation:** a lean one-shot `db-backup` service in the dev stack (no daemon); deployments schedule the same `scripts/backup_postgres.sh` via host cron. The production compose stack is intentionally unchanged.
+- **Restore test (mandatory):** `scripts/test_backup_restore.sh` restores the latest dump into a scratch database, verifies seeded tables have rows, runtime tables exist, `schema_migrations` is complete, and the `vector` extension is present, then drops it. CI runs this on every pull request in the `integration` job.
+
+```bash
+# Dev backup (one-shot)
+docker compose -f docker-compose.dev.yml --profile backup run --rm db-backup
+
+# Dev restore test
+docker compose -f docker-compose.dev.yml --profile backup run --rm db-backup /scripts/test_backup_restore.sh
+```

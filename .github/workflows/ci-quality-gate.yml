@@ -114,6 +114,27 @@ jobs:
         run: python evaluation/integration_postgres.py
       - name: Run authorization integration evaluation
         run: python evaluation/run_authorization_evaluation.py --report-dir ci_integration_reports
+      - name: Create PostgreSQL backup
+        run: |
+          mkdir -p backup_dumps
+          docker run --rm --network host \
+            -e PGHOST=127.0.0.1 -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD=postgres -e PGDATABASE=ai_agent \
+            -e BACKUP_DIR=/backups -e BACKUP_RETENTION_DAYS=14 \
+            -v "$PWD/backup_dumps:/backups" \
+            -v "$PWD/scripts:/scripts:ro" \
+            --entrypoint /bin/bash \
+            pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b \
+            /scripts/backup_postgres.sh
+      - name: Test backup restore
+        run: |
+          docker run --rm --network host \
+            -e PGHOST=127.0.0.1 -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD=postgres -e PGDATABASE=ai_agent \
+            -e BACKUP_DIR=/backups -e RESTORE_TEST_DB=ai_agent_restore_test \
+            -v "$PWD/backup_dumps:/backups" \
+            -v "$PWD/scripts:/scripts:ro" \
+            --entrypoint /bin/bash \
+            pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b \
+            /scripts/test_backup_restore.sh
       - name: Upload integration reports
         if: always()
         uses: actions/upload-artifact@v4

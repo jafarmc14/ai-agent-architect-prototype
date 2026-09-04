@@ -80,8 +80,29 @@ services:
       timeout: 3s
       retries: 10
 
+  db-backup:
+    profiles: ["backup"]
+    image: pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGDATABASE: ${POSTGRES_DB:-ai_agent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: "14"
+    volumes:
+      - ./scripts:/scripts:ro
+      - ai_agent_postgres_dev_backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/bin/bash"]
+    command: ["/scripts/backup_postgres.sh"]
+
 volumes:
   ai_agent_postgres_dev_data:
+  ai_agent_postgres_dev_backups:
   frontend_node_modules:
   frontend_next:
   redis_dev_data:

@@ -762,6 +762,38 @@ py evaluation/test_token_optimization.py
 
 The report breaks input into `system_prompt_tokens`, `user_tokens`, `conversation_tokens`, `retrieval_tokens`, and `tool_schema_tokens`. It also records output tokens, context-utilization ratio, budget compliance, and cost per correct answer. The regression gate compares against `evaluation/baselines/token_baseline.json` and fails an increase above 20% unless the candidate has a measured quality gain.
 
+## Load Testing (Phase 43)
+
+Measures concurrency behavior and the Phase 43 metrics (P50/P95/P99 latency, CPU/RAM, DB connections, LLM latency, error rate, fallback rate) across 1/5/10/25/50 concurrent users.
+
+Start the server on the host (so the sampler can attach to the process) with PostgreSQL:
+
+```powershell
+docker compose -f docker-compose.dev.yml up -d postgres
+$env:APP_ENV="development"
+$env:DATABASE_PROVIDER="postgres"
+$env:DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ai_agent"
+$env:POSTGRES_PASSWORD="postgres"
+$env:LLM_PROVIDER="ollama"
+$env:PROVIDER_FALLBACK_ENABLED="true"
+$env:PROVIDER_FALLBACK_CHAIN="ollama,openrouter"
+$env:USER_RATE_LIMIT_REQUESTS="10000"
+$env:TENANT_DAILY_REQUEST_QUOTA="100000"
+py database/migrate_sqlite_to_postgres.py --schema-only
+py -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+Then run the load test in a second terminal:
+
+```powershell
+py evaluation/run_load_test.py --base-url http://127.0.0.1:8000
+py evaluation/run_load_test.py --users 1,5,10,25,50 --iterations-per-user 15
+```
+
+The runner POSTs `/api/v1/chat` with a unique `session_id` per request (avoiding per-user/workflow rate limits), samples the uvicorn process CPU/RAM via `psutil` and DB connections via `pg_stat_activity`, and writes `evaluation/loadtest/load_test_report_latest.json`. Errors are counted from the response body (`exception`/`request_status`), because the app returns HTTP 200 with a non-null `exception` for LLM failures. Fallback rate is read from `token_usage.provider_fallbacks`.
+
+Key arguments: `--base-url`, `--users` (comma-separated), `--iterations-per-user`, `--database-url`, `--timeout`, `--report-dir`. Pass `--database-url` or set `DATABASE_URL` so the sampler can query `pg_stat_activity`; otherwise DB connections are reported as `null`.
+
 ## Resource Abuse Protection Tests
 
 Run the deterministic Phase 28 checks:
