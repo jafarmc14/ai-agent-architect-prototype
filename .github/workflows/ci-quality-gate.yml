@@ -137,7 +137,7 @@ jobs:
             /scripts/test_backup_restore.sh
       - name: Upload integration reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: integration-reports
           path: ci_integration_reports
@@ -200,7 +200,7 @@ jobs:
           python evaluation/run_token_regression.py --candidate ci_quality_reports/token_report_latest.json --output ci_quality_reports/token_regression_report_latest.json
       - name: Upload quality reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: quality-reports
           path: ci_quality_reports
@@ -230,7 +230,7 @@ jobs:
         run: python evaluation/test_prompt_injection_defense.py
       - name: Upload security reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: security-reports
           path: ci_security_reports
@@ -256,7 +256,7 @@ jobs:
         run: python evaluation/run_regression.py --quick --report-dir ci_regression_reports
       - name: Upload regression report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: regression-reports
           path: ci_regression_reports
