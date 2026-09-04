@@ -856,6 +856,10 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `database/provision_login_account.py` | **Login account provisioner.** Creates or updates a PostgreSQL login account (bcrypt-hashed) used by the frontend login gate. Defaults to `admin@example.local`. |
 | `docs/postgresql_schema.md` | **PostgreSQL schema design.** Documents table purpose, relationships, and design notes. |
 | `docs/disaster-recovery.md` | **Disaster recovery runbook (Phase 44).** Defines RPO (≤24h) and RTO (≤30min), backup schedule and retention, restore procedure, and the mandatory automated restore test. |
+| `docs/production-deployment.md` | **Production deployment runbook (Phase 45).** Deploys the stack to a 2 vCPU/8 GB Hostinger VPS at `ikarpedia.cloud`: Nginx reverse proxy + TLS, FastAPI, Next.js, pgvector, and lightweight Redis. |
+| `deploy/nginx/default.conf` | **Nginx HTTP reverse proxy.** Routes `/api/` → backend:8000 and `/` → frontend:3000, serves the certbot ACME webroot. |
+| `deploy/nginx/tls.conf` | **Nginx TLS listener.** 443/ssl server block; activate after placing certs in `deploy/certs/`. |
+| `deploy/setup_prod_secrets.sh` | **Production secrets generator.** Creates the 8 Docker secret files under `.secrets/` (postgres password, JWT pair, provider keys) with chmod 600. |
 | `scripts/backup_postgres.sh` | **PostgreSQL backup script.** Runs `pg_dump -Fc`, writes a timestamped dump plus JSON manifest, and prunes backups older than `BACKUP_RETENTION_DAYS`. |
 | `scripts/restore_postgres.sh` | **PostgreSQL restore script.** Restores a dump into a target database (optional drop/create) with `pg_restore`. |
 | `scripts/test_backup_restore.sh` | **Backup restore test.** Restores the latest dump into a scratch DB, verifies key table row counts, `schema_migrations`, and the `vector` extension, then drops the scratch DB. |
@@ -2633,6 +2637,19 @@ docker compose -f docker-compose.prod.yml up --build -d
 Production uses Docker Secrets from `PRODUCTION_SECRETS_DIR` (default `.secrets/`) and requires these files: `database_url`, `postgres_password`, `jwt_secret_current`, `jwt_secret_previous`, `openrouter_api_key`, `deepseek_api_key`, `kimi_api_key`, and `embedding_api_key`. Secret files are never copied into an image. Set `NEXT_PUBLIC_API_BASE_URL` to the public browser-reachable backend URL before building the frontend image. Redis is provisioned for infrastructure use but is not consumed by the application runtime yet.
 
 For local development, keep one stable `JWT_SECRET` in the ignored `.env.secrets` file. Production signs new tokens with `jwt_secret_current` and accepts the previous key through `jwt_secret_previous`; rotate by replacing both files and recreating the backend, then remove the old key after its token lifetime has elapsed. Secret access audit logs contain only the secret name and source, never the value.
+
+## Production Deployment
+
+The stack is deployed to a Hostinger VPS (2 vCPU / 8 GB) at **`https://ikarpedia.cloud`** with Nginx as the single public entry (80/443) reverse-proxying `/api/` to the FastAPI backend and `/` to the Next.js frontend. TLS is provided by Let's Encrypt; the backend/frontend host ports bind to `127.0.0.1` only.
+
+Step-by-step commands (Docker/Compose install, swap, firewall, secrets generation, build, TLS via certbot webroot, login-account provisioning, backup cron, update/rollback) are in **`docs/production-deployment.md`**.
+
+```bash
+cd /opt/ai-agent
+export COMPOSE_PROJECT_NAME=ai-agent
+bash deploy/setup_prod_secrets.sh
+docker compose -f docker-compose.prod.yml up -d --build
+```
 
 ## Disaster Recovery
 
