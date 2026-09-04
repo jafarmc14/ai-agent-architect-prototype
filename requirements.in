@@ -7,7 +7,7 @@ langchain-openai==1.6.0
 pydantic==2.13.5
 python-dotenv==1.2.3
 psycopg[binary]==3.3.5
-msgpack==1.2.1
+msgpack==1.2.2
 requests==2.33.0
 psutil==7.0.0
 bcrypt==4.3.0
