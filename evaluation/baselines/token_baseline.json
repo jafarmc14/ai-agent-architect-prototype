@@ -1,6 +1,6 @@
 {
-  "name": "token_context_evaluation_v1",
-  "created_at": "2026-09-01T06:50:09.288054+00:00",
+  "name": "efficiency_context_evaluation_v1",
+  "created_at": "2026-09-04T07:18:57.648676+00:00",
   "summary": {
     "cases": 6,
     "budget_passed": 6,
@@ -12,7 +12,35 @@
     "quality_score": 1.0,
     "total_cost_usd": 0.0,
     "correct_answers": 6,
-    "cost_per_correct_answer": 0.0
+    "cost_per_correct_answer": 0.0,
+    "cost_budget_pass": true,
+    "latency_measured": false,
+    "latency_budget_pass_rate": 1.0,
+    "efficiency_target_pass": {
+      "tokens": true,
+      "latency": true,
+      "cost": true
+    },
+    "all_efficiency_targets_pass": true
+  },
+  "efficiency_budgets": {
+    "latency_ms": {
+      "intent": 3000,
+      "extraction": 5000,
+      "product_search": 5000,
+      "simple_rag": 6000,
+      "complex_rag": 9000,
+      "agentic_workflow": 12000
+    },
+    "cost_usd": {
+      "intent": 0.005,
+      "extraction": 0.01,
+      "product_search": 0.01,
+      "simple_rag": 0.015,
+      "complex_rag": 0.03,
+      "agentic_workflow": 0.05
+    },
+    "cost_per_correct_answer_usd": 0.05
   },
   "tasks": {
     "intent": {
@@ -28,7 +56,9 @@
       "output_limit": 128,
       "context_utilization_ratio": 0.308,
       "within_budget": true,
-      "provider_prompt_cache_eligible": false
+      "provider_prompt_cache_eligible": false,
+      "latency_budget_ms": 3000,
+      "cost_budget_usd": 0.005
     },
     "extraction": {
       "task": "extraction",
@@ -43,7 +73,9 @@
       "output_limit": 256,
       "context_utilization_ratio": 0.19625,
       "within_budget": true,
-      "provider_prompt_cache_eligible": false
+      "provider_prompt_cache_eligible": false,
+      "latency_budget_ms": 5000,
+      "cost_budget_usd": 0.01
     },
     "product_search": {
       "task": "product_search",
@@ -58,7 +90,9 @@
       "output_limit": 500,
       "context_utilization_ratio": 0.169333,
       "within_budget": true,
-      "provider_prompt_cache_eligible": false
+      "provider_prompt_cache_eligible": false,
+      "latency_budget_ms": 5000,
+      "cost_budget_usd": 0.01
     },
     "simple_rag": {
       "task": "simple_rag",
@@ -73,7 +107,9 @@
       "output_limit": 700,
       "context_utilization_ratio": 0.144667,
       "within_budget": true,
-      "provider_prompt_cache_eligible": false
+      "provider_prompt_cache_eligible": false,
+      "latency_budget_ms": 6000,
+      "cost_budget_usd": 0.015
     },
     "complex_rag": {
       "task": "complex_rag",
@@ -88,7 +124,9 @@
       "output_limit": 1200,
       "context_utilization_ratio": 0.147667,
       "within_budget": true,
-      "provider_prompt_cache_eligible": false
+      "provider_prompt_cache_eligible": false,
+      "latency_budget_ms": 9000,
+      "cost_budget_usd": 0.03
     },
     "agentic_workflow": {
       "task": "agentic_workflow",
@@ -103,7 +141,9 @@
       "output_limit": 1200,
       "context_utilization_ratio": 0.12025,
       "within_budget": true,
-      "provider_prompt_cache_eligible": false
+      "provider_prompt_cache_eligible": false,
+      "latency_budget_ms": 12000,
+      "cost_budget_usd": 0.05
     }
   },
   "results": [
@@ -120,7 +160,9 @@
       "output_limit": 128,
       "context_utilization_ratio": 0.308,
       "within_budget": true,
-      "provider_prompt_cache_eligible": false
+      "provider_prompt_cache_eligible": false,
+      "latency_budget_ms": 3000,
+      "cost_budget_usd": 0.005
     },
     {
       "task": "extraction",
@@ -135,7 +177,9 @@
       "output_limit": 256,
       "context_utilization_ratio": 0.19625,
       "within_budget": true,
-      "provider_prompt_cache_eligible": false
+      "provider_prompt_cache_eligible": false,
+      "latency_budget_ms": 5000,
+      "cost_budget_usd": 0.01
     },
     {
       "task": "product_search",
@@ -150,7 +194,9 @@
       "output_limit": 500,
       "context_utilization_ratio": 0.169333,
       "within_budget": true,
-      "provider_prompt_cache_eligible": false
+      "provider_prompt_cache_eligible": false,
+      "latency_budget_ms": 5000,
+      "cost_budget_usd": 0.01
     },
     {
       "task": "simple_rag",
@@ -165,7 +211,9 @@
       "output_limit": 700,
       "context_utilization_ratio": 0.144667,
       "within_budget": true,
-      "provider_prompt_cache_eligible": false
+      "provider_prompt_cache_eligible": false,
+      "latency_budget_ms": 6000,
+      "cost_budget_usd": 0.015
     },
     {
       "task": "complex_rag",
@@ -180,7 +228,9 @@
       "output_limit": 1200,
       "context_utilization_ratio": 0.147667,
       "within_budget": true,
-      "provider_prompt_cache_eligible": false
+      "provider_prompt_cache_eligible": false,
+      "latency_budget_ms": 9000,
+      "cost_budget_usd": 0.03
     },
     {
       "task": "agentic_workflow",
@@ -195,7 +245,9 @@
       "output_limit": 1200,
       "context_utilization_ratio": 0.12025,
       "within_budget": true,
-      "provider_prompt_cache_eligible": false
+      "provider_prompt_cache_eligible": false,
+      "latency_budget_ms": 12000,
+      "cost_budget_usd": 0.05
     }
   ]
 }

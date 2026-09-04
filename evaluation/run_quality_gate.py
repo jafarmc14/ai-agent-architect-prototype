@@ -6,7 +6,7 @@ from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_BASELINE = PROJECT_ROOT / "evaluation" / "baselines" / "quality_baseline.json"
+DEFAULT_BASELINE = PROJECT_ROOT / "evaluation" / "baselines" / "production_quality_baseline.json"
 DEFAULT_REPORT_DIR = PROJECT_ROOT / "evaluation" / "reports"
 
 

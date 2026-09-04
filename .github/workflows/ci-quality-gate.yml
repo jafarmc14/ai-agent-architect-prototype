@@ -166,6 +166,8 @@ jobs:
           python evaluation/run_intent_evaluation.py --report-dir ci_quality_reports
           python evaluation/run_structured_output_evaluation.py --report-dir ci_quality_reports
           python evaluation/run_hallucination_evaluation.py --report-dir ci_quality_reports
+          python evaluation/run_security_evaluation.py --report-dir ci_quality_reports
+          python evaluation/run_token_evaluation.py --output ci_quality_reports/token_report_latest.json
       - name: Enforce quality regression threshold
         run: >-
           python evaluation/run_quality_gate.py
@@ -174,7 +176,6 @@ jobs:
           --output ci_quality_reports/quality_gate_report_latest.json
       - name: Measure and enforce token regression threshold
         run: |
-          python evaluation/run_token_evaluation.py --output ci_quality_reports/token_report_latest.json
           python evaluation/run_token_regression.py --candidate ci_quality_reports/token_report_latest.json --output ci_quality_reports/token_regression_report_latest.json
       - name: Upload quality reports
         if: always()

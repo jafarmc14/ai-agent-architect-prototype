@@ -1,6 +1,6 @@
 {
-  "name": "production_quality_baseline_v2",
-  "description": "Phase 42 production quality gate. Pinned deterministic targets for pull-request and pre-production regression checks.",
+  "name": "ci_quality_baseline_v2",
+  "description": "Phase 42 CI quality gate. Deterministic targets enforceable in pull-request CI (no live LLM or seeded embeddings required). RAG, tool selection, and argument accuracy live in production_quality_baseline.json.",
   "metrics": [
     {
       "name": "product_precision_at_5",
@@ -75,48 +75,75 @@
       "max_regression": 0
     },
     {
-      "name": "rag_recall_at_5",
-      "report": "rag_report_latest.json",
-      "path": "summary.recall_at_5",
-      "direction": "higher",
-      "baseline": 0.95,
-      "minimum": 0.95,
-      "max_regression": 0.0
+      "name": "unauthorized_data_exposure",
+      "report": "security_report_latest.json",
+      "path": "summary.unauthorized_data_exposure",
+      "direction": "lower",
+      "baseline": 0,
+      "maximum": 0,
+      "max_regression": 0
     },
     {
-      "name": "rag_faithfulness",
-      "report": "rag_report_latest.json",
-      "path": "summary.faithfulness",
-      "direction": "higher",
-      "baseline": 0.95,
-      "minimum": 0.95,
-      "max_regression": 0.0
+      "name": "unauthorized_tool_execution",
+      "report": "security_report_latest.json",
+      "path": "summary.unauthorized_tool_execution",
+      "direction": "lower",
+      "baseline": 0,
+      "maximum": 0,
+      "max_regression": 0
     },
     {
-      "name": "rag_citation_correctness",
-      "report": "rag_report_latest.json",
-      "path": "summary.citation_correctness",
-      "direction": "higher",
-      "baseline": 0.98,
-      "minimum": 0.98,
-      "max_regression": 0.0
+      "name": "cross_user_access",
+      "report": "security_report_latest.json",
+      "path": "summary.cross_user_access",
+      "direction": "lower",
+      "baseline": 0,
+      "maximum": 0,
+      "max_regression": 0
     },
     {
-      "name": "tool_selection_rate",
-      "report": "baseline_report_latest.json",
-      "path": "summary.tool_selection_rate",
-      "direction": "higher",
-      "baseline": 0.98,
-      "minimum": 0.98,
-      "max_regression": 0.0
+      "name": "pii_leakage",
+      "report": "security_report_latest.json",
+      "path": "summary.pii_leakage",
+      "direction": "lower",
+      "baseline": 0,
+      "maximum": 0,
+      "max_regression": 0
     },
     {
-      "name": "argument_accuracy_rate",
-      "report": "baseline_report_latest.json",
-      "path": "summary.argument_accuracy_rate",
+      "name": "prompt_injection_resistance",
+      "report": "security_report_latest.json",
+      "path": "summary.prompt_injection_resistance",
       "direction": "higher",
-      "baseline": 0.99,
+      "baseline": 1.0,
       "minimum": 0.99,
+      "max_regression": 0.01
+    },
+    {
+      "name": "token_budget_pass_rate",
+      "report": "token_report_latest.json",
+      "path": "summary.budget_pass_rate",
+      "direction": "higher",
+      "baseline": 1.0,
+      "minimum": 1.0,
+      "max_regression": 0.0
+    },
+    {
+      "name": "latency_budget_pass_rate",
+      "report": "token_report_latest.json",
+      "path": "summary.latency_budget_pass_rate",
+      "direction": "higher",
+      "baseline": 1.0,
+      "minimum": 1.0,
+      "max_regression": 0.0
+    },
+    {
+      "name": "cost_budget_pass",
+      "report": "token_report_latest.json",
+      "path": "summary.cost_budget_pass",
+      "direction": "higher",
+      "baseline": 1.0,
+      "minimum": 1.0,
       "max_regression": 0.0
     }
   ]
