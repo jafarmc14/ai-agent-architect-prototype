@@ -46,7 +46,8 @@ jobs:
           set -euo pipefail
           for test_file in evaluation/test_*.py; do
             echo "[unit] ${test_file}"
-             python "${test_file}"
+            python "${test_file}"
+          done
 
   supply_chain:
     name: 1a - Dependency and Image Security
@@ -70,7 +71,6 @@ jobs:
       - name: Scan npm dependencies
         working-directory: frontend
         run: npm audit --audit-level=high
-          done
 
   integration:
     name: 2 - PostgreSQL Integration
