@@ -858,7 +858,7 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `docs/disaster-recovery.md` | **Disaster recovery runbook (Phase 44).** Defines RPO (≤24h) and RTO (≤30min), backup schedule and retention, restore procedure, and the mandatory automated restore test. |
 | `docs/production-deployment.md` | **Production deployment runbook (Phase 45).** Deploys the stack to a 2 vCPU/8 GB Hostinger VPS at `ikarpedia.cloud`: Nginx reverse proxy + TLS, FastAPI, Next.js, pgvector, and lightweight Redis. |
 | `deploy/nginx/default.conf` | **Nginx HTTP reverse proxy.** Routes `/api/` → backend:8000 and `/` → frontend:3000, serves the certbot ACME webroot. |
-| `deploy/nginx/tls.conf` | **Nginx TLS listener.** 443/ssl server block; activate after placing certs in `deploy/certs/`. |
+| `deploy/nginx/tls.conf.example` | **Nginx TLS listener (template).** 443/ssl server block; copy to `tls.conf` after placing certs in `deploy/certs/`. |
 | `deploy/setup_prod_secrets.sh` | **Production secrets generator.** Creates the 8 Docker secret files under `.secrets/` (postgres password, JWT pair, provider keys) with chmod 600. |
 | `scripts/backup_postgres.sh` | **PostgreSQL backup script.** Runs `pg_dump -Fc`, writes a timestamped dump plus JSON manifest, and prunes backups older than `BACKUP_RETENTION_DAYS`. |
 | `scripts/restore_postgres.sh` | **PostgreSQL restore script.** Restores a dump into a target database (optional drop/create) with `pg_restore`. |

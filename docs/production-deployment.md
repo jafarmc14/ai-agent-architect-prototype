@@ -109,10 +109,12 @@ cp /etc/letsencrypt/live/ikarpedia.cloud/fullchain.pem deploy/certs/fullchain.pe
 cp /etc/letsencrypt/live/ikarpedia.cloud/privkey.pem  deploy/certs/privkey.pem
 ```
 
-Activate TLS by adding the 443 server block into the Nginx conf.d mount, then reload:
+Activate TLS by copying the 443 server block into the Nginx conf.d mount, then reload:
 
 ```bash
-# Ship tls.conf alongside default.conf and restart nginx
+# tls.conf is shipped as tls.conf.example so the HTTP-first bootstrap does not
+# crash on missing certificates. Copy it into place only after certs exist.
+cp deploy/nginx/tls.conf.example deploy/nginx/tls.conf
 docker compose -f docker-compose.prod.yml restart nginx
 ```
 
