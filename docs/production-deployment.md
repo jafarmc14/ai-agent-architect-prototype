@@ -42,6 +42,19 @@ ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp && ufw enable
 hostname -I
 ```
 
+### Ollama for embeddings (must not be publicly reachable)
+
+The backend reaches Ollama on the host via `host.docker.internal:11434`. Ollama has no authentication, so **bind it to loopback only** and block the port at the firewall:
+
+```bash
+apt install -y curl
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull nomic-embed-text
+systemctl edit ollama      # add:  [Service]  Environment="OLLAMA_HOST=127.0.0.1:11434"
+systemctl restart ollama
+ufw deny 11434/tcp         # safety net if the service is ever misconfigured
+```
+
 ## 2. Clone and configure
 
 ```bash
@@ -103,6 +116,17 @@ Activate TLS by adding the 443 server block into the Nginx conf.d mount, then re
 docker compose -f docker-compose.prod.yml restart nginx
 ```
 
+Then force HTTPS: edit `deploy/nginx/default.conf` so port 80 only serves the ACME challenge and redirects everything else:
+
+```bash
+# In deploy/nginx/default.conf, replace the frontend proxy location with:
+#   location / {
+#       return 301 https://$host$request_uri;
+#   }
+# Keep the /.well-known/acme-challenge/ location for renewals.
+docker compose -f docker-compose.prod.yml restart nginx
+```
+
 > For renewals, `certbot renew` with the webroot path keeps working because `deploy/certbot-webroot` is mounted into Nginx (`/.well-known/acme-challenge/`). Recommended: a weekly `certbot renew` cron plus a restart of the `nginx` service.
 
 ## 5. Provision the login account
@@ -111,7 +135,14 @@ docker compose -f docker-compose.prod.yml restart nginx
 docker compose -f docker-compose.prod.yml exec backend python database/provision_login_account.py
 ```
 
-Defaults: `admin@example.local` / `Admin@2026!` (role `admin`). Override via env `LOGIN_USERNAME` / `LOGIN_PASSWORD` or `--email` / `--password`. Change the default password for any real deployment.
+**Use a strong password for any real deployment** — the documented default `admin@example.local` / `Admin@2026!` is public in the README and must not be left in place:
+
+```bash
+docker compose -f docker-compose.prod.yml exec backend \
+  python database/provision_login_account.py --email admin@example.local --password '<STRONG-PASSWORD>'
+```
+
+`POST /api/v1/auth/login` is rate-limited at Nginx (1 r/s, burst 5 per IP) and in-app (per-username lockout 5 failures/15 min; per-IP 20/hour). `POST /api/v1/config/llm` now requires a valid session token.
 
 ## 6. Verify
 

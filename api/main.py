@@ -19,7 +19,7 @@ from .services import (
     chat_application_service,
     configuration_application_service,
 )
-from core.auth.jwt import create_session_token
+from core.auth.jwt import AuthError, create_session_token, verify_session_token
 from core.auth.login_throttle import login_throttle
 from core.auth.password import hash_password, verify_password
 from core.repositories.user_repository import UserRepository
@@ -74,8 +74,10 @@ def create_app() -> FastAPI:
     @app.post("/api/v1/config/llm", response_model=LLMConfigResponse)
     def update_llm_config(
         request: ConfigureLLMRequest,
+        authorization: str | None = Header(default=None),
         service: ConfigurationApplicationService = Depends(get_config_service),
     ) -> dict:
+        _require_authorized(authorization)
         return service.configure_llm(request.provider, request.model)
 
     @app.post("/api/v1/chat", response_model=ChatResponse)
@@ -103,7 +105,7 @@ def create_app() -> FastAPI:
                 detail="Login requires a PostgreSQL database.",
             )
         username = request.username.strip().lower()
-        ip = http_request.client.host if http_request.client else "unknown"
+        ip = _client_ip(http_request)
 
         retry_after = login_throttle.check(username, ip)
         if retry_after is not None:
@@ -159,6 +161,29 @@ def _bearer_token(value: str | None) -> str | None:
     if value.startswith(prefix):
         return value[len(prefix):].strip()
     return None
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _require_authorized(authorization: str | None) -> None:
+    token = _bearer_token(authorization)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required.",
+        )
+    try:
+        verify_session_token(token)
+    except AuthError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session token.",
+        ) from exc
 
 
 def _cors_origins(value: str) -> list[str]:

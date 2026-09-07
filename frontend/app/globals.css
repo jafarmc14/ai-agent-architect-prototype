@@ -3,17 +3,17 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html,
 body {
   min-height: 100%;
-  background: #11110f;
+  background: #ffffff;
 }
 
 body {
-  color: #f3f0e8;
+  color: #1c1e21;
   font-family:
     Inter,
     "Instrument Sans",
@@ -37,6 +37,6 @@ button:focus-visible,
 textarea:focus-visible,
 input:focus-visible,
 select:focus-visible {
-  outline: 2px solid #d48a31;
+  outline: 2px solid #1877f2;
   outline-offset: 2px;
 }

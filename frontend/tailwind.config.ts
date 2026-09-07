@@ -6,26 +6,26 @@ const config: Config = {
     extend: {
       colors: {
         surface: {
-          950: "#11110f",
-          900: "#171714",
-          850: "#1d1d19",
-          800: "#24231f"
+          950: "#FFFFFF",
+          900: "#F0F2F5",
+          850: "#E4E6EB",
+          800: "#D8DADF"
         },
-        line: "#2b2a25",
-        "line-subtle": "#23231f",
-        ink: "#f3f0e8",
-        muted: "#aaa69a",
-        faint: "#77746b",
-        amber: {
-          action: "#d48a31",
-          hover: "#e49a3f",
-          soft: "#2b2115"
+        line: "#CED0D4",
+        "line-subtle": "#E4E6EB",
+        ink: "#1C1E21",
+        muted: "#65676B",
+        faint: "#8A8D91",
+        brand: {
+          action: "#1877F2",
+          hover: "#166FE5",
+          soft: "#E7F3FF"
         },
         danger: {
-          action: "#c96b62",
-          soft: "#2a1714"
+          action: "#FA383E",
+          soft: "#FDE7E9"
         },
-        success: "#65a67b",
+        success: "#42B72A",
         warning: "#d3a04d"
       },
       borderRadius: {
@@ -34,7 +34,7 @@ const config: Config = {
         lg: "12px"
       },
       boxShadow: {
-        panel: "0 18px 60px rgba(0, 0, 0, 0.32)"
+        panel: "0 18px 60px rgba(0, 0, 0, 0.12)"
       }
     }
   },

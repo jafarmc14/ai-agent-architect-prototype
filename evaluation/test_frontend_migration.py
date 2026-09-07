@@ -53,7 +53,7 @@ def test_frontend_visual_language_is_operational():
     assert "@tailwind utilities" in css
     assert "grid min-h-screen grid-cols-1 xl:grid-cols" in page
     assert "bg-surface-950" in page
-    assert "bg-amber-action" in page
+    assert "bg-brand-action" in page
     assert "rounded-md" in page
     assert "linear-gradient" not in css
     assert "hero" not in page.lower()

@@ -17,6 +17,10 @@ COPY . .
 
 RUN chmod +x /app/docker/backend-entrypoint.sh
 
+RUN useradd --create-home --shell /usr/sbin/nologin appuser
+
+USER appuser
+
 EXPOSE 8000
 
 ENTRYPOINT ["/app/docker/backend-entrypoint.sh"]

@@ -139,11 +139,18 @@ export default function Home() {
     setSelectedModel(model);
     setIsLoading(true);
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const token = getAuthToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
       const response = await fetch(`${apiBaseUrl}/api/v1/config/llm`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ provider: option.provider, model })
       });
+      if (response.status === 401) {
+        signOut();
+        return;
+      }
       if (!response.ok) throw new Error(`Provider update HTTP ${response.status}`);
       const nextConfig = (await response.json()) as ApiConfig;
       setConfig(nextConfig);
@@ -238,7 +245,7 @@ export default function Home() {
       <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[224px_minmax(0,1fr)_auto]">
         <aside className="flex flex-col border-b border-line bg-surface-900 px-4 py-5 xl:border-b-0 xl:border-r">
           <div className="flex items-center gap-2.5">
-            <div className="grid h-9 w-9 place-items-center rounded-md bg-amber-soft text-sm font-semibold text-amber-action">
+            <div className="grid h-9 w-9 place-items-center rounded-md bg-brand-soft text-sm font-semibold text-brand-action">
               U
             </div>
             <span className="text-lg font-semibold tracking-tight">Ubichinon</span>
@@ -247,7 +254,7 @@ export default function Home() {
           <div className="mt-auto space-y-3 pt-8">
             {currentUser?.email ? (
               <div className="flex items-center gap-2.5">
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-850 text-sm font-semibold text-amber-action">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-850 text-sm font-semibold text-brand-action">
                   {((currentUser.name || currentUser.email)[0] ?? "U").toUpperCase()}
                 </div>
                 <div className="min-w-0">
@@ -361,7 +368,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-amber-action text-surface-950 transition hover:bg-amber-hover disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-brand-action text-surface-950 transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Send message"
                 title="Send"
               >

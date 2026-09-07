@@ -70,7 +70,7 @@ export default function LoginPage() {
       <div className="mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 items-center gap-14 px-6 py-16 md:grid-cols-[1.2fr_minmax(0,400px)] md:gap-20">
         <section>
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-lg bg-amber-soft text-base font-semibold text-amber-action">
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand-soft text-base font-semibold text-brand-action">
               U
             </div>
             <span className="text-xl font-semibold tracking-tight">Ubichinon</span>
@@ -86,7 +86,7 @@ export default function LoginPage() {
           <ul className="mt-10 max-w-md space-y-3">
             {capabilities.map((capability) => (
               <li key={capability} className="flex items-center gap-3 text-sm text-muted">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-action" aria-hidden />
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-action" aria-hidden />
                 {capability}
               </li>
             ))}
@@ -106,7 +106,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 placeholder="you@example.com"
-                className="h-11 rounded-md border border-line bg-surface-900 px-3.5 text-[15px] text-ink outline-none placeholder:text-faint focus:border-amber-action"
+                className="h-11 rounded-md border border-line bg-surface-900 px-3.5 text-[15px] text-ink outline-none placeholder:text-faint focus:border-brand-action"
               />
             </label>
 
@@ -118,12 +118,12 @@ export default function LoginPage() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="••••••••"
-                className="h-11 rounded-md border border-line bg-surface-900 px-3.5 text-[15px] text-ink outline-none placeholder:text-faint focus:border-amber-action"
+                className="h-11 rounded-md border border-line bg-surface-900 px-3.5 text-[15px] text-ink outline-none placeholder:text-faint focus:border-brand-action"
               />
             </label>
 
             {error ? (
-              <div className="rounded-md border border-danger-soft bg-danger-soft/40 px-3.5 py-2.5 text-sm text-[#e8a29b]">
+              <div className="rounded-md border border-danger-soft bg-danger-soft/40 px-3.5 py-2.5 text-sm text-danger-action">
                 {error}
               </div>
             ) : null}
@@ -131,7 +131,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={!username.trim() || !password || isLoading}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-amber-action text-sm font-semibold text-surface-950 transition hover:bg-amber-hover disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand-action text-sm font-semibold text-surface-950 transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isLoading ? <Loader2 className="animate-spin" size={16} aria-hidden /> : null}
               {isLoading ? "Signing in..." : "Sign in"}
