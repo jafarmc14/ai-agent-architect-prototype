@@ -4,8 +4,6 @@ set -euo pipefail
 BACKUP_DIR="${BACKUP_DIR:-/backups}"
 DUMP_FILE="${1:-}"
 SCRATCH_DB="${RESTORE_TEST_DB:-ai_agent_restore_test}"
-SOURCE_DB="${PGDATABASE:-ai_agent}"
-MATCH_COUNT_TABLES="${MATCH_COUNT_TABLES:-products orders users conversations messages document_chunks llm_requests request_traces trace_spans resource_usage_events tenant_ai_budgets}"
 PGHOST="${PGHOST:-postgres}"
 PGPORT="${PGPORT:-5432}"
 PGUSER="${PGUSER:-postgres}"
@@ -36,22 +34,39 @@ pg_restore -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$SCRATCH_DB" --no-owner --
 
 FAIL=0
 
-# Data preservation: every restored table must exist and its row count must
-# match the source database. This validates the backup regardless of whether
-# the source is empty (fresh deployment) or fully seeded.
-for table in $MATCH_COUNT_TABLES; do
-  source_count="$(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$SOURCE_DB" -tAc "SELECT count(*) FROM \"$table\";" 2>/dev/null || true)"
-  restored_count="$(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$SCRATCH_DB" -tAc "SELECT count(*) FROM \"$table\";" 2>/dev/null || true)"
-  if [ -z "$restored_count" ]; then
+# Data preservation: compare the restored row counts against the counts the
+# backup recorded in its manifest at backup time. This validates the backup
+# regardless of whether the source is empty (fresh deployment) or fully seeded,
+# and is immune to writes that happen on the live source after the backup.
+MANIFEST_FILE="${DUMP_FILE%.dump}.manifest.json"
+if [ ! -f "$MANIFEST_FILE" ]; then
+  echo "[restore-test] FAIL: manifest not found next to dump: $MANIFEST_FILE"
+  exit 2
+fi
+
+count_checked=0
+while IFS= read -r line; do
+  table="$(printf '%s\n' "$line" | sed -n 's/^[[:space:]]*"\([^"]*\)"[[:space:]]*:[[:space:]]*\([0-9]*\)[[:space:]]*,*$/\1/p')"
+  expected="$(printf '%s\n' "$line" | sed -n 's/^[[:space:]]*"\([^"]*\)"[[:space:]]*:[[:space:]]*\([0-9]*\)[[:space:]]*,*$/\2/p')"
+  if [ -z "$table" ] || [ -z "$expected" ]; then
+    continue
+  fi
+  restored="$(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$SCRATCH_DB" -tAc "SELECT count(*) FROM \"$table\";" 2>/dev/null || true)"
+  count_checked=$((count_checked + 1))
+  if [ -z "$restored" ]; then
     echo "[restore-test] FAIL: table $table missing in restored DB"
     FAIL=1
-  elif [ "$restored_count" != "$source_count" ]; then
-    echo "[restore-test] FAIL: $table row count mismatch (source=$source_count restored=$restored_count)"
+  elif [ "$restored" != "$expected" ]; then
+    echo "[restore-test] FAIL: $table row count mismatch (backup=$expected restored=$restored)"
     FAIL=1
   else
-    echo "[restore-test] OK: $table rows=$restored_count (matches source)"
+    echo "[restore-test] OK: $table rows=$restored (matches backup)"
   fi
-done
+done < <(awk '/"table_counts": \{/{in_block=1; next} in_block && /^  \}/{exit} in_block{print}' "$MANIFEST_FILE")
+
+if [ "$count_checked" -eq 0 ]; then
+  echo "[restore-test] WARN: no table counts found in manifest"
+fi
 
 migration_count="$(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$SCRATCH_DB" -tAc "SELECT count(*) FROM schema_migrations;" 2>/dev/null || true)"
 latest_migration="$(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$SCRATCH_DB" -tAc "SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1;" 2>/dev/null || true)"

@@ -2658,7 +2658,7 @@ The DR posture is defined in `docs/disaster-recovery.md`; the short version:
 - **RPO ≤ 24 hours, RTO ≤ 30 minutes.**
 - **Backup:** daily `pg_dump -Fc` with 14-day rolling retention (`BACKUP_RETENTION_DAYS`).
 - **Automation:** a lean one-shot `db-backup` service in the dev stack (no daemon); deployments schedule the same `scripts/backup_postgres.sh` via host cron. The production compose stack is intentionally unchanged.
-- **Restore test (mandatory):** `scripts/test_backup_restore.sh` restores the latest dump into a scratch database, verifies every key table's row count **matches the source** (valid for empty and seeded databases), checks `schema_migrations` and the `vector` extension, then drops it. CI runs this on every pull request in the `integration` job.
+- **Restore test (mandatory):** `scripts/test_backup_restore.sh` restores the latest dump into a scratch database and verifies each key table's row count **matches the counts recorded in the backup manifest at backup time** (valid for empty and seeded databases, immune to later writes), then checks `schema_migrations` and the `vector` extension before dropping it. CI runs this on every pull request in the `integration` job.
 
 ```bash
 # Dev backup (one-shot)

@@ -94,7 +94,7 @@ After restore, start the application stack. The backend entrypoint runs `migrate
 
 `scripts/test_backup_restore.sh`:
 1. Restores the latest (or an explicit) dump into a scratch DB `ai_agent_restore_test`.
-2. Asserts **data preservation**: every key table (`products`, `orders`, `users`, `conversations`, `messages`, `document_chunks`, `llm_requests`, `request_traces`, `trace_spans`, `resource_usage_events`, `tenant_ai_budgets`) exists in the restored DB and its row count **matches the source database** — correct for both empty (fresh deployment) and fully seeded databases.
+2. Asserts **data preservation**: the backup manifest (written at backup time) records the row count of every key table (`products`, `orders`, `users`, `conversations`, `messages`, `document_chunks`, `llm_requests`, `request_traces`, `trace_spans`, `resource_usage_events`, `tenant_ai_budgets`); the restored DB must have matching counts. This is correct for both empty (fresh deployment) and fully seeded databases, and is immune to writes on the live source after the backup.
 3. Asserts `schema_migrations` is populated with the latest applied version.
 4. Asserts the `vector` extension is present.
 5. Drops the scratch DB and exits 0 on success, 1 on failure.
