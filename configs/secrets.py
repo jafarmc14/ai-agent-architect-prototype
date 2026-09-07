@@ -5,7 +5,7 @@ from pathlib import Path
 
 LOGGER = logging.getLogger("security.secrets")
 LOGGER.setLevel(logging.INFO)
-SECRET_DIR = Path("/run/secrets")
+SECRET_DIR = Path(os.getenv("SECRET_DIR", "/run/secrets"))
 
 
 def get_secret(
