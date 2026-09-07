@@ -94,6 +94,8 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     secrets:
       - postgres_password
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - ai_agent_postgres_prod_data:/var/lib/postgresql/data
     restart: unless-stopped
