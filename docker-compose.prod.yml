@@ -31,7 +31,7 @@ services:
     environment:
       NODE_ENV: production
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+      - "127.0.0.1:${FRONTEND_PORT:-3001}:3000"
     restart: unless-stopped
     mem_limit: 1g
     cpus: "1"
