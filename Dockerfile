@@ -17,9 +17,9 @@ COPY . .
 
 RUN chmod +x /app/docker/backend-entrypoint.sh
 
-RUN useradd --create-home --shell /usr/sbin/nologin appuser
-
-USER appuser
+# Non-root runtime user. The entrypoint runs as root only to make Docker
+# Compose secrets readable, then drops to this user before starting uvicorn.
+RUN useradd --create-home --shell /usr/sbin/nologin --uid 1000 appuser
 
 EXPOSE 8000
 
