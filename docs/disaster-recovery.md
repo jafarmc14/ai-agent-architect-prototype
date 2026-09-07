@@ -15,22 +15,22 @@ This document defines the backup and disaster recovery (DR) posture for the AI-A
 
 | Objective | Target | Rationale |
 |---|---|---|
-| **RPO** (Recovery Point Objective) | ≤ 24 hours | A full logical backup is taken once per day; worst case we lose up to one day of writes |
+| **RPO** (Recovery Point Objective) | ≤ 7 days | A full logical backup is taken once a week (Monday); worst case we lose up to a week of writes |
 | **RTO** (Recovery Time Objective) | ≤ 30 minutes | Restore the latest dump into a fresh/cleaned database, run the idempotent entrypoint migrations, and verify the schema and key tables |
 
-> Lowering RPO to minutes would require WAL archiving / `pg_basebackup` / replication. That is intentionally out of scope for this prototype scale; revisit when the deployment needs continuous data protection.
+> Lowering RPO to minutes would require WAL archiving / `pg_basebackup` / replication. That is intentionally out of scope for this prototype scale; revisit when the deployment needs continuous data protection. If transaction data becomes critical, move back to daily backups or hourly WAL archiving.
 
 ## Backup Policy
 
 | Setting | Value | Source |
 |---|---|---|
 | Format | `pg_dump -Fc` (custom, compressed) | `scripts/backup_postgres.sh` |
-| Schedule | Daily (one-shot; host scheduler or `docker compose run`) | See "Running a Backup" |
-| Retention | 14 days, rolling (oldest deleted first) | `BACKUP_RETENTION_DAYS` (default `14`) |
+| Schedule | Weekly (Monday 02:00; one-shot; host scheduler or `docker compose run`) | See "Running a Backup" |
+| Retention | 30 days, rolling (oldest deleted first) | `BACKUP_RETENTION_DAYS` (default `30`) |
 | Location | Dedicated backup volume (`ai_agent_postgres_dev_backups` in dev) or a host directory | `BACKUP_DIR` |
 | Naming | `<db>_YYYYmmdd_HHMMSS.dump` + matching `.manifest.json` | `backup_postgres.sh` |
 
-Retention of 14 days covers at least two full RPO cycles with margin. Backups are logical dumps and are portable across PostgreSQL versions compatible with `pg_restore`.
+Retention of 30 days keeps roughly four weekly restore points, giving a rollback buffer if a problem is discovered days or weeks later. Backups are logical dumps and are portable across PostgreSQL versions compatible with `pg_restore`.
 
 ### Recommended off-site copy
 
@@ -52,7 +52,7 @@ This starts the Postgres image, runs `scripts/backup_postgres.sh` against the `p
 
 ```bash
 PGHOST=postgres PGPORT=5432 PGUSER=postgres PGPASSWORD=<secret> PGDATABASE=ai_agent \
-BACKUP_DIR=/backups BACKUP_RETENTION_DAYS=14 \
+BACKUP_DIR=/backups BACKUP_RETENTION_DAYS=30 \
   /scripts/backup_postgres.sh
 ```
 
@@ -61,8 +61,12 @@ BACKUP_DIR=/backups BACKUP_RETENTION_DAYS=14 \
 Production keeps the compose stack unchanged. Schedule the same script with a host cron entry (Linux) or Task Scheduler (Windows):
 
 ```bash
-# crontab -e  (example: daily at 02:00)
-0 2 * * * cd /path/to/project && docker compose -f docker-compose.prod.yml exec -T postgres bash -c 'pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /backups/dump_$(date +\%Y\%m\%d_\%H\%M\%S).dump' 
+# crontab -e  (example: weekly, Monday at 02:00)
+0 2 * * 1 cd /path/to/project && PGPASSWORD=<postgres-password> docker run --rm --network host \
+  -e PGHOST=127.0.0.1 -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD=<postgres-password> \
+  -e PGDATABASE=ai_agent -e BACKUP_DIR=/backups -e BACKUP_RETENTION_DAYS=30 \
+  -v /backups:/backups -v "$PWD/scripts:/scripts:ro" \
+  --entrypoint /bin/bash pgvector/pgvector:pg16 /scripts/backup_postgres.sh
 ```
 
 > Use a dedicated backup service or host directory that survives container recreation. A backup written only to a Postgres container's filesystem is lost when the container is replaced.
@@ -111,6 +115,7 @@ CI runs this automatically on every pull request: the `integration` job backs up
 | When | Action |
 |---|---|
 | Every pull request | CI `integration` job runs backup + restore test |
+| Weekly (after the scheduled Monday backup) | Run `test_backup_restore.sh` (automated via cron) |
 | After each manual backup | Run `test_backup_restore.sh` |
 | On any change to retention, restore, or backup scripts | Run the restore test |
 | Recommended | A quarterly full restore into a fresh host, timed to confirm the RTO target |

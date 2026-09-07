@@ -158,18 +158,18 @@ Open `https://ikarpedia.cloud` in a browser, sign in, and send a chat message.
 
 ## 7. Backup & disaster recovery
 
-The Phase 44 scripts run on the host against the Postgres container. Add to root crontab:
+The Phase 44 scripts run on the host against the Postgres container. Backup runs **weekly on Monday 02:00** with **30-day retention** (RPO ≤ 7 days). Add to root crontab:
 
 ```bash
 crontab -e
-# daily at 02:00
-0 2 * * * cd /opt/ai-agent && PGHOST=localhost PGPORT=5432 PGUSER=postgres PGPASSWORD=<postgres-password> PGDATABASE=ai_agent BACKUP_DIR=/opt/ai-agent-backups BACKUP_RETENTION_DAYS=14 docker run --rm --network host -e PGHOST=localhost -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD=<postgres-password> -e PGDATABASE=ai_agent -e BACKUP_DIR=/backups -e BACKUP_RETENTION_DAYS=14 -v /opt/ai-agent-backups:/backups -v /opt/ai-agent/scripts:/scripts:ro --entrypoint /bin/bash pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b /scripts/backup_postgres.sh
+# weekly on Monday at 02:00 (retention 30 days)
+0 2 * * 1 cd /opt/ai-agent && PGPASSWORD=$(cat .secrets/postgres_password) && docker run --rm --network host -e PGHOST=127.0.0.1 -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD="$PGPASSWORD" -e PGDATABASE=ai_agent -e BACKUP_DIR=/backups -e BACKUP_RETENTION_DAYS=30 -v /opt/ai-agent-backups:/backups -v /opt/ai-agent/scripts:/scripts:ro --entrypoint /bin/bash pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b /scripts/backup_postgres.sh
 ```
 
-Run the mandatory restore test after each backup and after any retention change:
+Run the mandatory restore test after each backup (add a second cron line, e.g. Monday 03:00) and after any retention change:
 
 ```bash
-docker run --rm --network host -e PGHOST=localhost -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD=<postgres-password> -e PGDATABASE=ai_agent -e BACKUP_DIR=/backups -v /opt/ai-agent-backups:/backups -v /opt/ai-agent/scripts:/scripts:ro --entrypoint /bin/bash pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b /scripts/test_backup_restore.sh
+0 3 * * 1 cd /opt/ai-agent && PGPASSWORD=$(cat .secrets/postgres_password) && docker run --rm --network host -e PGHOST=127.0.0.1 -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD="$PGPASSWORD" -e PGDATABASE=ai_agent -e BACKUP_DIR=/backups -v /opt/ai-agent-backups:/backups -v /opt/ai-agent/scripts:/scripts:ro --entrypoint /bin/bash pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b /scripts/test_backup_restore.sh
 ```
 
 Full DR procedure and RPO/RTO are in `docs/disaster-recovery.md`.

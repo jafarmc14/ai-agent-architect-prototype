@@ -855,7 +855,7 @@ Ranking combines vector similarity with trust weight, so official policy evidenc
 | `database/ingest_knowledge_base.py` | **Knowledge ingestion script.** Runs parse-clean-chunk-embed-store for split knowledge documents. |
 | `database/provision_login_account.py` | **Login account provisioner.** Creates or updates a PostgreSQL login account (bcrypt-hashed) used by the frontend login gate. Defaults to `admin@example.local`. |
 | `docs/postgresql_schema.md` | **PostgreSQL schema design.** Documents table purpose, relationships, and design notes. |
-| `docs/disaster-recovery.md` | **Disaster recovery runbook (Phase 44).** Defines RPO (≤24h) and RTO (≤30min), backup schedule and retention, restore procedure, and the mandatory automated restore test. |
+| `docs/disaster-recovery.md` | **Disaster recovery runbook (Phase 44).** Defines RPO (≤7 days) and RTO (≤30min), weekly backup schedule and retention, restore procedure, and the mandatory automated restore test. |
 | `docs/production-deployment.md` | **Production deployment runbook (Phase 45).** Deploys the stack to a 2 vCPU/8 GB Hostinger VPS at `ikarpedia.cloud`: Nginx reverse proxy + TLS, FastAPI, Next.js, pgvector, and lightweight Redis. |
 | `deploy/nginx/default.conf` | **Nginx HTTP reverse proxy.** Routes `/api/` → backend:8000 and `/` → frontend:3000, serves the certbot ACME webroot. |
 | `deploy/nginx/tls.conf.example` | **Nginx TLS listener (template).** 443/ssl server block; copy to `tls.conf` after placing certs in `deploy/certs/`. |
@@ -2655,8 +2655,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 The DR posture is defined in `docs/disaster-recovery.md`; the short version:
 
-- **RPO ≤ 24 hours, RTO ≤ 30 minutes.**
-- **Backup:** daily `pg_dump -Fc` with 14-day rolling retention (`BACKUP_RETENTION_DAYS`).
+- **RPO ≤ 7 days, RTO ≤ 30 minutes.**
+- **Backup:** weekly `pg_dump -Fc` (Monday 02:00) with 30-day rolling retention (`BACKUP_RETENTION_DAYS`).
 - **Automation:** a lean one-shot `db-backup` service in the dev stack (no daemon); deployments schedule the same `scripts/backup_postgres.sh` via host cron. The production compose stack is intentionally unchanged.
 - **Restore test (mandatory):** `scripts/test_backup_restore.sh` restores the latest dump into a scratch database and verifies each key table's row count **matches the counts recorded in the backup manifest at backup time** (valid for empty and seeded databases, immune to later writes), then checks `schema_migrations` and the `vector` extension before dropping it. CI runs this on every pull request in the `integration` job.
 
