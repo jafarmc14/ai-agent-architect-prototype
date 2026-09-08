@@ -310,6 +310,38 @@ def test_rag_facts_must_have_evidence():
     assert audit.unsupported_critical_claim_count == 0
 
 
+def test_rag_heading_labels_do_not_trigger_abstention():
+    audit = audit_response_claims(
+        "Here is our return policy [C1]:\n"
+        "You may request a return within 7 days of receiving the product.\n"
+        "Refund details [C2]:\n"
+        "Refunds are processed within 3-5 business days after the returned item is received and inspected.",
+        rag_evidence=(
+            "[C1] Return Policy: Customers may request a return within 7 days of receiving the product.\n"
+            "[C2] Refund Policy: Refunds are processed within 3-5 business days "
+            "after the returned item is received and inspected."
+        ),
+    )
+
+    assert audit.should_abstain is False
+    assert audit.unsupported_critical_claim_count == 0
+    assert not any("details" in claim.text.lower() for claim in audit.unsupported_claims)
+
+
+def test_capability_menu_items_are_not_treated_as_claims():
+    audit = audit_response_claims(
+        "I can help you with:\n"
+        "- **Product questions** - finding items and checking availability\n"
+        "- **Orders** - order status and tracking\n"
+        "- **Returns & refunds** - store policies and how to proceed",
+        tool_outputs=[],
+        rag_evidence="",
+    )
+
+    assert audit.should_abstain is False
+    assert audit.unsupported_critical_claim_count == 0
+
+
 def test_generated_prose_is_not_treated_as_business_fact():
     audit = audit_response_claims(
         "Sure, I can help with that. Could you share the order ID?",
@@ -350,6 +382,8 @@ if __name__ == "__main__":
     test_grounded_no_product_result_is_supported()
     test_no_product_renderer_is_user_friendly_and_grounded()
     test_rag_facts_must_have_evidence()
+    test_rag_heading_labels_do_not_trigger_abstention()
+    test_capability_menu_items_are_not_treated_as_claims()
     test_generated_prose_is_not_treated_as_business_fact()
     test_support_ticket_output_is_supported_by_tool_output()
     test_abstention_message_matches_language()

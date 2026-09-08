@@ -77,6 +77,50 @@ def test_failure_classification_covers_required_transient_failures():
         assert classification.retryable is True
 
 
+def test_chain_supports_multiple_models_per_provider():
+    policy = ProviderFallbackPolicy(
+        _settings_with("openrouter:z-ai/glm-5.3-flash,ollama", max_attempts=3)
+    )
+    targets = policy.targets("openrouter", "deepseek/deepseek-v4-flash-0731")
+    assert [(t.provider, t.model) for t in targets] == [
+        ("openrouter", "deepseek/deepseek-v4-flash-0731"),
+        ("openrouter", "z-ai/glm-5.3-flash"),
+        ("ollama", "llama3.1"),
+    ]
+
+
+def test_legacy_chain_without_model_overrides_is_unchanged():
+    policy = ProviderFallbackPolicy(_settings_with("deepseek,kimi,openrouter,ollama", max_attempts=5))
+    targets = policy.targets("openrouter", "openrouter/free")
+    pairs = [(t.provider, t.model) for t in targets]
+    assert pairs[0] == ("openrouter", "openrouter/free")
+    assert ("deepseek", "deepseek-v4-flash") in pairs
+    assert ("kimi", "kimi-k2.6") in pairs
+    assert ("ollama", "llama3.1") in pairs
+    assert pairs.count(("openrouter", "openrouter/free")) == 1
+
+
+def test_same_model_as_primary_is_deduplicated():
+    policy = ProviderFallbackPolicy(
+        _settings_with(
+            "openrouter:deepseek/deepseek-v4-flash-0731,openrouter:z-ai/glm-5.3-flash,ollama",
+            max_attempts=3,
+        )
+    )
+    targets = policy.targets("openrouter", "deepseek/deepseek-v4-flash-0731")
+    pairs = [(t.provider, t.model) for t in targets]
+    assert pairs.count(("openrouter", "deepseek/deepseek-v4-flash-0731")) == 1
+    assert ("openrouter", "z-ai/glm-5.3-flash") in pairs
+    assert ("ollama", "llama3.1") in pairs
+    assert len(pairs) == 3
+
+
+def test_moonshot_alias_normalization_with_model_override():
+    policy = ProviderFallbackPolicy(_settings_with("moonshot:kimi-k2.6", max_attempts=3))
+    targets = policy.targets("openrouter", "openrouter/free")
+    assert any(t.provider == "kimi" and t.model == "kimi-k2.6" for t in targets)
+
+
 def test_sync_gateway_recovers_all_required_failure_types():
     failures = [
         HTTPFailure(429),
@@ -170,6 +214,13 @@ def _gateway(failure, *, structured=False):
     return gateway, primary, fallback, repository
 
 
+def _settings_with(chain: str, max_attempts: int = 3) -> SimpleNamespace:
+    settings = _settings()
+    settings.provider_fallback_chain = chain
+    settings.provider_fallback_max_attempts = max_attempts
+    return settings
+
+
 def _settings():
     return SimpleNamespace(
         provider_fallback_enabled=True,
@@ -188,6 +239,10 @@ def _settings():
 
 if __name__ == "__main__":
     test_failure_classification_covers_required_transient_failures()
+    test_chain_supports_multiple_models_per_provider()
+    test_legacy_chain_without_model_overrides_is_unchanged()
+    test_same_model_as_primary_is_deduplicated()
+    test_moonshot_alias_normalization_with_model_override()
     test_sync_gateway_recovers_all_required_failure_types()
     test_async_and_structured_paths_use_the_same_fallback_policy()
     test_non_retryable_errors_do_not_switch_provider()

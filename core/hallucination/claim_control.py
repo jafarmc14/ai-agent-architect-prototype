@@ -260,6 +260,10 @@ def _split_sentences(text: str) -> list[str]:
 
 
 def _looks_like_claim(sentence: str) -> bool:
+    if _is_heading_fragment(sentence):
+        return False
+    if _is_capability_descriptor(sentence):
+        return False
     if re.fullmatch(r"\d+[.)]?", sentence.strip()):
         return False
     if sentence.strip().endswith("?"):
@@ -281,6 +285,41 @@ def _looks_like_claim(sentence: str) -> bool:
     if _contains_any(lowered, CRITICAL_BUSINESS_MARKERS):
         return True
     return bool(_business_numbers(sentence))
+
+
+_CAPABILITY_ITEM_RE = re.compile(r"([\w&'() ]{1,60})\*{0,2}\s*[-–—]\s+\S", re.IGNORECASE)
+
+
+def _is_capability_descriptor(sentence: str) -> bool:
+    """Menu items like 'Order status** - checking where your order is'.
+
+    When asked what it can help with, models answer with a list of help
+    topics, often prefixed with an emoji/bullet and with the label optionally
+    bolded. These describe capabilities and carry no factual content, so they
+    must not be audited as unsupported critical claims.
+    """
+    match = _CAPABILITY_ITEM_RE.search(sentence.strip())
+    if not match:
+        return False
+    word_count = len([word for word in match.group(1).split() if word])
+    return word_count <= 5
+
+
+def _is_heading_fragment(sentence: str) -> bool:
+    """Section labels such as 'Refund details [C2]:' are headings, not claims.
+
+    Models occasionally emit short label headings (optionally ending with a
+    citation marker) before a section. These carry no factual content and must
+    not be audited as unsupported critical claims.
+    """
+    stripped = sentence.strip()
+    if not stripped.endswith(":"):
+        return False
+    core = re.sub(r"\[c\d+\]", "", stripped, flags=re.IGNORECASE).rstrip(":").strip()
+    if not core:
+        return False
+    word_count = len([part for part in re.split(r"\s+", core) if part])
+    return word_count <= 4 and not _business_numbers(core)
 
 
 def _contains_any(text: str, markers: set[str]) -> bool:

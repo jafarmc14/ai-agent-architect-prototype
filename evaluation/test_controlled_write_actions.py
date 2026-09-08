@@ -2,12 +2,14 @@ import importlib
 import re
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+import core.orchestration.runtime as runtime  # noqa: E402
 from core.auth import RequestContext, request_context  # noqa: E402
 from core.services.cart_service import CartService  # noqa: E402
 from core.services.order_service import OrderService  # noqa: E402
@@ -164,8 +166,33 @@ def test_audit_log_captures_who_what_when_resource_and_values():
     assert audit["idempotency_key"] == "idem-1"
 
 
+def test_disabled_high_risk_write_returns_deterministic_message():
+    original_get_settings = runtime.get_settings
+    runtime.get_settings = lambda: SimpleNamespace(high_risk_write_actions_enabled=False)
+    try:
+        assert "disabled" in runtime._disabled_write_response("I want to cancel my order ORD002")
+        assert "disabled" in runtime._disabled_write_response("Change the address for ORD005 to Jl. Sudirman No. 100")
+        assert "disabled" in runtime._disabled_write_response("Please update shipping address for ORD001")
+        assert runtime._disabled_write_response("What is the status of order ORD001?") is None
+        assert runtime._disabled_write_response("Find shoes under Rp 1,500,000") is None
+    finally:
+        runtime.get_settings = original_get_settings
+
+
+def test_disabled_high_risk_write_allows_requests_when_enabled():
+    original_get_settings = runtime.get_settings
+    runtime.get_settings = lambda: SimpleNamespace(high_risk_write_actions_enabled=True)
+    try:
+        assert runtime._disabled_write_response("I want to cancel my order ORD002") is None
+        assert runtime._disabled_write_response("Change the address for ORD005") is None
+    finally:
+        runtime.get_settings = original_get_settings
+
+
 if __name__ == "__main__":
     test_cart_add_requires_confirmation_then_executes_once()
     test_high_risk_order_cancellation_is_disabled_initially()
     test_audit_log_captures_who_what_when_resource_and_values()
+    test_disabled_high_risk_write_returns_deterministic_message()
+    test_disabled_high_risk_write_allows_requests_when_enabled()
     print("Controlled write action tests passed.")

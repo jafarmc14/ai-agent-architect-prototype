@@ -1952,6 +1952,13 @@ PROVIDER_FALLBACK_MAX_ATTEMPTS=3
 PROVIDER_FALLBACK_BACKOFF_SECONDS=0.25
 ```
 
+`PROVIDER_FALLBACK_CHAIN` accepts plain provider names (model resolved from that provider's env, e.g. `OPENROUTER_MODEL`) **or** `provider:model` entries that pin a specific model. This lets one provider appear more than once with different models. For example, primary OpenRouter uses DeepSeek V4 Flash while GLM is a second OpenRouter fallback, then local Ollama:
+
+```ini
+OPENROUTER_MODEL=deepseek/deepseek-v4-flash-0731
+PROVIDER_FALLBACK_CHAIN=openrouter:z-ai/glm-5.3-flash,ollama
+```
+
 Only targets whose credentials are configured are included; Ollama is considered locally available but its server must be running. If routing or fallback can reach a hosted provider, the request is treated as external and PII redaction is applied before gateway execution, even when the primary provider is local Ollama.
 
 Every failed attempt and final recovery is recorded in `llm_requests.metadata.fallback`; the final LLM span contains primary provider, final provider, attempt count, categories, and whether fallback was used. Apply the Phase 33 indexes:

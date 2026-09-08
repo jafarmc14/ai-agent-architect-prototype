@@ -84,6 +84,20 @@ EMBEDDING_API_BASE=http://host.docker.internal:11434/v1
 EOF
 ```
 
+### Recommended paid model config
+
+`openrouter/free` is rate-limited (unsuitable for production). With paid OpenRouter credits, pin an affordable tool-calling model as primary and add GLM as a second OpenRouter fallback, then local Ollama:
+
+```bash
+cat >> .env <<'EOF'
+OPENROUTER_MODEL=deepseek/deepseek-v4-flash-0731
+PROVIDER_FALLBACK_ENABLED=true
+PROVIDER_FALLBACK_CHAIN=openrouter:z-ai/glm-5.3-flash,ollama
+EOF
+```
+
+> `PROVIDER_FALLBACK_CHAIN` accepts `provider` (model from that provider's env) or `provider:model` (pinned model), so `openrouter:z-ai/glm-5.3-flash` adds a second OpenRouter model after the primary. Apply with `docker compose -f docker-compose.prod.yml up -d backend` (no rebuild needed; env-only).
+
 > `EMBEDDING_API_BASE` points at Ollama running on the host (`nomic-embed-text`, ~0.3 GB). The backend has `extra_hosts: ["host.docker.internal:host-gateway"]` to reach it. If you prefer an external embedding provider, set `EMBEDDING_API_BASE` accordingly.
 
 ## 3. Build and start (HTTP first)

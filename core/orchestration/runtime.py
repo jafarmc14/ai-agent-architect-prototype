@@ -222,6 +222,8 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
     ai_msg = llm_response.raw
     messages.append(ai_msg)
 
+    escalation_response = None
+
     while hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls:
         guard = active_resource_guard()
         safety_decision = loop_safety.inspect_plan(
@@ -258,6 +260,8 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
                     },
                 ) as tool_span:
                     tool_output = selected_tool.invoke(tool_args)
+                    if tool_name == "escalate_to_human":
+                        escalation_response = str(tool_output)
                     tool_span.set_attributes(output=str(tool_output))
             else:
                 tool_output = f"Security validation blocked tool call '{tool_call['name']}': {validation.reason}."
@@ -306,6 +310,18 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
         )
         ai_msg = llm_response.raw
         messages.append(ai_msg)
+
+    if escalation_response is not None:
+        response = _clean_ai_response(escalation_response)
+        if trace is not None:
+            trace["escalation_deterministic"] = True
+        return _apply_claim_audit(
+            response,
+            trace=trace,
+            tool_outputs=[escalation_response],
+            rag_evidence="",
+            user_input=user_input,
+        )
 
     cleaned_content = _clean_ai_response(ai_msg.content)
     if trace is not None:
@@ -377,6 +393,15 @@ def _execute_routed_workflow(user_input: str, trace: dict | None = None) -> str 
                 _context_from_current_request(),
             ).model_dump()
         return _out_of_scope_response(user_input)
+
+    disabled_write = _disabled_write_response(user_input)
+    if disabled_write:
+        if trace is not None:
+            trace["intent"] = decision.intent.value
+            trace["workflow"] = "disabled_write_action"
+            trace["use_agent_loop"] = False
+            trace["deterministic_first"] = True
+        return disabled_write
 
     if decision.use_agent_loop:
         escalation = evaluate_escalation(user_input, confidence=1.0)
@@ -1253,6 +1278,34 @@ def _out_of_scope_response(user_input: str) -> str:
         "I can only help with store products, stock, orders, shopping carts, store policies, "
         "and customer support. I can't provide recipes or unrelated general information."
     )
+
+
+_DISABLED_WRITE_PATTERNS = (
+    (
+        re.compile(r"\bcancel\b.*\border\b", re.IGNORECASE),
+        "Order cancellation is currently disabled. High-risk write actions require business approval before activation.",
+    ),
+    (
+        re.compile(r"\b(change|update)\b.*\b(address|shipping)\b", re.IGNORECASE),
+        "Address update is currently disabled. High-risk write actions require business approval before activation.",
+    ),
+)
+
+
+def _disabled_write_response(user_input: str) -> str | None:
+    """Deterministic refusal for high-risk writes when they are disabled.
+
+    Cancel/change-address requests must always produce the same "disabled"
+    message instead of relying on the model to call the write tool (which the
+    model sometimes skips, producing an ungrounded response and an abstention).
+    """
+    if get_settings().high_risk_write_actions_enabled:
+        return None
+    lowered = user_input.lower()
+    for pattern, message in _DISABLED_WRITE_PATTERNS:
+        if pattern.search(lowered):
+            return message
+    return None
 
 
 def _token_context(messages: list, user_input: str, task: str, retrieval_context: str = "") -> dict:

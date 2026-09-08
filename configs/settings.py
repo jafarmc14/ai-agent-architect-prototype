@@ -226,7 +226,7 @@ def get_settings() -> AppSettings:
         ),
         high_risk_write_actions_enabled=os.getenv("HIGH_RISK_WRITE_ACTIONS_ENABLED", "false").strip().lower()
         in {"1", "true", "yes", "on"},
-        max_input_tokens=int(os.getenv("MAX_INPUT_TOKENS", "2000")),
+        max_input_tokens=int(os.getenv("MAX_INPUT_TOKENS", "8000")),
         max_output_tokens=int(os.getenv("MAX_OUTPUT_TOKENS", "1200")),
         max_tool_calls=int(os.getenv("MAX_TOOL_CALLS", "6")),
         max_agent_steps=int(os.getenv("MAX_AGENT_STEPS", "4")),

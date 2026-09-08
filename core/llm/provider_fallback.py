@@ -44,9 +44,12 @@ class ProviderFallbackPolicy:
             return [primary]
 
         targets = [primary]
-        for provider in _csv(self.settings.provider_fallback_chain):
+        for entry in _csv(self.settings.provider_fallback_chain):
+            provider, model = _parse_chain_entry(entry)
             normalized = "kimi" if provider == "moonshot" else provider
-            target = FallbackTarget(normalized, self._model_for(normalized))
+            if not model:
+                model = self._model_for(normalized)
+            target = FallbackTarget(normalized, model)
             if not target.model or not self._provider_available(normalized):
                 continue
             if (target.provider, target.model) not in {(item.provider, item.model) for item in targets}:
@@ -132,3 +135,14 @@ def _status_code(error: Exception) -> int | None:
 
 def _csv(value: str) -> list[str]:
     return [item.strip().lower() for item in (value or "").split(",") if item.strip()]
+
+
+def _parse_chain_entry(entry: str) -> tuple[str, str]:
+    """Parse a fallback chain entry into (provider, model).
+
+    Supports "provider" (model resolved from settings) and
+    "provider:model" (explicit model override, enabling multiple models
+    for the same provider in one chain).
+    """
+    provider, _, model = entry.partition(":")
+    return provider.strip(), model.strip()
