@@ -49,8 +49,18 @@ def test_router_keeps_complex_and_write_requests_in_agent_loop():
     assert route_intent("Hello, what can you help me with?").use_agent_loop is True
 
 
+def test_price_range_product_queries_route_to_product_search():
+    query = "What products do you have between Rp 100,000 and Rp 300,000?"
+    assert classify_intent(query) == Intent.PRODUCT_SEARCH
+    decision = route_intent(query)
+    assert decision.workflow == "product_search"
+    assert decision.use_agent_loop is False
+    assert classify_intent("what products do you sell") == Intent.PRODUCT_SEARCH
+
+
 if __name__ == "__main__":
     test_intent_taxonomy_classification()
     test_router_bypasses_agent_loop_for_simple_workflows()
     test_router_keeps_complex_and_write_requests_in_agent_loop()
+    test_price_range_product_queries_route_to_product_search()
     print("Intent router tests passed.")

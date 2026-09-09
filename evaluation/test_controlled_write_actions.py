@@ -189,10 +189,28 @@ def test_disabled_high_risk_write_allows_requests_when_enabled():
         runtime.get_settings = original_get_settings
 
 
+def test_confirmation_consumption_tolerates_markdown_bold():
+    service = WriteActionService(repository=CapturingWriteControlRepository())
+    with request_context(RequestContext(session_id="confirm-md-session")):
+        prompt = service.prepare_confirmation(
+            action="cart.clear",
+            resource_type="cart",
+            resource_id="session",
+            payload={},
+            prompt="Clear your cart?",
+        )
+        code = re.search(r"confirm ([0-9a-f]{8})", prompt).group(1)
+        pending = service.consume_confirmation(f"**confirm {code}**")
+        assert pending is not None
+        assert pending.action == "cart.clear"
+        assert service.consume_confirmation(f"yes {code}") is None
+
+
 if __name__ == "__main__":
     test_cart_add_requires_confirmation_then_executes_once()
     test_high_risk_order_cancellation_is_disabled_initially()
     test_audit_log_captures_who_what_when_resource_and_values()
     test_disabled_high_risk_write_returns_deterministic_message()
     test_disabled_high_risk_write_allows_requests_when_enabled()
+    test_confirmation_consumption_tolerates_markdown_bold()
     print("Controlled write action tests passed.")

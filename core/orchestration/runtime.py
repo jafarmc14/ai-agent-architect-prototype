@@ -323,6 +323,26 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
             user_input=user_input,
         )
 
+    confirmation_response = next(
+        (
+            output
+            for output in evidence_tool_outputs
+            if "Confirmation required for" in output and "Reply with: confirm" in output
+        ),
+        None,
+    )
+    if confirmation_response is not None:
+        response = _clean_ai_response(confirmation_response)
+        if trace is not None:
+            trace["write_confirmation_deterministic"] = True
+        return _apply_claim_audit(
+            response,
+            trace=trace,
+            tool_outputs=[confirmation_response],
+            rag_evidence="",
+            user_input=user_input,
+        )
+
     cleaned_content = _clean_ai_response(ai_msg.content)
     if trace is not None:
         trace["agent_loop_safety"] = loop_safety.snapshot()
@@ -644,7 +664,7 @@ def _apply_claim_audit(
         )
     if trace is not None:
         trace["claim_audit"] = _claim_audit_for_trace(audit)
-    if audit.should_abstain:
+    if audit.should_abstain and (tool_outputs or rag_evidence):
         language_hint = _detect_response_language(user_input)
         abstention = hallucination_abstention_message(language_hint)
         if trace is not None:

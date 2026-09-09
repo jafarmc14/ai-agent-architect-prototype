@@ -342,6 +342,20 @@ def test_capability_menu_items_are_not_treated_as_claims():
     assert audit.unsupported_critical_claim_count == 0
 
 
+def test_no_evidence_conversational_response_does_not_abstain():
+    import core.orchestration.runtime as runtime
+
+    response = "You're very welcome! Ask me about orders, returns, or shipping anytime."
+    result = runtime._apply_claim_audit(
+        response,
+        trace={},
+        tool_outputs=[],
+        rag_evidence="",
+        user_input="Thank you for your help!",
+    )
+    assert result == response
+
+
 def test_generated_prose_is_not_treated_as_business_fact():
     audit = audit_response_claims(
         "Sure, I can help with that. Could you share the order ID?",
@@ -384,6 +398,7 @@ if __name__ == "__main__":
     test_rag_facts_must_have_evidence()
     test_rag_heading_labels_do_not_trigger_abstention()
     test_capability_menu_items_are_not_treated_as_claims()
+    test_no_evidence_conversational_response_does_not_abstain()
     test_generated_prose_is_not_treated_as_business_fact()
     test_support_ticket_output_is_supported_by_tool_output()
     test_abstention_message_matches_language()

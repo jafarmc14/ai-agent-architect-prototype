@@ -1,11 +1,14 @@
 from dataclasses import dataclass
 from hashlib import sha256
 import json
+import re
 from typing import Any
 from uuid import uuid4
 
 from core.auth import RequestContext, get_request_context
 from core.privacy import redact_for_logs
+
+_CONFIRMATION_RE = re.compile(r"\b(confirm|yes|approve)\s+([0-9a-f]{6,12})\b", re.IGNORECASE)
 from core.repositories.write_control_repository import WriteControlRepository
 
 
@@ -67,12 +70,11 @@ class WriteActionService:
         )
 
     def consume_confirmation(self, message: str) -> PendingWriteAction | None:
-        context = get_request_context()
-        parts = message.strip().lower().split()
-        if len(parts) < 2 or parts[0] not in {"confirm", "yes", "approve"}:
+        match = _CONFIRMATION_RE.search(message or "")
+        if not match:
             return None
-        confirmation_id = parts[1]
-        return _PENDING_ACTIONS.pop(_pending_key(context, confirmation_id), None)
+        confirmation_id = match.group(2)
+        return _PENDING_ACTIONS.pop(_pending_key(get_request_context(), confirmation_id), None)
 
     def find_existing_response(self, idempotency_key: str, context: RequestContext | None = None) -> str:
         context = context or get_request_context()

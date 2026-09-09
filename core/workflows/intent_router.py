@@ -78,7 +78,11 @@ def classify_intent(user_input: str) -> Intent:
     if _has_any(text, ["stok", "tersedia", "harga", "detail", "asal"]):
         return Intent.PRODUCT_INFO
 
-    if _has_any(text, ["find", "search", "show", "list", "looking for", "recommend"]):
+    if (
+        _has_any(text, ["find", "search", "show", "list", "looking for", "recommend"])
+        or "product" in text
+        or _has_price_query(text)
+    ):
         return Intent.PRODUCT_SEARCH
     if _has_any(text, ["cari", "tampilkan", "daftar", "rekomendasi", "produk", "sepatu", "baju"]):
         return Intent.PRODUCT_SEARCH
@@ -159,7 +163,34 @@ def _looks_complex(text: str) -> bool:
         " rusak",
         " komplain",
     ]
+    if "between" in lowered:
+        complex_markers = [marker for marker in complex_markers if marker != " and "]
     return any(marker in lowered for marker in complex_markers)
+
+
+def _has_price_query(text: str) -> bool:
+    if re.search(r"\brp\.?\s*\d|idr\s*\d|harga\s*\d", text, re.IGNORECASE):
+        return True
+    if re.search(r"\bbetween\b.*\band\b", text, re.IGNORECASE) and re.search(r"\d", text):
+        return True
+    return _has_any(
+        text,
+        [
+            "under",
+            "below",
+            "less than",
+            "over",
+            "above",
+            "more than",
+            "max price",
+            "min price",
+            "budget",
+            "di bawah",
+            "di atas",
+            "kurang dari",
+            "lebih dari",
+        ],
+    )
 
 
 def _is_document_faq_question(text: str) -> bool:
