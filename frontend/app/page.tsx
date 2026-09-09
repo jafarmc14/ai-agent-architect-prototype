@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowDown,
   ChevronRight,
   Loader2,
   LogOut,
@@ -85,6 +86,8 @@ export default function Home() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false);
   const sessionId = useRef(`next-${crypto.randomUUID()}`);
+  const messageListRef = useRef<HTMLDivElement>(null);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   const isEmptyState = messages.length <= 1 && !isLoading;
 
@@ -103,6 +106,31 @@ export default function Home() {
     setCheckedAuth(true);
     void refreshConfig();
   }, []);
+
+  function handleMessageScroll() {
+    const el = messageListRef.current;
+    if (!el) return;
+    setShowScrollToBottom(el.scrollHeight - el.scrollTop - el.clientHeight > 80);
+  }
+
+  function scrollToBottom() {
+    const el = messageListRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }
+
+  useEffect(() => {
+    const el = messageListRef.current;
+    if (!el) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distance < 120) {
+      requestAnimationFrame(() => {
+        if (messageListRef.current) {
+          messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+        }
+      });
+    }
+  }, [messages, isLoading]);
 
   async function refreshConfig() {
     try {
@@ -241,9 +269,9 @@ export default function Home() {
       : "$0.0000";
 
   return (
-    <main className="min-h-screen bg-surface-950 text-ink">
-      <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[224px_minmax(0,1fr)_auto]">
-        <aside className="flex flex-col border-b border-line bg-surface-900 px-4 py-5 xl:border-b-0 xl:border-r">
+    <main className="h-dvh overflow-hidden bg-surface-950 text-ink">
+      <div className="flex h-dvh flex-col overflow-hidden xl:grid xl:grid-cols-[224px_minmax(0,1fr)_auto]">
+        <aside className="flex flex-col gap-4 overflow-y-auto border-b border-line bg-surface-900 px-4 py-5 xl:border-b-0 xl:border-r">
           <div className="flex items-center gap-2.5">
             <div className="grid h-9 w-9 place-items-center rounded-md bg-brand-soft text-sm font-semibold text-brand-action">
               U
@@ -276,7 +304,7 @@ export default function Home() {
           </div>
         </aside>
 
-        <section className="grid min-h-screen grid-rows-[auto_minmax(0,1fr)_auto] bg-surface-950">
+        <section className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-surface-950">
           <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
             <div>
               <h2 className="text-lg font-semibold tracking-tight text-ink">Assistant</h2>
@@ -302,7 +330,8 @@ export default function Home() {
             </div>
           </header>
 
-          <div className="min-h-0 overflow-y-auto px-5 py-8">
+          <div className="relative min-h-0 overflow-hidden">
+            <div ref={messageListRef} onScroll={handleMessageScroll} className="h-full overflow-y-auto px-5 py-8">
             {isEmptyState ? (
               <div className="mx-auto flex w-full max-w-xl flex-col items-center pt-16 text-center">
                 <h3 className="text-2xl font-semibold tracking-tight text-ink">What can I help with?</h3>
@@ -338,6 +367,18 @@ export default function Home() {
                 ) : null}
               </div>
             )}
+          </div>
+            {showScrollToBottom ? (
+              <button
+                type="button"
+                onClick={scrollToBottom}
+                aria-label="Scroll to latest"
+                title="Scroll to latest"
+                className="absolute bottom-5 left-1/2 grid h-9 w-9 -translate-x-1/2 place-items-center rounded-full border border-line bg-surface-900 text-muted shadow-panel transition hover:text-ink"
+              >
+                <ArrowDown size={16} aria-hidden />
+              </button>
+            ) : null}
           </div>
 
           <div className="border-t border-line bg-surface-900/50 px-5 py-4">
@@ -379,7 +420,7 @@ export default function Home() {
         </section>
 
         {detailsOpen ? (
-          <aside className="w-full border-t border-line bg-surface-900 px-5 py-5 xl:w-[300px] xl:border-l xl:border-t-0">
+          <aside className="fixed inset-y-0 right-0 z-40 w-full max-w-sm overflow-y-auto border-l border-line bg-surface-900 px-5 py-5 shadow-panel xl:static xl:z-auto xl:w-[300px] xl:max-w-none xl:shadow-none">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-ink">Details</p>
               <button
