@@ -42,18 +42,15 @@ ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp && ufw enable
 hostname -I
 ```
 
-### Ollama for embeddings (must not be publicly reachable)
+### Ollama for embeddings (containerized)
 
-The backend reaches Ollama on the host via `host.docker.internal:11434`. Ollama has no authentication, so **bind it to loopback only** and block the port at the firewall:
+The `ollama` service runs as a container on the Compose network (no host install, no public exposure). The backend reaches it internally at `http://ollama:11434/v1`. Pull the embedding model once after the stack is up:
 
 ```bash
-apt install -y curl
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull nomic-embed-text
-systemctl edit ollama      # add:  [Service]  Environment="OLLAMA_HOST=127.0.0.1:11434"
-systemctl restart ollama
-ufw deny 11434/tcp         # safety net if the service is ever misconfigured
+docker compose -f docker-compose.prod.yml exec ollama ollama pull nomic-embed-text
 ```
+
+> No host Ollama is needed. If a host Ollama was previously installed, stop and disable it (`systemctl stop ollama && systemctl disable ollama`) to avoid duplicate listeners and an unauthenticated service on the host.
 
 ## 2. Clone and configure
 
@@ -80,7 +77,7 @@ API_CORS_ORIGINS=https://ikarpedia.cloud
 API_BASE_URL=https://ikarpedia.cloud
 LLM_PROVIDER=openrouter
 OPENROUTER_MODEL=openrouter/free
-EMBEDDING_API_BASE=http://host.docker.internal:11434/v1
+EMBEDDING_API_BASE=http://ollama:11434/v1
 EOF
 ```
 
@@ -98,7 +95,7 @@ EOF
 
 > `PROVIDER_FALLBACK_CHAIN` accepts `provider` (model from that provider's env) or `provider:model` (pinned model), so `openrouter:z-ai/glm-5.3-flash` adds a second OpenRouter model after the primary. Apply with `docker compose -f docker-compose.prod.yml up -d backend` (no rebuild needed; env-only).
 
-> `EMBEDDING_API_BASE` points at Ollama running on the host (`nomic-embed-text`, ~0.3 GB). The backend has `extra_hosts: ["host.docker.internal:host-gateway"]` to reach it. If you prefer an external embedding provider, set `EMBEDDING_API_BASE` accordingly.
+> `EMBEDDING_API_BASE` points at the containerized `ollama` service on the Compose network. Pull `nomic-embed-text` once inside the ollama container (see above). If you prefer an external embedding provider, set `EMBEDDING_API_BASE` accordingly.
 
 ## 3. Build and start (HTTP first)
 
