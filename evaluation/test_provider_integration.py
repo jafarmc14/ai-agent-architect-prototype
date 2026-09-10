@@ -1,6 +1,8 @@
 from pathlib import Path
 from types import SimpleNamespace
 import sys
+import os
+from unittest.mock import patch
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -59,7 +61,8 @@ def test_external_provider_privacy_scope_includes_paid_providers():
 
 
 def test_default_runtime_remains_openrouter_free():
-    settings = get_settings()
+    with patch("configs.settings._load_environment_files", return_value="testing"), patch.dict(os.environ, {}, clear=True):
+        settings = get_settings.__wrapped__()
     assert settings.llm_provider == "openrouter"
     assert settings.openrouter_model == "openrouter/free"
 

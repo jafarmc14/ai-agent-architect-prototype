@@ -53,6 +53,8 @@ export default function LoginPage() {
             ? `Too many login attempts. Try again in ${retryAfter} second(s).`
             : "Too many login attempts. Try again later."
         );
+      } else if (response.status === 403) {
+        setError("Your account is not enrolled in the pilot. Contact the administrator to request access.");
       } else if (response.status === 503) {
         setError("Login is currently unavailable. Please try again later.");
       } else {

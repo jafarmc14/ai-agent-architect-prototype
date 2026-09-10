@@ -575,7 +575,9 @@ def _finalize_workflow_response(user_input: str, tool_name: str, tool_output: st
         "query": user_input.strip().lower(),
         "evidence": public_output,
     }
-    cached_response = semantic_response_cache.get(response_cache_key) if tool_name == "search_knowledge_base" else None
+    from core.services.response_experiments import eligible, generate_answer
+    experiment_active = eligible(tool_name)
+    cached_response = semantic_response_cache.get(response_cache_key) if tool_name == "search_knowledge_base" and not experiment_active else None
     if cached_response is not None:
         if trace is not None:
             trace["semantic_response_cache_hit"] = True
@@ -608,10 +610,12 @@ def _finalize_workflow_response(user_input: str, tool_name: str, tool_output: st
         ),
     ]
     try:
-        llm_response = llm_gateway.generate_sync(
+        llm_response = generate_answer(
+            llm_gateway,
             _messages_for_llm(messages),
             task=task,
             token_context=_token_context(messages, user_input, task, retrieval_context=public_output),
+            workflow=tool_name, evidence=public_output, trace=trace,
         )
         content = llm_response.text or getattr(llm_response.raw, "content", "")
         response = _clean_ai_response(content)
@@ -619,7 +623,8 @@ def _finalize_workflow_response(user_input: str, tool_name: str, tool_output: st
         response = _clean_ai_response(_content_for_llm(tool_output))
     if tool_name == "search_knowledge_base":
         response = _ensure_rag_citations(response, tool_output)
-        semantic_response_cache.set(response_cache_key, response)
+        if not experiment_active:
+            semantic_response_cache.set(response_cache_key, response)
     if tool_name == "search_products":
         initial_audit = audit_response_claims(response, tool_outputs=[tool_output], rag_evidence="")
         if initial_audit.should_abstain:
@@ -901,6 +906,9 @@ def _context_from_current_request() -> RequestContext:
 
 
 def _context_from_token(auth_token: str | None, session_id: str = "anonymous") -> RequestContext:
+    from core.services.pilot_access import require_pilot_access
+
+    require_pilot_access(auth_token)
     if not auth_token:
         return RequestContext(session_id=session_id)
 

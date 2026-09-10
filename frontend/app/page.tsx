@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { getAuthToken, getAuthUser, signOut } from "../lib/auth";
+import FeedbackActions from "./feedback-actions";
+import PilotUsage from "./pilot-usage";
 
 type ChatRole = "assistant" | "user";
 
@@ -19,6 +21,7 @@ type ChatMessage = {
   id: string;
   role: ChatRole;
   content: string;
+  requestId?: string;
 };
 
 type ApiConfig = {
@@ -67,7 +70,7 @@ const suggestions = ["Search for a product", "Check an order", "Ask about a poli
 
 export default function Home() {
   const [checkedAuth, setCheckedAuth] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ name?: string; email?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ name?: string; email?: string; role?: string } | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -225,7 +228,10 @@ export default function Home() {
         signOut();
         return;
       }
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(typeof errorBody?.detail === "string" ? errorBody.detail : `Request failed (HTTP ${response.status}).`);
+      }
       const data = (await response.json()) as ChatResponse;
       const assistantText =
         data.response || `Sorry, the API returned an empty response.${data.exception ? ` ${data.exception}` : ""}`;
@@ -233,7 +239,7 @@ export default function Home() {
       setApiError("");
       setMessages((current) => [
         ...current,
-        { id: crypto.randomUUID(), role: "assistant", content: assistantText }
+        { id: crypto.randomUUID(), role: "assistant", content: assistantText, requestId: data.request_id }
       ]);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to reach API";
@@ -243,7 +249,7 @@ export default function Home() {
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: `The API is not reachable at ${apiBaseUrl}. Start FastAPI, then try again.`
+          content: message === "Failed to fetch" ? "Unable to reach the service. Please try again." : message
         }
       ]);
     } finally {
@@ -266,7 +272,7 @@ export default function Home() {
   const cost =
     typeof lastResponse?.token_usage?.cost_usd === "number"
       ? `$${lastResponse.token_usage.cost_usd.toFixed(4)}`
-      : "$0.0000";
+      : "Cost unavailable";
 
   return (
     <main className="h-dvh overflow-hidden bg-surface-950 text-ink">
@@ -459,6 +465,7 @@ export default function Home() {
               </dl>
             ) : null}
 
+            {["manager", "admin"].includes(currentUser?.role ?? "") ? <PilotUsage apiBaseUrl={apiBaseUrl} /> : null}
             <section className="mt-7">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium text-faint">Environment</p>
@@ -542,6 +549,7 @@ function MessageRow({ message }: { message: ChatMessage }) {
       >
         <p className="whitespace-pre-wrap">{message.content}</p>
       </div>
+      {!isUser && message.requestId ? <FeedbackActions requestId={message.requestId} apiBaseUrl={apiBaseUrl} /> : null}
     </div>
   );
 }

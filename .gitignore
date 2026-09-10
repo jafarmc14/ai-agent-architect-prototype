@@ -45,3 +45,4 @@ out.txt
 err*.txt
 install_log.txt
 list_products.py
+evaluation/private/

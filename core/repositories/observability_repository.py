@@ -26,9 +26,9 @@ class ObservabilityRepository:
                 conn.execute(
                     """
                     INSERT INTO request_traces (
-                        request_id, trace_id, session_id, tenant_id, user_id, request_input, status
+                        request_id, trace_id, session_id, tenant_id, user_id, request_input, status, metadata
                     )
-                    VALUES (%s, %s, %s, %s, NULLIF(%s, ''), %s, 'running')
+                    VALUES (%s, %s, %s, %s, NULLIF(%s, ''), %s, 'running', jsonb_build_object('pilot', %s::boolean))
                     """,
                     (
                         payload["request_id"],
@@ -37,6 +37,7 @@ class ObservabilityRepository:
                         payload.get("tenant_id", "default"),
                         payload.get("user_id", ""),
                         payload.get("request_input", ""),
+                        get_settings().pilot_enabled,
                     ),
                 )
         except Exception:  # noqa: BLE001

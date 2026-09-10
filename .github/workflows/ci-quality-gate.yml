@@ -112,6 +112,10 @@ jobs:
         run: python database/migrate_sqlite_to_postgres.py --apply-schema
       - name: Run PostgreSQL integration checks
         run: python evaluation/integration_postgres.py
+      - name: Run pilot feedback and usage integration checks
+        run: python evaluation/integration_pilot.py
+      - name: Run production monitoring integration checks
+        run: python evaluation/integration_production_monitoring.py
       - name: Run authorization integration evaluation
         run: python evaluation/run_authorization_evaluation.py --report-dir ci_integration_reports
       - name: Create PostgreSQL backup

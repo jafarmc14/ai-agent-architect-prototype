@@ -1,4 +1,6 @@
 from typing import Any
+from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -8,6 +10,20 @@ class HealthResponse(BaseModel):
     service: str = "ai-agent-api"
     environment: str
     database_provider: str
+
+
+class FeedbackRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    request_id: UUID
+    kind: Literal["thumbs_up", "thumbs_down", "wrong_answer", "report_issue", "request_human"]
+
+
+class QualityReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    correct: bool
+    faithfulness: float = Field(ge=0, le=1)
+    tool_accuracy: bool | None = None
+    critical_failure: bool
 
 
 class LLMConfigResponse(BaseModel):

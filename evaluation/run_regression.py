@@ -23,6 +23,7 @@ CHANGE_AREA_COMMANDS = {
         ["evaluation/test_token_optimization.py"],
     ],
     "model": [
+        ["evaluation/test_production_monitoring.py"],
         ["evaluation/test_cost_governance.py"],
         ["evaluation/test_circuit_breaker.py"],
         ["evaluation/test_provider_fallback.py"],

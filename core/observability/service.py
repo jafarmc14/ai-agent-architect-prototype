@@ -132,6 +132,18 @@ class ObservabilityService:
             if runtime_trace is not None:
                 runtime_trace["request_status"] = request_trace.status
                 runtime_trace["request_latency_ms"] = latency_ms
+                try:
+                    from configs import get_settings
+                    from core.repositories.production_monitoring_repository import ProductionMonitoringRepository
+                    from core.services.production_metrics import capture_metrics
+
+                    if get_settings().database_provider == "postgres":
+                        ProductionMonitoringRepository().record(
+                            request_trace.request_id, context.tenant_id, capture_metrics(user_input, runtime_trace),
+                        )
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).warning("Production quality metric persistence failed")
             _active_trace.reset(token)
 
     @contextmanager

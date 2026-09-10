@@ -2674,3 +2674,25 @@ docker compose -f docker-compose.dev.yml --profile backup run --rm db-backup
 # Dev restore test
 docker compose -f docker-compose.dev.yml --profile backup run --rm db-backup /scripts/test_backup_restore.sh
 ```
+# Production Pilot (Phase 46)
+
+The pilot supports an explicit tenant/account allowlist, per-answer feedback
+(thumbs up/down, wrong answer, report issue, request human), and tenant-scoped
+usage reports for managers/admins. Feedback is persisted in PostgreSQL; issue
+reports and human requests create retry-safe support tickets. Reports show real
+recorded tokens/cost by provider, model, and workflow, including missing accounting.
+
+Apply migration V025 and configure the invited accounts before enabling the
+pilot. See [Production pilot setup and test guide](docs/production-pilot.md).
+The free OpenRouter/Ollama provider configuration is unchanged.
+# Production Monitoring and Experiments (Phases 47-50)
+
+Production request metrics now support quality trends, token/latency/cost drift,
+query/language distribution comparisons, catalog/policy/business-rule snapshots,
+and a private dataset-review export. RAG response-model shadow and A/B testing
+are opt-in and default to off. Deterministic product/order answers and business
+mutations remain outside model experiments. Promotion requires reviewed evidence
+and a passing comparison gate; no model is automatically promoted.
+
+See [monitoring, shadow and A/B operations](docs/production-quality-and-experiments.md)
+for commands, configuration, metric definitions, scope and limitations.

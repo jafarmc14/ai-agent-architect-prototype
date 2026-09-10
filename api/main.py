@@ -1,9 +1,11 @@
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from configs import get_settings
 from .schemas import (
     ChatRequest,
+    FeedbackRequest,
+    QualityReviewRequest,
     ChatResponse,
     ConfigureLLMRequest,
     HealthResponse,
@@ -23,6 +25,12 @@ from core.auth.jwt import AuthError, create_session_token, verify_session_token
 from core.auth.login_throttle import login_throttle
 from core.auth.password import hash_password, verify_password
 from core.repositories.user_repository import UserRepository
+from core.repositories.pilot_repository import PilotRepository
+from core.services.pilot_access import require_pilot_access
+from uuid import UUID
+from configs.experimentation import experiment_settings
+from core.repositories.production_monitoring_repository import ProductionMonitoringRepository
+from core.services.production_metrics import monitoring_report, promotion_gate
 
 _DUMMY_PASSWORD_HASH = hash_password("login-timing-equalizer")
 _user_repository = UserRepository()
@@ -43,6 +51,7 @@ def create_app() -> FastAPI:
         description="FastAPI boundary for the Ubichinon e-commerce AI agent runtime.",
     )
     settings = get_settings()
+    experiment_settings()
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_cors_origins(settings.api_cors_origins),
@@ -78,6 +87,11 @@ def create_app() -> FastAPI:
         service: ConfigurationApplicationService = Depends(get_config_service),
     ) -> dict:
         _require_authorized(authorization)
+        _pilot_guard(_bearer_token(authorization))
+        if get_settings().pilot_enabled:
+            claims = verify_session_token(_bearer_token(authorization))
+            if claims.get("role") not in {"admin", "manager"}:
+                raise HTTPException(403, "Runtime configuration is restricted during the pilot.")
         return service.configure_llm(request.provider, request.model)
 
     @app.post("/api/v1/chat", response_model=ChatResponse)
@@ -87,6 +101,7 @@ def create_app() -> FastAPI:
         service: ChatApplicationService = Depends(get_chat_service),
     ) -> dict:
         auth_token = request.auth_token or _bearer_token(authorization)
+        _pilot_guard(auth_token)
         return service.chat(
             request.message,
             auth_token=auth_token,
@@ -141,6 +156,7 @@ def create_app() -> FastAPI:
             role=role,
             tenant_id=tenant_id,
         )
+        _pilot_guard(token)
         return {
             "token": token,
             "user": LoginUser(
@@ -151,7 +167,66 @@ def create_app() -> FastAPI:
             ),
         }
 
+    @app.post("/api/v1/feedback")
+    def submit_feedback(request: FeedbackRequest, authorization: str | None = Header(default=None)) -> dict:
+        claims = _feedback_identity(authorization)
+        try:
+            return PilotRepository().feedback(str(request.request_id), claims.get("tenant_id", "default"), claims["sub"], request.kind)
+        except LookupError as exc:
+            raise HTTPException(404, "Request not found.") from exc
+
+    @app.get("/api/v1/pilot/usage")
+    def pilot_usage(days: int = Query(default=7, ge=1, le=90), authorization: str | None = Header(default=None)) -> dict:
+        claims = _feedback_identity(authorization)
+        if claims.get("role") not in {"manager", "admin"}:
+            raise HTTPException(403, "Pilot reports require a manager or admin role.")
+        return PilotRepository().usage(claims.get("tenant_id", "default"), days)
+
+    @app.get("/api/v1/monitoring/quality")
+    def production_quality(days: int = Query(default=7, ge=1, le=90), authorization: str | None = Header(default=None)):
+        claims = _monitoring_identity(authorization)
+        return monitoring_report(*ProductionMonitoringRepository().rows(claims.get("tenant_id", "default"), days))
+
+    @app.post("/api/v1/monitoring/reviews/{request_id}")
+    def quality_review(request_id: UUID, review: QualityReviewRequest, authorization: str | None = Header(default=None)):
+        claims = _monitoring_identity(authorization)
+        saved = ProductionMonitoringRepository().review(str(request_id), claims.get("tenant_id", "default"), claims["sub"], review.model_dump())
+        if not saved:
+            raise HTTPException(404, "Request not found.")
+        return {"status": "saved"}
+
+    @app.get("/api/v1/monitoring/experiments/{experiment_id}")
+    def experiment_report(experiment_id: str, days: int = Query(default=7, ge=1, le=90), authorization: str | None = Header(default=None)):
+        claims = _monitoring_identity(authorization)
+        _, rows = ProductionMonitoringRepository().rows(claims.get("tenant_id", "default"), days)
+        return promotion_gate(rows, experiment_id)
+
     return app
+
+
+def _monitoring_identity(authorization):
+    claims = _feedback_identity(authorization)
+    if claims.get("role") not in {"manager", "admin"}:
+        raise HTTPException(403, "Monitoring requires a manager or admin role.")
+    return claims
+
+
+def _pilot_guard(token: str | None) -> None:
+    try:
+        require_pilot_access(token)
+    except (AuthError, ValueError, TypeError) as exc:
+        raise HTTPException(401, "Invalid or expired session token.") from exc
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+
+
+def _feedback_identity(authorization: str | None) -> dict:
+    _require_authorized(authorization)
+    token = _bearer_token(authorization)
+    _pilot_guard(token)
+    if get_settings().database_provider != "postgres":
+        raise HTTPException(503, "Feedback and pilot reports require PostgreSQL.")
+    return verify_session_token(token)
 
 
 def _bearer_token(value: str | None) -> str | None:

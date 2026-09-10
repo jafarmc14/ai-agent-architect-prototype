@@ -46,6 +46,8 @@ class AppSettings:
     api_port: int
     api_base_url: str
     api_cors_origins: str
+    pilot_enabled: bool
+    pilot_allowed_accounts: str
     streamlit_api_client_enabled: bool
     database_provider: str
     database_path: Path
@@ -138,6 +140,8 @@ def get_settings() -> AppSettings:
         app_env=app_env,
         debug=os.getenv("DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"},
         api_host=os.getenv("API_HOST", "127.0.0.1").strip(),
+        pilot_enabled=os.getenv("PILOT_ENABLED", "false").lower() in {"1", "true", "yes", "on"},
+        pilot_allowed_accounts=os.getenv("PILOT_ALLOWED_ACCOUNTS", ""),
         api_port=int(os.getenv("API_PORT", "8000")),
         api_base_url=os.getenv("API_BASE_URL", "http://127.0.0.1:8000").rstrip("/"),
         api_cors_origins=os.getenv(
