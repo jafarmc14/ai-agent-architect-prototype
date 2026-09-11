@@ -27,6 +27,11 @@ def capture_metrics(text, trace):
             c.get("name") == "search_knowledge_base" and "Retrieval behavior: abstain." in str(c.get("output", "")) for c in calls),
         "escalated": any(c.get("name") == "escalate_to_human" and "created successfully" in str(c.get("output", "")) for c in calls),
         "tool_validations": [bool(c["validation_pass"]) for c in calls if "validation_pass" in c],
+        "tool_failures": sum(event.get("stage") == "tool" and event.get("status") == "error"
+                             for event in trace.get("lifecycle", [])),
+        "security_alert": any(event.get("stage") == "validation" and
+                              (event.get("status") == "blocked" or event.get("attributes", {}).get("allowed") is False)
+                              for event in trace.get("lifecycle", [])),
         "claim_support_proxy": (1 - audit["unsupported_claim_rate"]) if audit.get("total_claims", 0) > 0 else None,
         "unsupported_critical_claims": audit.get("unsupported_critical_claim_count"),
         "experiment": trace.get("experiment"),

@@ -8,7 +8,7 @@ This folder contains versioned database migration files.
 database/migrations/
 └── postgres/
     └── V001__initial_schema.sql
-    └── V002__enable_pgvector_document_chunks.sql
+    └── V033__tenant_cart_sessions.sql
 ```
 
 ## Naming Convention
@@ -58,6 +58,20 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V016__link_request_traces_t
 psql "$DATABASE_URL" -f database/migrations/postgres/V017__add_token_context_observability.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V018__add_resource_abuse_protection.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V019__repair_token_context_migration_ledger.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V020__index_provider_fallback_observability.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V021__index_circuit_breaker_observability.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V022__add_cost_governance.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V023__include_completed_failures_in_cost_index.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V024__add_login_credentials.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V025__add_pilot_feedback.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V026__production_monitoring_experiments.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V027__decision_audit_and_incidents.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V028__runtime_tenant_isolation.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V029__durable_action_approvals.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V030__tenant_reference_integrity.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V031__company_currency_scope.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V032__continuous_review_backlog.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V033__tenant_cart_sessions.sql
 ```
 
 `V001__initial_schema.sql` creates a `schema_migrations` table and records itself after successful execution. Later migrations should insert their own version into `schema_migrations` at the end of the file.
@@ -94,6 +108,10 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V019__repair_token_context_
 
 `V019__repair_token_context_migration_ledger.sql` records the idempotent `V017` token-context migration in databases where its schema was already applied but its ledger row was missing.
 
+`V020` through `V026` cover provider fallback/circuit-breaker indexes, cost governance, login credentials, pilot feedback, and production monitoring experiments.
+
+`V027` adds decision audit snapshots and incident review records. `V028` enables PostgreSQL tenant RLS and the restricted runtime role. `V029` adds durable approvals for high-risk actions. `V030` adds same-tenant reference constraints, initially `NOT VALID` for safe rollout. `V031` scopes company currency, `V032` adds continuous-review backlog timestamps, and `V033` makes cart sessions tenant-aware.
+
 ## Vector Storage
 
 `V002__enable_pgvector_document_chunks.sql` enables the `vector` extension and adds pgvector-backed storage to `document_chunks`:
@@ -126,7 +144,7 @@ product keyword search
 
 ## Current Runtime
 
-The application runtime can use SQLite or PostgreSQL through `DATABASE_PROVIDER`. The current PostgreSQL path is ready for product, order, cart, support, conversation state, prompt version metadata, model version governance, document vector, product embedding, and hybrid product search workflows.
+The application runtime can use SQLite or PostgreSQL through `DATABASE_PROVIDER`. PostgreSQL is the supported path for authenticated multi-company operation, tenant RLS, product/order/cart/support workflows, conversation state, prompt/model governance, auditability, retention, vector search, company connectors, controlled approvals, and hybrid product search. SQLite remains prototype-only and does not provide the multi-tenant production controls.
 
 ## SQLite to PostgreSQL Data Migration
 
@@ -162,6 +180,12 @@ The project container maps host port `5435` to PostgreSQL's internal port `5432`
 
 Migration `V022__add_cost_governance.sql` adds session/customer dimensions to `resource_usage_events`, monthly cost indexes, and `tenant_ai_budgets` for per-tenant monthly policy overrides.
 Migration `V023__include_completed_failures_in_cost_index.sql` ensures provider cost already incurred by a completed failed or limited request remains part of monthly governance totals.
+
+After applying migrations to a database containing historical data, validate the deferred same-tenant constraints before enabling additional companies:
+
+```bash
+py database/validate_tenant_integrity.py --validate
+```
 
 Set `DATABASE_URL` in `.env.secrets` or `.env`:
 

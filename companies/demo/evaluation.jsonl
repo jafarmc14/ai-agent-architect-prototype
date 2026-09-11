@@ -1,0 +1,4 @@
+{"id":"demo_currency","kind":"currency","amount":1500,"expected":"Rp1,500"}
+{"id":"demo_orders","kind":"permission","tool":"check_order_status","expected":true}
+{"id":"demo_policy","kind":"policy_scope","category":"return_policy","expected":true}
+{"id":"demo_budget","kind":"output_budget","task":"agentic_workflow","expected":1200}

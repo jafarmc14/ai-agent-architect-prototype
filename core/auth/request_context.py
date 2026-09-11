@@ -38,6 +38,11 @@ _request_context: ContextVar[RequestContext] = ContextVar(
     "request_context",
     default=RequestContext(session_id="anonymous"),
 )
+_scoped_request: ContextVar[bool] = ContextVar("scoped_database_request", default=False)
+
+
+def is_request_scoped() -> bool:
+    return _scoped_request.get()
 
 
 def get_request_context() -> RequestContext:
@@ -50,8 +55,12 @@ def anonymous_context(session_id: str = "anonymous") -> RequestContext:
 
 @contextmanager
 def request_context(context: RequestContext) -> Iterator[RequestContext]:
+    if context.user and context.user.tenant_id != context.tenant_id:
+        raise PermissionError("Authenticated tenant does not match request tenant")
     token = _request_context.set(context)
+    scope_token = _scoped_request.set(True)
     try:
         yield context
     finally:
+        _scoped_request.reset(scope_token)
         _request_context.reset(token)

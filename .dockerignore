@@ -14,6 +14,7 @@ __pycache__
 *.py[cod]
 *.db
 evaluation/reports/*.json
+evaluation/private
 deploy/certs
 deploy/certbot-webroot
 out.txt

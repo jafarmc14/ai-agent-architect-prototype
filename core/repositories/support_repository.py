@@ -7,6 +7,5 @@ class SupportRepository:
     """Repository selector for support ticket data."""
 
     def __new__(cls):
-        if get_settings().database_provider == "postgres":
-            return PostgresSupportRepository()
-        return SQLiteSupportRepository()
+        from core.connectors import ConnectorProxy
+        return ConnectorProxy("support")

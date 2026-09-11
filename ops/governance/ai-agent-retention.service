@@ -1,0 +1,11 @@
+[Unit]
+Description=AI Agent bounded retention job
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/ai-agent
+ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml exec -T --user 1000:1000 -e SECRET_DIR=/run/secrets-runtime backend python database/run_governance.py retention --tenant default --apply
+TimeoutStartSec=300
+UMask=0077

@@ -48,7 +48,15 @@ class TokenBreakdown:
 
 
 def task_budget(task: str | None) -> TaskBudget:
-    return TASK_BUDGETS.get(task or "", TASK_BUDGETS["agentic_workflow"])
+    budget = TASK_BUDGETS.get(task or "", TASK_BUDGETS["agentic_workflow"])
+    from core.auth.request_context import is_request_scoped
+    if is_request_scoped():
+        from core.companies import company_config
+        from dataclasses import replace
+        profile = company_config()
+        budget = replace(budget, input_limit=min(budget.input_limit, profile.max_input_tokens),
+                         output_limit=min(budget.output_limit, profile.max_output_tokens))
+    return budget
 
 
 def estimate_tokens(value: Any) -> int:

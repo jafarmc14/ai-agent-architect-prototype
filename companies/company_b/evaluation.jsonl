@@ -1,0 +1,5 @@
+{"id":"b_currency","kind":"currency","amount":1500,"expected":"EUR 1,500.00"}
+{"id":"b_escalation_denied","kind":"permission","tool":"escalate_to_human","expected":false}
+{"id":"b_faq","kind":"policy_scope","category":"faq","expected":true}
+{"id":"b_shipping_denied","kind":"policy_scope","category":"shipping_policy","expected":false}
+{"id":"b_budget","kind":"output_budget","task":"agentic_workflow","expected":600}

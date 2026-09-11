@@ -110,12 +110,18 @@ jobs:
         run: python -c "from database import init_database; init_database()"
       - name: Apply migrations and migrate fixture
         run: python database/migrate_sqlite_to_postgres.py --apply-schema
+      - name: Validate historical tenant references
+        run: python database/validate_tenant_integrity.py --validate
       - name: Run PostgreSQL integration checks
         run: python evaluation/integration_postgres.py
       - name: Run pilot feedback and usage integration checks
         run: python evaluation/integration_pilot.py
       - name: Run production monitoring integration checks
         run: python evaluation/integration_production_monitoring.py
+      - name: Run decision audit and retention integration checks
+        run: python evaluation/integration_governance.py
+      - name: Run tenant and transaction integration checks
+        run: python evaluation/integration_tenant_transactions.py
       - name: Run authorization integration evaluation
         run: python evaluation/run_authorization_evaluation.py --report-dir ci_integration_reports
       - name: Create PostgreSQL backup

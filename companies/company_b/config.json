@@ -1,0 +1,7 @@
+{
+  "id": "company_b", "version": "1", "currency": "EUR", "language": "English",
+  "tools": ["check_stock", "search_products", "search_knowledge_base"],
+  "policy_categories": ["faq"], "routing": {}, "require_high_risk_approval": true,
+  "autonomy_enabled": false, "max_plan_steps": 2, "max_concurrency": 2,
+  "max_input_tokens": 3000, "max_output_tokens": 600
+}

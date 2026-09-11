@@ -88,6 +88,8 @@ def create_app() -> FastAPI:
     ) -> dict:
         _require_authorized(authorization)
         _pilot_guard(_bearer_token(authorization))
+        if verify_session_token(_bearer_token(authorization)).get("tenant_id", "default") != "default":
+            raise HTTPException(403, "Company providers are managed through company configuration.")
         if get_settings().pilot_enabled:
             claims = verify_session_token(_bearer_token(authorization))
             if claims.get("role") not in {"admin", "manager"}:
@@ -148,7 +150,7 @@ def create_app() -> FastAPI:
         login_throttle.record_success(username)
         metadata = user.get("metadata") or {}
         role = metadata.get("role", "customer")
-        tenant_id = metadata.get("tenant_id", "default")
+        tenant_id = user.get("tenant_id") or metadata.get("tenant_id", "default")
         token = create_session_token(
             user_id=str(user["id"]),
             email=user.get("email") or "",
@@ -201,7 +203,60 @@ def create_app() -> FastAPI:
         _, rows = ProductionMonitoringRepository().rows(claims.get("tenant_id", "default"), days)
         return promotion_gate(rows, experiment_id)
 
+    @app.get("/api/v1/governance/decisions/{request_id}")
+    def decision_record(request_id: UUID, authorization: str | None = Header(default=None)):
+        claims = _monitoring_identity(authorization)
+        from core.auth import request_context
+        from core.repositories.decision_audit_repository import DecisionAuditRepository
+        with request_context(_claims_context(claims)):
+            result = DecisionAuditRepository().reconstruct(str(request_id))
+        if result is None:
+            raise HTTPException(404, "Decision not found.")
+        return result
+
+    @app.get("/api/v1/governance/approvals")
+    def pending_approvals(authorization: str | None = Header(default=None)):
+        claims = _monitoring_identity(authorization)
+        from core.auth import request_context
+        from core.repositories.postgres_connection import get_postgres_connection
+        with request_context(_claims_context(claims)), get_postgres_connection() as conn:
+            return conn.execute("""SELECT confirmation_id, action, resource_id, created_at, expires_at,
+                confirmed_at, approved_at FROM action_approvals WHERE tenant_id = %s
+                AND action LIKE 'order.%%' AND completed_at IS NULL AND expires_at > now()
+                ORDER BY created_at LIMIT 100""", (claims.get("tenant_id", "default"),)).fetchall()
+
+    @app.post("/api/v1/governance/approvals/{confirmation_id}/approve")
+    def approve_action(confirmation_id: str, authorization: str | None = Header(default=None)):
+        import re
+        if not re.fullmatch(r"[0-9a-f]{8}", confirmation_id):
+            raise HTTPException(422, "Invalid confirmation ID.")
+        claims = _monitoring_identity(authorization)
+        from core.auth import request_context
+        from core.services.action_approvals import approve_pending
+        with request_context(_claims_context(claims)):
+            saved = approve_pending(confirmation_id)
+        if not saved:
+            raise HTTPException(409, "Action is unavailable, already approved, expired, or requires a different approver.")
+        return {"status": "approved", "executed": False}
+
+    @app.get("/api/v1/governance/incidents")
+    def incident_queue(authorization: str | None = Header(default=None)):
+        claims = _monitoring_identity(authorization)
+        from core.auth import request_context
+        from core.repositories.postgres_connection import get_postgres_connection
+        with request_context(_claims_context(claims)), get_postgres_connection() as conn:
+            return conn.execute("""SELECT id, request_id, category, status, regression_case_id, created_at
+                FROM incident_cases WHERE tenant_id = %s ORDER BY created_at DESC LIMIT 100""",
+                (claims.get("tenant_id", "default"),)).fetchall()
+
     return app
+
+
+def _claims_context(claims):
+    from core.auth import AuthenticatedUser, RequestContext
+    tenant = claims.get("tenant_id", "default")
+    return RequestContext("governance", tenant_id=tenant,
+                          user=AuthenticatedUser(claims["sub"], role=claims["role"], tenant_id=tenant))
 
 
 def _monitoring_identity(authorization):

@@ -74,6 +74,8 @@ CHANGE_AREA_COMMANDS = {
         ["evaluation/test_ci_pipeline.py"],
     ],
     "authorization": [
+        ["evaluation/test_company_workflows.py"],
+        ["evaluation/test_governance_foundation.py"],
         ["evaluation/test_auth_context.py"],
         ["evaluation/test_rbac_authorization.py"],
         ["evaluation/run_authorization_evaluation.py"],

@@ -7,6 +7,5 @@ class ProductRepository:
     """Repository selector for product catalog data."""
 
     def __new__(cls):
-        if get_settings().database_provider == "postgres":
-            return PostgresProductRepository()
-        return SQLiteProductRepository()
+        from core.connectors import ConnectorProxy
+        return ConnectorProxy("catalog")

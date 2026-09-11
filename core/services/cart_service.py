@@ -2,6 +2,8 @@ from core.auth import get_request_context
 from core.repositories import CartRepository, ProductRepository
 from core.services.product_service import normalize_product_query
 from core.services.write_action_service import build_idempotency_key, write_action_service
+from core.services.action_approvals import controlled_mutation
+from core.companies import money
 
 
 class CartService:
@@ -15,6 +17,7 @@ class CartService:
         self.cart_repository = cart_repository or CartRepository()
         self.product_repository = product_repository or ProductRepository()
 
+    @controlled_mutation("cart.add_item")
     def add_to_cart(
         self,
         product_name: str,
@@ -62,7 +65,7 @@ class CartService:
                 resource_type="product",
                 resource_id=str(product["id"]),
                 payload=payload,
-                prompt=f"Add {product['name']} x{quantity} to the cart for Rp{total:,.0f}?",
+                prompt=f"Add {product['name']} x{quantity} to the cart for {money(total)}?",
             )
 
         if hasattr(self.cart_repository, "add_item_transactional"):
@@ -79,7 +82,7 @@ class CartService:
                 new_quantity = quantity
                 self.cart_repository.insert_cart_item(session_id, product["id"], quantity, user_id=context.user_id)
 
-        response = f"Added to cart: {product['name']} x{quantity} (Rp{total:,.0f})"
+        response = f"Added to cart: {product['name']} x{quantity} ({money(total)})"
         write_action_service.record_success(
             action="cart.add_item",
             resource_type="product",
@@ -103,11 +106,12 @@ class CartService:
         results = ["Your Shopping Cart:"]
         grand_total = 0
         for row in rows:
-            results.append(f"- {row['name']} x{row['quantity']} - Rp{row['subtotal']:,.0f}")
+            results.append(f"- {row['name']} x{row['quantity']} - {money(row['subtotal'])}")
             grand_total += row["subtotal"]
-        results.append(f"\nGrand Total: Rp{grand_total:,.0f}")
+        results.append(f"\nGrand Total: {money(grand_total)}")
         return "\n".join(results)
 
+    @controlled_mutation("cart.clear")
     def clear_cart(
         self,
         session_id: str = "default",

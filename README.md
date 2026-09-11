@@ -2,6 +2,21 @@
 
 ## 1. Product Requirement Document (PRD)
 
+### Governance Update: Phases 51-60 (In Progress)
+
+Governance now includes decision audit, retention/legal holds, continuous review,
+runtime company adapters/configuration, PostgreSQL tenant RLS, vector/cache
+isolation, durable independent approvals and atomic mutation/audit/idempotency.
+Company evaluation and optional conditional-planning pipelines are included;
+additional autonomy and high-risk actions remain disabled by default.
+Implementation coverage, remaining work, migration commands, and tests are in
+[Governance Implementation Status](docs/governance-implementation-status.md).
+
+Apply pending migrations before using this update:
+`py database/migrate_sqlite_to_postgres.py --schema-only`.
+Then validate existing ownership with `py database/validate_tenant_integrity.py --validate`.
+No new paid provider or `.env` setting is required. Retention timers remain opt-in.
+
 **Project Name:** Store AI-Agent Architect Prototype  
 **Version:** MVP v2.0 (Enhanced)
 

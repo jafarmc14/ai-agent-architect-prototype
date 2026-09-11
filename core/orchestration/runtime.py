@@ -120,6 +120,11 @@ def _detect_response_language(user_input: str) -> str:
 
 def _response_language_instruction(user_input: str) -> str:
     """Create a per-turn language hint for models that weakly follow system prompts."""
+    if _context_from_current_request().tenant_id != "default":
+        from core.companies import company_config
+        language = company_config().language
+        if language != "match_user":
+            return f"IMPORTANT RESPONSE LANGUAGE: Answer in {language}, as configured for this company."
     language = _detect_response_language(user_input)
     if language == "English":
         return (
@@ -197,6 +202,31 @@ def _execute_agent(user_input: str, trace: dict | None = None) -> str:
     context = _context_from_current_request()
     exposed_tool_names = tool_names_for_user_input(user_input, context)
     exposed_tools = _tools_by_names(exposed_tool_names)
+    from core.companies import company_config
+    profile = company_config()
+    if profile.autonomy_enabled:
+        from core.workflows.conditional_plan import ConditionalPlan, execute_plan
+        from core.prompts.system import get_prompt_version
+        import json
+        planner = get_prompt_version("planner")
+        schemas = [{"name": tool.name, "parameters": tool.args_schema.model_json_schema()} for tool in exposed_tools]
+        messages = [SystemMessage(content=planner.content + f" Maximum steps: {profile.max_plan_steps}."),
+                    SystemMessage(content=json.dumps(schemas)), HumanMessage(content=user_input)]
+        plan_context = _token_context(messages, user_input, "agentic_workflow")
+        plan_context["prompt_metadata"] = planner.metadata()
+        if trace is not None:
+            trace["prompt"] = planner.metadata()
+        plan = llm_gateway.generate_structured_sync(_messages_for_llm(messages), schema=ConditionalPlan,
+                                                     task="agentic_workflow", token_context=plan_context)
+        plan_trace = trace if trace is not None else {}
+        plan_trace["prompt"] = planner.metadata()
+        results = execute_plan(plan, {tool.name: tool for tool in exposed_tools}, _before_tool_call, plan_trace)
+        outputs = [result.get("output", "") for result in results.values() if result.get("output")]
+        if not outputs:
+            return "I could not complete this request safely. Please contact support."
+        if any(result["status"] == "approval_required" for result in results.values()):
+            return "\n\n".join(outputs)
+        return _finalize_workflow_response(user_input, "agentic_workflow", "\n\n".join(outputs), plan_trace)
     evidence_tool_outputs = []
     settings = get_settings()
     loop_safety = AgentLoopSafetyGuard(

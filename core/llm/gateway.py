@@ -460,7 +460,17 @@ class LLMGateway:
         guard = active_resource_guard()
         if guard is not None and guard.cost_governance:
             route_context["cost_governance"] = guard.cost_governance
-        decision = self.model_router.decide(
+        router = self.model_router
+        from core.auth.request_context import is_request_scoped
+        if is_request_scoped():
+            from core.companies import company_config
+            from dataclasses import replace
+            profile = company_config()
+            if profile.routing:
+                overrides = {f"routing_{tier}_{field}": value for tier, target in profile.routing.items()
+                             for field, value in target.items()}
+                router = ModelRouter(replace(get_settings(), model_routing_enabled=True, **overrides))
+        decision = router.decide(
             task=task,
             base_provider=self.provider_name,
             base_model=self.model or "",

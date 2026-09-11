@@ -2,6 +2,8 @@ from configs import get_settings
 from core.auth import get_request_context, order_owner_filter_user_id, unauthorized_message
 from core.repositories import OrderRepository
 from core.services.write_action_service import build_idempotency_key, write_action_service
+from core.services.action_approvals import controlled_mutation
+from core.companies import money
 
 
 class OrderService:
@@ -26,13 +28,14 @@ class OrderService:
         return (
             f"Order Details - {row['id']}:\n"
             f"- Product: {row['product_name']} (x{row['quantity']})\n"
-            f"- Total: Rp{row['total_price']:,.0f}\n"
+            f"- Total: {money(row['total_price'])}\n"
             f"- Status: {row['status']}\n"
             f"- Shipping address: saved on order\n"
             f"- Order Date: {row['order_date']}\n"
             f"- Estimated Arrival: {arrival}"
         )
 
+    @controlled_mutation("order.cancel")
     def cancel_order(
         self,
         order_id: str,
@@ -114,6 +117,7 @@ class OrderService:
         )
         return response
 
+    @controlled_mutation("order.update_shipping_address")
     def update_order_address(
         self,
         order_id: str,

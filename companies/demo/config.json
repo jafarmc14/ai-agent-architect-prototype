@@ -1,0 +1,7 @@
+{
+  "id": "demo", "version": "1", "currency": "IDR", "language": "match_user",
+  "tools": ["check_stock", "check_order_status", "search_products", "cancel_customer_order", "update_shipping_address", "add_product_to_cart", "view_shopping_cart", "clear_shopping_cart", "search_knowledge_base", "escalate_to_human"],
+  "policy_categories": [], "routing": {}, "require_high_risk_approval": true,
+  "autonomy_enabled": false, "max_plan_steps": 3, "max_concurrency": 4,
+  "max_input_tokens": 8000, "max_output_tokens": 1200
+}

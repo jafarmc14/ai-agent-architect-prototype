@@ -15,7 +15,7 @@ class TTLCache:
         self._lock = threading.RLock()
 
     def get(self, key: Any) -> Any | None:
-        cache_key = stable_cache_key(key)
+        cache_key = self._scoped_key(key)
         with self._lock:
             item = self._values.get(cache_key)
             if item is None:
@@ -28,7 +28,7 @@ class TTLCache:
             return copy.deepcopy(value)
 
     def set(self, key: Any, value: Any) -> None:
-        cache_key = stable_cache_key(key)
+        cache_key = self._scoped_key(key)
         with self._lock:
             self._values[cache_key] = (time.monotonic() + self.ttl_seconds, copy.deepcopy(value))
             self._values.move_to_end(cache_key)
@@ -38,6 +38,18 @@ class TTLCache:
     def clear(self) -> None:
         with self._lock:
             self._values.clear()
+
+    @staticmethod
+    def _scoped_key(key):
+        from core.auth import get_request_context
+        from core.companies import company_key
+        context = get_request_context()
+        try:
+            profile = company_key()
+        except PermissionError:
+            profile = f"{context.tenant_id}:unconfigured"
+        identity = context.user_id or context.session_id
+        return stable_cache_key([context.tenant_id, profile, identity, context.role, key])
 
     def __len__(self) -> int:
         with self._lock:

@@ -71,6 +71,13 @@ def role_from_context(context: RequestContext) -> Role:
 
 def authorize_tool(tool_name: str, context: RequestContext) -> AuthorizationResult:
     role = role_from_context(context)
+    from core.companies import company_config
+    try:
+        profile = company_config(context.tenant_id)
+    except PermissionError:
+        return AuthorizationResult(False, role, "tenant is not configured")
+    if tool_name not in profile.tools:
+        return AuthorizationResult(False, role, "tool is not enabled for this company")
     allowed_roles = TOOL_PERMISSIONS.get(tool_name, set())
     if role in allowed_roles:
         return AuthorizationResult(True, role, "allowed")
@@ -79,6 +86,12 @@ def authorize_tool(tool_name: str, context: RequestContext) -> AuthorizationResu
 
 def authorize_workflow(workflow: str, context: RequestContext) -> AuthorizationResult:
     role = role_from_context(context)
+    required_tool = {"rag_policy": "search_knowledge_base", "product_search": "search_products",
+                     "order_status": "check_order_status"}.get(workflow)
+    if required_tool:
+        result = authorize_tool(required_tool, context)
+        if not result.allowed:
+            return result
     allowed_roles = WORKFLOW_PERMISSIONS.get(workflow, set())
     if role in allowed_roles:
         return AuthorizationResult(True, role, "allowed")

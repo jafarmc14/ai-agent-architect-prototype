@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Iterator
 
-from core.auth import RequestContext
+from core.auth import RequestContext, request_context
 from core.privacy import redact_for_logs
 from core.repositories.observability_repository import ObservabilityRepository
 
@@ -70,11 +70,22 @@ class ObservabilityService:
 
     @contextmanager
     def trace_request(
+        self, user_input, context, runtime_trace=None,
+    ):
+        from core.companies import company_slot
+        with request_context(context), company_slot():
+            with self._trace_request(user_input, context, runtime_trace) as trace:
+                yield trace
+
+    @contextmanager
+    def _trace_request(
         self,
         user_input: str,
         context: RequestContext,
         runtime_trace: dict[str, Any] | None = None,
     ) -> Iterator[RequestTrace]:
+        if runtime_trace is None:
+            runtime_trace = {}
         request_trace = RequestTrace(
             request_id=str(uuid.uuid4()),
             trace_id=str(uuid.uuid4()),
@@ -144,6 +155,22 @@ class ObservabilityService:
                 except Exception:
                     import logging
                     logging.getLogger(__name__).warning("Production quality metric persistence failed")
+                try:
+                    from configs import get_settings
+                    if get_settings().database_provider == "postgres":
+                        from core.repositories.decision_audit_repository import DecisionAuditRepository
+                        from core.services.decision_audit import snapshot
+                        runtime_trace.setdefault("intent", request_trace.intent)
+                        runtime_trace.setdefault("workflow", request_trace.workflow)
+                        with request_context(context):
+                            DecisionAuditRepository().record(snapshot(
+                                context, runtime_trace, request_trace.response_text, request_trace.status,
+                            ))
+                        runtime_trace["decision_audit_persisted"] = True
+                except Exception:
+                    import logging
+                    runtime_trace["decision_audit_persisted"] = False
+                    logging.getLogger(__name__).error("Decision audit persistence failed")
             _active_trace.reset(token)
 
     @contextmanager

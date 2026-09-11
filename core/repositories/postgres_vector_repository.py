@@ -1,6 +1,7 @@
 from typing import Any
 
 from configs import get_settings
+from core.repositories.postgres_connection import get_postgres_connection
 
 
 class PostgresVectorRepository:
@@ -28,7 +29,7 @@ class PostgresVectorRepository:
         psycopg = self._import_psycopg()
         metadata = metadata or {}
         document_id = metadata.get("document_id")
-        with psycopg.connect(self._required_database_url()) as conn:
+        with get_postgres_connection(tuple_rows=True, database_url=self._required_database_url()) as conn:
             existing = conn.execute(
                 """
                 SELECT id
@@ -117,7 +118,7 @@ class PostgresVectorRepository:
 
     def delete_document_chunks(self, document_id: str) -> int:
         psycopg = self._import_psycopg()
-        with psycopg.connect(self._required_database_url()) as conn:
+        with get_postgres_connection(tuple_rows=True, database_url=self._required_database_url()) as conn:
             result = conn.execute(
                 "DELETE FROM document_chunks WHERE document_id = %s",
                 (document_id,),
@@ -141,7 +142,7 @@ class PostgresVectorRepository:
                 f"Embedding dimension mismatch. Expected {self.settings.vector_dimension}, got {len(embedding)}."
             )
         embedding_literal = self._embedding_literal(embedding)
-        with psycopg.connect(self._required_database_url()) as conn:
+        with get_postgres_connection(tuple_rows=True, database_url=self._required_database_url()) as conn:
             row = conn.execute(
                 """
                 INSERT INTO document_chunks (
@@ -197,7 +198,10 @@ class PostgresVectorRepository:
         embedding_literal = self._embedding_literal(query_embedding)
         allowed_access_levels = self._allowed_access_levels(access_level)
         allowed_trust_levels = self._allowed_trust_levels(min_trust_level)
-        with psycopg.connect(self._required_database_url()) as conn:
+        from core.companies import company_config
+        from core.auth.request_context import is_request_scoped
+        categories = company_config().policy_categories if is_request_scoped() else []
+        with get_postgres_connection(tuple_rows=True, database_url=self._required_database_url()) as conn:
             rows = conn.execute(
                 """
                 SELECT
@@ -234,6 +238,7 @@ class PostgresVectorRepository:
                 WHERE dc.embedding_vector IS NOT NULL
                   AND (%s::text IS NULL OR dc.embedding_model = %s)
                   AND d.tenant_id = %s
+                  AND (%s::text[] = '{}'::text[] OR d.metadata->>'category' = ANY(%s))
                   AND d.status = %s
                   AND COALESCE(d.approval_status, 'uploaded') = %s
                   AND (d.effective_date IS NULL OR d.effective_date <= CURRENT_DATE)
@@ -258,6 +263,8 @@ class PostgresVectorRepository:
                     embedding_model,
                     embedding_model,
                     tenant_id,
+                    categories,
+                    categories,
                     status,
                     approval_status,
                     allowed_access_levels,
@@ -291,7 +298,7 @@ class PostgresVectorRepository:
     def knowledge_version(self, tenant_id: str) -> str:
         """Version key used to invalidate tenant-aware retrieval caches."""
         psycopg = self._import_psycopg()
-        with psycopg.connect(self._required_database_url()) as conn:
+        with get_postgres_connection(tuple_rows=True, database_url=self._required_database_url()) as conn:
             row = conn.execute(
                 """
                 SELECT COUNT(*), COALESCE(MAX(updated_at)::text, ''),

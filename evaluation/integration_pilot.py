@@ -17,7 +17,7 @@ def main():
             user = str(uuid4())
             tenant = f"pilot-test-{uuid4()}"
             request = str(uuid4())
-            conn.execute("INSERT INTO users (id, name) VALUES (%s, 'Pilot fixture')", (user,))
+            conn.execute("INSERT INTO users (id, name, tenant_id) VALUES (%s, 'Pilot fixture', %s)", (user, tenant))
             conn.execute(
                 """INSERT INTO request_traces (request_id, trace_id, user_id, tenant_id, finished_at, metadata)
                    VALUES (%s, %s, %s, %s, now(), '{"pilot":true}')""",
@@ -45,10 +45,10 @@ def main():
                 assert conn.execute("SELECT count(*) AS n FROM support_tickets WHERE tenant_id = %s", (tenant,)).fetchone()["n"] == 2
                 conn.execute(
                     """INSERT INTO llm_requests (provider, model, status, request_id, prompt_tokens,
-                       completion_tokens, cost_usd, cost_source)
-                       VALUES ('test', 'local', 'success', %s, 20, 10, NULL, NULL),
-                              ('test', 'free', 'success', %s, 30, 15, 0, 'provider')""",
-                    (request, request),
+                       completion_tokens, cost_usd, cost_source, tenant_id)
+                       VALUES ('test', 'local', 'success', %s, 20, 10, NULL, NULL, %s),
+                              ('test', 'free', 'success', %s, 30, 15, 0, 'provider', %s)""",
+                    (request, tenant, request, tenant),
                 )
                 report = repo.usage(tenant, 7)
                 assert len(report["daily"]) == 1

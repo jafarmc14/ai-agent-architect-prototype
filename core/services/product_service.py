@@ -1,4 +1,5 @@
 from typing import Any
+from core.companies import money
 
 from configs import get_settings
 from core.embeddings import OpenAICompatibleEmbeddingProvider
@@ -43,6 +44,8 @@ class ProductService:
         semantic_search_enabled: bool | None = None,
     ):
         self.repository = repository or ProductRepository()
+        from core.connectors import ConnectorProxy
+        self.inventory_repository = repository or ConnectorProxy("inventory")
         self.semantic_repository = semantic_repository
         self.embedding_provider = embedding_provider
         self.semantic_search_enabled = (
@@ -53,7 +56,7 @@ class ProductService:
 
     def check_stock(self, product_name: str) -> str:
         search_term = normalize_product_query(product_name)
-        rows = self.repository.find_products_by_name(search_term)
+        rows = self.inventory_repository.find_products_by_name(search_term)
 
         if not rows:
             return f"No products found matching '{product_name}' in the database."
@@ -115,9 +118,9 @@ class ProductService:
             if structured_query.category:
                 filters.append(f"category='{structured_query.category}'")
             if structured_query.min_price > 0:
-                filters.append(f"min_price=Rp{structured_query.min_price:,.0f}")
+                filters.append(f"min_price={money(structured_query.min_price)}")
             if structured_query.max_price > 0:
-                filters.append(f"max_price=Rp{structured_query.max_price:,.0f}")
+                filters.append(f"max_price={money(structured_query.max_price)}")
             if structured_query.size is not None:
                 filters.append(f"size={structured_query.size}")
             if structured_query.sku:
@@ -271,7 +274,7 @@ class ProductService:
             scores.append(f"Vector: {float(vector_similarity):.3f}")
         score_text = f" | Scores: {', '.join(scores)}" if scores else ""
         return (
-            f"- {row['name']} | Category: {row['category']} | Price: Rp{row['price']:,.0f} "
+            f"- {row['name']} | Category: {row['category']} | Price: {money(row['price'])} "
             f"| Stock: {row['stock']} units | Origin: {row['country']}{score_text}"
         )
 

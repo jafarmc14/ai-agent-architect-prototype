@@ -317,7 +317,7 @@ def migrate_cart(pg_conn, sqlite_path: Path, product_id_map: dict[int, str]) -> 
                 """
                 INSERT INTO shopping_carts (session_id, currency, metadata)
                 VALUES (%s, 'IDR', %s::jsonb)
-                ON CONFLICT (session_id) DO UPDATE SET updated_at = now()
+                ON CONFLICT (tenant_id, session_id) DO UPDATE SET updated_at = now()
                 RETURNING id
                 """,
                 (session_id, json.dumps({"source": "sqlite"})),

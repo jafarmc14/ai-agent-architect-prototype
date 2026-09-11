@@ -1,0 +1,4 @@
+{"id":"platform_search","kind":"intent","query":"Find shoes under 500","expected":"PRODUCT_SEARCH"}
+{"id":"platform_policy","kind":"intent","query":"What is the return policy?","expected":"RETURN_POLICY"}
+{"id":"platform_unknown","kind":"intent","query":"quantum entanglement","expected":"UNKNOWN"}
+{"id":"platform_unknown_tool","kind":"permission","tool":"execute_sql","expected":false}

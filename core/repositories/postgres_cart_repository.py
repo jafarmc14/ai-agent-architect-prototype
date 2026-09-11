@@ -49,7 +49,7 @@ class PostgresCartRepository:
                     unit_price,
                     currency
                 )
-                VALUES (%s, %s, %s, %s, 'IDR')
+                VALUES (%s, %s, %s, %s, DEFAULT)
                 ON CONFLICT (shopping_cart_id, product_id, product_variant_id)
                 DO UPDATE SET
                     quantity = shopping_cart_items.quantity + EXCLUDED.quantity,
@@ -77,6 +77,13 @@ class PostgresCartRepository:
                     (product_id,),
                 ).fetchone()
                 old_quantity = existing["quantity"] if existing else 0
+                if not product or quantity <= 0:
+                    raise ValueError("The product or quantity is no longer valid")
+                inventory = conn.execute("""SELECT quantity_on_hand, quantity_reserved FROM inventory
+                    WHERE product_id = %s FOR SHARE""", (product_id,)).fetchall()
+                available = sum(row["quantity_on_hand"] - row["quantity_reserved"] for row in inventory)
+                if old_quantity + quantity > available:
+                    raise ValueError("Insufficient stock for the resulting cart quantity")
                 if existing:
                     new_quantity = old_quantity + quantity
                     conn.execute(
@@ -95,7 +102,7 @@ class PostgresCartRepository:
                         INSERT INTO shopping_cart_items (
                             shopping_cart_id, product_id, quantity, unit_price, currency
                         )
-                        VALUES (%s, %s, %s, %s, 'IDR')
+                        VALUES (%s, %s, %s, %s, DEFAULT)
                         """,
                         (cart["id"], product_id, quantity, product["price"]),
                     )
@@ -190,7 +197,7 @@ class PostgresCartRepository:
             return conn.execute(
                 """
                 INSERT INTO shopping_carts (user_id, session_id, currency)
-                VALUES (%s, %s, 'IDR')
+                VALUES (%s, %s, DEFAULT)
                 RETURNING id
                 """,
                 (user_id, session_id),
@@ -199,8 +206,8 @@ class PostgresCartRepository:
         return conn.execute(
             """
             INSERT INTO shopping_carts (session_id, currency)
-            VALUES (%s, 'IDR')
-            ON CONFLICT (session_id) DO UPDATE SET updated_at = now()
+            VALUES (%s, DEFAULT)
+            ON CONFLICT (tenant_id, session_id) DO UPDATE SET updated_at = now()
             RETURNING id
             """,
             (session_id,),

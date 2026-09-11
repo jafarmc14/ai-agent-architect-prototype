@@ -16,6 +16,8 @@ DEFAULT_PASSWORD = "Admin@2026!"
 
 def provision(email: str, password: str, name: str, role: str, tenant_id: str) -> str:
     import psycopg
+    from core.companies import company_config
+    company_config(tenant_id)
 
     settings = get_settings()
     if settings.database_provider != "postgres":
@@ -27,18 +29,22 @@ def provision(email: str, password: str, name: str, role: str, tenant_id: str) -
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                INSERT INTO users (email, name, password_hash, metadata)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO users (email, name, password_hash, metadata, tenant_id)
+                VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (email) DO UPDATE
                 SET name = EXCLUDED.name,
                     password_hash = EXCLUDED.password_hash,
                     metadata = EXCLUDED.metadata,
                     updated_at = now()
+                WHERE users.tenant_id = EXCLUDED.tenant_id
                 RETURNING id
                 """,
-                (email, name, password_hash, metadata),
+                (email, name, password_hash, metadata, tenant_id),
             )
-            user_id = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            if row is None:
+                raise ValueError("An existing account cannot be moved to another tenant by provisioning")
+            user_id = row[0]
     return str(user_id)
 
 

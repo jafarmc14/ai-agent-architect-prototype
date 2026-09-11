@@ -61,7 +61,7 @@ def test_request_lifecycle_has_correlated_stages():
 
     with service.trace_request(
         "Find shoes for customer@example.com",
-        RequestContext(session_id="observability-test", tenant_id="tenant-a"),
+        RequestContext(session_id="observability-test", tenant_id="company_a"),
         runtime_trace,
     ) as request_trace:
         with service.span("intent", "intent.route", attributes={"intent": "PRODUCT_SEARCH"}):

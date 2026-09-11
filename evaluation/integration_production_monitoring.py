@@ -32,8 +32,8 @@ def main():
                 for request_id in ids:
                     repo.record(request_id, tenant, {"llm_calls": 1, "intent": "PRODUCT_SEARCH", "language_heuristic": "en"})
                 conn.execute("UPDATE production_quality_events SET created_at = now() - interval '10 days' WHERE request_id = %s", (ids[0],))
-                conn.execute("""INSERT INTO llm_requests (provider, model, request_id, status, prompt_tokens, completion_tokens, cost_usd)
-                             VALUES ('test','test',%s,'success',20,10,0)""", (ids[1],))
+                conn.execute("""INSERT INTO llm_requests (provider, model, request_id, status, prompt_tokens, completion_tokens, cost_usd, tenant_id)
+                             VALUES ('test','test',%s,'success',20,10,0,%s)""", (ids[1], tenant))
                 previous, current = repo.rows(tenant)
                 assert len(previous) == 1 and len(current) == 2
                 by_id = {str(row["request_id"]): row for row in current}

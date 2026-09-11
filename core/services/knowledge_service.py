@@ -51,6 +51,8 @@ class KnowledgeService:
             if rag_response:
                 return rag_response
 
+        if get_request_context().tenant_id != "default":
+            return "I don't have enough authorized evidence for this company's policy. Retrieval behavior: abstain."
         return self._search_file_knowledge_base(query)
 
     def _search_postgres_rag(self, query: str, scope: RetrievalScope | None = None) -> str:
@@ -64,7 +66,8 @@ class KnowledgeService:
             )
         try:
             embedding_provider = self.embedding_provider or OpenAICompatibleEmbeddingProvider()
-            vector_repository = self.vector_repository or PostgresVectorRepository()
+            from core.connectors import ConnectorProxy
+            vector_repository = self.vector_repository or ConnectorProxy("documents")
             knowledge_version = getattr(vector_repository, "knowledge_version", lambda tenant_id: "unknown")(scope.tenant_id)
             cache_key = {
                 "kind": "rag_retrieval",
@@ -94,6 +97,11 @@ class KnowledgeService:
                 retrieval_cache.set(cache_key, retrieved_chunks)
             reranked_chunks = rerank_rag_chunks(retrieved_chunks, limit=5)
             context = build_rag_context(reranked_chunks, query=query, max_chunks=5, max_context_tokens=1800)
+            from core.observability.service import record_trace_event
+            record_trace_event("retrieval", "retrieval.evidence", attributes={
+                "retrieved_count": len(retrieved_chunks), "selected_count": len(context.citations),
+                "citations": context.citations, "abstained": context.abstained,
+            })
         except (RuntimeError, ValueError, OSError):
             return ""
 

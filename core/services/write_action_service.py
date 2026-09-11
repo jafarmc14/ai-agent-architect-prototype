@@ -4,11 +4,12 @@ import json
 import re
 from typing import Any
 from uuid import uuid4
+from configs import get_settings
 
 from core.auth import RequestContext, get_request_context
 from core.privacy import redact_for_logs
 
-_CONFIRMATION_RE = re.compile(r"\b(confirm|yes|approve)\s+([0-9a-f]{6,12})\b", re.IGNORECASE)
+_CONFIRMATION_RE = re.compile(r"^\s*(confirm|yes|approve)\s+([0-9a-f]{6,12})\s*[.!]?\s*$", re.IGNORECASE)
 from core.repositories.write_control_repository import WriteControlRepository
 
 
@@ -52,7 +53,9 @@ class WriteActionService:
             return existing_response
 
         confirmation_id = uuid4().hex[:8]
-        _PENDING_ACTIONS[_pending_key(context, confirmation_id)] = PendingWriteAction(
+        if get_settings().database_provider == "postgres":
+            idempotency_key = sha256(f"{idempotency_key}:{confirmation_id}".encode()).hexdigest()
+        pending = PendingWriteAction(
             confirmation_id=confirmation_id,
             idempotency_key=idempotency_key,
             action=action,
@@ -63,6 +66,11 @@ class WriteActionService:
             user_id=context.user_id,
             tenant_id=context.tenant_id,
         )
+        if get_settings().database_provider == "postgres":
+            from core.services.action_approvals import save_pending
+            save_pending(pending)
+        else:
+            _PENDING_ACTIONS[_pending_key(context, confirmation_id)] = pending
         return (
             f"Confirmation required for {action}. {prompt}\n"
             "No mutation has been performed yet.\n"
@@ -70,22 +78,37 @@ class WriteActionService:
         )
 
     def consume_confirmation(self, message: str) -> PendingWriteAction | None:
-        match = _CONFIRMATION_RE.search(message or "")
+        normalized = (message or "").strip()
+        if normalized.startswith("**") and normalized.endswith("**"):
+            normalized = normalized[2:-2].strip()
+        match = _CONFIRMATION_RE.fullmatch(normalized)
         if not match:
             return None
         confirmation_id = match.group(2)
+        if get_settings().database_provider == "postgres":
+            from core.services.action_approvals import confirm_pending
+            row = confirm_pending(confirmation_id.lower())
+            if row:
+                row["user_id"] = str(row["user_id"]) if row["user_id"] else None
+                return PendingWriteAction(**row)
+            return None
         return _PENDING_ACTIONS.pop(_pending_key(get_request_context(), confirmation_id), None)
 
     def find_existing_response(self, idempotency_key: str, context: RequestContext | None = None) -> str:
         context = context or get_request_context()
-        if idempotency_key in _MEMORY_IDEMPOTENCY:
-            return _MEMORY_IDEMPOTENCY[idempotency_key]
+        cache_key = f"{context.tenant_id}:{context.user_id or context.session_id}:{idempotency_key}"
+        postgres = get_settings().database_provider == "postgres"
+        if not postgres and cache_key in _MEMORY_IDEMPOTENCY:
+            return _MEMORY_IDEMPOTENCY[cache_key]
         try:
             record = self.repository.find_idempotency_record(idempotency_key, tenant_id=context.tenant_id)
         except Exception:  # noqa: BLE001
+            if postgres:
+                raise
             record = None
         if record and record.get("response"):
-            _MEMORY_IDEMPOTENCY[idempotency_key] = record["response"]
+            if not postgres:
+                _MEMORY_IDEMPOTENCY[cache_key] = record["response"]
             return record["response"]
         return ""
 
@@ -104,8 +127,9 @@ class WriteActionService:
     ) -> None:
         context = get_request_context()
         request_id = request_id or _request_id(context)
-        safe_old_value = redact_for_logs(old_value or {})
-        safe_new_value = redact_for_logs(new_value or {})
+        from core.services.decision_audit import safe_value
+        safe_old_value = safe_value(old_value or {})
+        safe_new_value = safe_value(new_value or {})
         try:
             self.repository.record_idempotency(
                 idempotency_key=idempotency_key,
@@ -132,8 +156,11 @@ class WriteActionService:
                 metadata=metadata or {},
             )
         except Exception:  # noqa: BLE001
-            pass
-        _MEMORY_IDEMPOTENCY[idempotency_key] = response
+            if get_settings().database_provider == "postgres":
+                raise
+        if get_settings().database_provider != "postgres":
+            cache_key = f"{context.tenant_id}:{context.user_id or context.session_id}:{idempotency_key}"
+            _MEMORY_IDEMPOTENCY[cache_key] = response
 
 
 def build_idempotency_key(
@@ -164,7 +191,7 @@ def _pending_key(context: RequestContext, confirmation_id: str) -> str:
 
 
 def _request_id(context: RequestContext) -> str:
-    return f"{context.session_id}:{uuid4().hex[:12]}"
+    return context.request_id or f"{context.session_id}:{uuid4().hex[:12]}"
 
 
 write_action_service = WriteActionService()

@@ -32,7 +32,7 @@ class UserRepository:
         with get_postgres_connection() as conn:
             row = conn.execute(
                 """
-                SELECT id, external_id, name, email, password_hash, metadata
+                SELECT id, external_id, name, email, password_hash, metadata, tenant_id
                 FROM users
                 WHERE email = %s
                 """,

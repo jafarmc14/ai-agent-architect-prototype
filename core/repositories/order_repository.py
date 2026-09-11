@@ -7,6 +7,5 @@ class OrderRepository:
     """Repository selector for order data."""
 
     def __new__(cls):
-        if get_settings().database_provider == "postgres":
-            return PostgresOrderRepository()
-        return SQLiteOrderRepository()
+        from core.connectors import ConnectorProxy
+        return ConnectorProxy("orders")
