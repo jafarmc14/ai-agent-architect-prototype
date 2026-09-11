@@ -110,7 +110,7 @@ py evaluation/run_regression.py --quick --areas authorization tools api prompt
 ```
 
 Integration uses real PostgreSQL; tests roll back fixtures or explicitly clean
-committed concurrency fixtures. CI applies migrations through V033 and validates
+committed concurrency fixtures. CI applies migrations through V034 and validates
 tenant foreign keys before running integration tests. Offline tests and contract
 checks are not a substitute for production cross-tenant, concurrent mutation
 and data-quality evaluations.

@@ -70,7 +70,8 @@ fi
 
 migration_count="$(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$SCRATCH_DB" -tAc "SELECT count(*) FROM schema_migrations;" 2>/dev/null || true)"
 latest_migration="$(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$SCRATCH_DB" -tAc "SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1;" 2>/dev/null || true)"
-if [ -z "$migration_count" ] || [ "$migration_count" -le 0 ] 2>/dev/null || ! [[ "$latest_migration" == V02* ]]; then
+expected_latest_migration="${EXPECTED_LATEST_MIGRATION:-V034}"
+if [ -z "$migration_count" ] || [ "$migration_count" -le 0 ] 2>/dev/null || [ "$latest_migration" != "$expected_latest_migration" ]; then
   echo "[restore-test] FAIL: schema_migrations incomplete (count=$migration_count latest=$latest_migration)"
   FAIL=1
 else

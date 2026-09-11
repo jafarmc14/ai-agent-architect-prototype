@@ -8,7 +8,7 @@ This folder contains versioned database migration files.
 database/migrations/
 └── postgres/
     └── V001__initial_schema.sql
-    └── V033__tenant_cart_sessions.sql
+    └── V034__repair_token_context_migration_ledger.sql
 ```
 
 ## Naming Convention
@@ -57,7 +57,6 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V015__add_observability_tra
 psql "$DATABASE_URL" -f database/migrations/postgres/V016__link_request_traces_to_conversations.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V017__add_token_context_observability.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V018__add_resource_abuse_protection.sql
-psql "$DATABASE_URL" -f database/migrations/postgres/V019__repair_token_context_migration_ledger.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V020__index_provider_fallback_observability.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V021__index_circuit_breaker_observability.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V022__add_cost_governance.sql
@@ -72,6 +71,7 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V030__tenant_reference_inte
 psql "$DATABASE_URL" -f database/migrations/postgres/V031__company_currency_scope.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V032__continuous_review_backlog.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V033__tenant_cart_sessions.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V034__repair_token_context_migration_ledger.sql
 ```
 
 `V001__initial_schema.sql` creates a `schema_migrations` table and records itself after successful execution. Later migrations should insert their own version into `schema_migrations` at the end of the file.
@@ -106,11 +106,11 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V033__tenant_cart_sessions.
 
 `V018__add_resource_abuse_protection.sql` adds request resource accounting for user/workflow rate limits, tenant quotas, repeated expensive-request detection, tool/step/runtime limits, and request cost enforcement.
 
-`V019__repair_token_context_migration_ledger.sql` records the idempotent `V017` token-context migration in databases where its schema was already applied but its ledger row was missing.
+`V034__repair_token_context_migration_ledger.sql` records the idempotent `V017` token-context migration in databases where its schema was already applied but its ledger row was missing. It uses a unique version because V019 is already the model-routing index migration.
 
 `V020` through `V026` cover provider fallback/circuit-breaker indexes, cost governance, login credentials, pilot feedback, and production monitoring experiments.
 
-`V027` adds decision audit snapshots and incident review records. `V028` enables PostgreSQL tenant RLS and the restricted runtime role. `V029` adds durable approvals for high-risk actions. `V030` adds same-tenant reference constraints, initially `NOT VALID` for safe rollout. `V031` scopes company currency, `V032` adds continuous-review backlog timestamps, and `V033` makes cart sessions tenant-aware.
+`V027` adds decision audit snapshots and incident review records. `V028` enables PostgreSQL tenant RLS and the restricted runtime role. `V029` adds durable approvals for high-risk actions. `V030` adds same-tenant reference constraints, initially `NOT VALID` for safe rollout. `V031` scopes company currency, `V032` adds continuous-review backlog timestamps, `V033` makes cart sessions tenant-aware, and `V034` repairs the missing V017 ledger entry where needed.
 
 ## Vector Storage
 
