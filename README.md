@@ -17,6 +17,13 @@ Apply pending migrations before using this update:
 Then validate existing ownership with `py database/validate_tenant_integrity.py --validate`.
 No new paid provider or `.env` setting is required. Retention timers remain opt-in.
 
+For two-account local testing, keep the existing `admin@example.local` login and
+run `py database/activate_demo_customer.py --order-id ORD005 --generate-password`
+in development with PostgreSQL. The customer credentials are written only to
+ignored `.secrets/demo_customer_login.txt`. Customer orders are at `/orders`;
+admin approvals are at `/admin`. See the governance status guide for the full
+confirmation and approval flow.
+
 **Project Name:** Store AI-Agent Architect Prototype  
 **Version:** MVP v2.0 (Enhanced)
 

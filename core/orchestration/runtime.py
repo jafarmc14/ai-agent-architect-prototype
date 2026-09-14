@@ -1221,7 +1221,7 @@ def _is_internal_prompt_metadata_question(user_input: str) -> bool:
 def _execute_confirmed_write_action(user_input: str, trace: dict | None = None) -> str | None:
     pending = write_action_service.consume_confirmation(user_input)
     if pending is None:
-        return None
+        return write_action_service.rejected_confirmation_message(user_input)
 
     _before_tool_call(pending.action)
 

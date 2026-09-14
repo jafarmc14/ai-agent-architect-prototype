@@ -11,6 +11,7 @@ import {
   X
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { getAuthToken, getAuthUser, signOut } from "../lib/auth";
 import FeedbackActions from "./feedback-actions";
 import PilotUsage from "./pilot-usage";
@@ -70,7 +71,8 @@ const suggestions = ["Search for a product", "Check an order", "Ask about a poli
 
 export default function Home() {
   const [checkedAuth, setCheckedAuth] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ name?: string; email?: string; role?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id?: string; name?: string; email?: string; role?: string } | null>(null);
+  const [sessionVerified, setSessionVerified] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -101,12 +103,26 @@ export default function Home() {
   }, [apiError, isLoading]);
 
   useEffect(() => {
-    if (!getAuthToken()) {
+    const token = getAuthToken();
+    if (!token) {
       window.location.replace("/login");
       return;
     }
     setCurrentUser(getAuthUser());
     setCheckedAuth(true);
+    const draft = new URLSearchParams(window.location.search).get("draft");
+    if (draft) {
+      setInput(draft.slice(0, 500));
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    void fetch(`${apiBaseUrl}/api/v1/auth/session`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(async (response) => {
+        if (response.status === 401) { signOut(); return; }
+        if (!response.ok) throw new Error("Session verification unavailable");
+        setCurrentUser(await response.json());
+        setSessionVerified(true);
+      })
+      .catch(() => setSessionVerified(false));
     void refreshConfig();
   }, []);
 
@@ -286,6 +302,13 @@ export default function Home() {
           </div>
 
           <div className="mt-auto space-y-3 pt-8">
+            <nav className="grid gap-1 border-t border-line pt-3 text-sm">
+              {currentUser?.role === "customer" ? <Link href="/orders" className="rounded-md px-2.5 py-2 text-muted hover:bg-surface-850 hover:text-ink">My orders</Link> : null}
+              {["admin", "manager"].includes(currentUser?.role ?? "") ? <Link href="/admin" className="rounded-md px-2.5 py-2 text-muted hover:bg-surface-850 hover:text-ink">Approvals</Link> : null}
+            </nav>
+            <p className="text-xs font-medium text-muted">
+              {sessionVerified ? `Signed in${currentUser?.role ? ` as ${currentUser.role}` : ""}` : "Session not verified"}
+            </p>
             {currentUser?.email ? (
               <div className="flex items-center gap-2.5">
                 <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-850 text-sm font-semibold text-brand-action">

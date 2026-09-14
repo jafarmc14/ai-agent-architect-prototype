@@ -2,6 +2,7 @@ const TOKEN_KEY = "ai_agent_token";
 const USER_KEY = "ai_agent_user";
 
 export type AuthUser = {
+  id?: string;
   name?: string;
   email?: string;
   role?: string;

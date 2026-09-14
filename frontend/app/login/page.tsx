@@ -9,7 +9,7 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:800
 
 type LoginResponse = {
   token: string;
-  user: { name?: string; email?: string; role?: string };
+  user: { id?: string; name?: string; email?: string; role?: string };
 };
 
 const capabilities = [
@@ -42,7 +42,7 @@ export default function LoginPage() {
       if (response.ok) {
         const data = (await response.json()) as LoginResponse;
         setAuthSession(data.token, data.user);
-        router.replace("/");
+        router.replace(["admin", "manager"].includes(data.user.role ?? "") ? "/admin" : "/");
         return;
       }
 

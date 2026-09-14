@@ -135,6 +135,31 @@ tenants. Example companies have no production catalog/policies seeded automatica
 
 ## Approvals and compensation
 
+The Next.js client verifies the signed-in account with the API and shows its
+name, role, and sign-out control. Customer login opens chat and `/orders`, where
+only that customer's orders and change requests appear. Admin login opens
+`/admin`, where confirmed requests from other users can be reviewed and approved.
+Order cancellation and address changes start in chat; no order controls are in
+the Details sidebar. The customer replies with the confirmation code from the
+agent and, after approval, completes the action in chat.
+
+For a two-account development test, retain the existing `admin@example.local`
+account and activate the seeded customer who owns `ORD005`:
+
+```powershell
+py database/activate_demo_customer.py --order-id ORD005 --generate-password
+```
+
+The command works only with PostgreSQL in development/testing. It keeps the
+existing customer user ID and order ownership; the generated password is stored
+in the ignored local `.secrets/demo_customer_login.txt` file, never in Git.
+Alternatively, omit `--generate-password` to enter a password privately. Sign
+in with customer and admin in separate browser profiles. The admin approves the
+customer's request at `/admin`; the admin cannot approve its own request.
+`ORD007` is Completed and is useful for a denial test. High-risk writes remain
+disabled until `HIGH_RISK_WRITE_ACTIONS_ENABLED=true` is explicitly set for the
+test environment.
+
 Manager/admin endpoints, requiring the normal bearer token:
 
 - `GET /api/v1/governance/approvals`

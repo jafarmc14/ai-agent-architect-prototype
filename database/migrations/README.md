@@ -8,7 +8,8 @@ This folder contains versioned database migration files.
 database/migrations/
 └── postgres/
     └── V001__initial_schema.sql
-    └── V034__repair_token_context_migration_ledger.sql
+    ├── V034__repair_token_context_migration_ledger.sql
+    └── V035__reject_order_action_approvals.sql
 ```
 
 ## Naming Convention
@@ -72,6 +73,7 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V031__company_currency_scop
 psql "$DATABASE_URL" -f database/migrations/postgres/V032__continuous_review_backlog.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V033__tenant_cart_sessions.sql
 psql "$DATABASE_URL" -f database/migrations/postgres/V034__repair_token_context_migration_ledger.sql
+psql "$DATABASE_URL" -f database/migrations/postgres/V035__reject_order_action_approvals.sql
 ```
 
 `V001__initial_schema.sql` creates a `schema_migrations` table and records itself after successful execution. Later migrations should insert their own version into `schema_migrations` at the end of the file.
@@ -110,7 +112,7 @@ psql "$DATABASE_URL" -f database/migrations/postgres/V034__repair_token_context_
 
 `V020` through `V026` cover provider fallback/circuit-breaker indexes, cost governance, login credentials, pilot feedback, and production monitoring experiments.
 
-`V027` adds decision audit snapshots and incident review records. `V028` enables PostgreSQL tenant RLS and the restricted runtime role. `V029` adds durable approvals for high-risk actions. `V030` adds same-tenant reference constraints, initially `NOT VALID` for safe rollout. `V031` scopes company currency, `V032` adds continuous-review backlog timestamps, `V033` makes cart sessions tenant-aware, and `V034` repairs the missing V017 ledger entry where needed.
+`V027` adds decision audit snapshots and incident review records. `V028` enables PostgreSQL tenant RLS and the restricted runtime role. `V029` adds durable approvals for high-risk actions. `V030` adds same-tenant reference constraints, initially `NOT VALID` for safe rollout. `V031` scopes company currency, `V032` adds continuous-review backlog timestamps, `V033` makes cart sessions tenant-aware, `V034` repairs the missing V017 ledger entry where needed, and `V035` records rejected order action requests.
 
 ## Vector Storage
 

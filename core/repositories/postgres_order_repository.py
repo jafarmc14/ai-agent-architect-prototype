@@ -24,6 +24,16 @@ END
 class PostgresOrderRepository:
     """PostgreSQL access for order data."""
 
+    def list_orders_for_user(self, user_id: str):
+        with get_postgres_connection() as conn:
+            return conn.execute(
+                f"""SELECT o.order_number AS id, {POSTGRES_STATUS_SQL} AS status,
+                    o.grand_total AS total, o.currency, o.order_date
+                    FROM orders o WHERE o.user_id = %s::uuid
+                    ORDER BY o.order_date DESC, o.id DESC LIMIT 50""",
+                (user_id,),
+            ).fetchall()
+
     def find_order_with_product(self, order_id: str, user_id: str | None = None):
         with get_postgres_connection() as conn:
             return conn.execute(

@@ -169,6 +169,84 @@ def create_app() -> FastAPI:
             ),
         }
 
+    @app.get("/api/v1/auth/session", response_model=LoginUser)
+    def current_session(authorization: str | None = Header(default=None)):
+        _require_authorized(authorization)
+        claims = verify_session_token(_bearer_token(authorization))
+        if get_settings().database_provider != "postgres":
+            raise HTTPException(503, "Session verification requires PostgreSQL.")
+        from core.auth import request_context
+        with request_context(_claims_context(claims)):
+            user = _user_repository.find_user_by_id(claims["sub"])
+        if not user:
+            raise HTTPException(401, "Account no longer exists.")
+        return LoginUser(id=str(user["id"]), name=user.get("name") or "",
+                         email=user.get("email") or "", role=(user.get("metadata") or {}).get("role", "customer"))
+
+    @app.get("/api/v1/orders/{order_id}/actions")
+    def order_actions(order_id: str, authorization: str | None = Header(default=None)):
+        _require_authorized(authorization)
+        claims = verify_session_token(_bearer_token(authorization))
+        from core.auth import request_context
+        from core.services.order_service import order_service
+        with request_context(_claims_context(claims)):
+            return order_service.action_availability(order_id)
+
+    @app.get("/api/v1/orders/mine")
+    def my_orders(authorization: str | None = Header(default=None)):
+        _require_authorized(authorization)
+        claims = verify_session_token(_bearer_token(authorization))
+        from core.auth import request_context
+        from core.services.order_service import order_service
+        with request_context(_claims_context(claims)):
+            try:
+                return order_service.list_my_orders()
+            except PermissionError as exc:
+                raise HTTPException(403, str(exc)) from exc
+
+    @app.get("/api/v1/order-action-requests")
+    def my_order_action_requests(authorization: str | None = Header(default=None)):
+        _require_authorized(authorization)
+        claims = verify_session_token(_bearer_token(authorization))
+        from core.auth import request_context
+        from core.repositories.postgres_connection import get_postgres_connection
+        with request_context(_claims_context(claims)), get_postgres_connection() as conn:
+            return conn.execute("""SELECT confirmation_id, action, resource_id AS order_id,
+                CASE WHEN completed_at IS NOT NULL THEN 'completed'
+                     WHEN rejected_at IS NOT NULL THEN 'rejected'
+                     WHEN expires_at <= now() THEN 'expired'
+                     WHEN approved_at IS NOT NULL THEN 'approved'
+                     WHEN confirmed_at IS NOT NULL THEN 'waiting_approval'
+                     ELSE 'waiting_confirmation' END AS state,
+                created_at, expires_at
+                FROM action_approvals WHERE tenant_id = %s AND actor_user_id = %s
+                AND action IN ('order.cancel','order.update_shipping_address')
+                ORDER BY created_at DESC LIMIT 20""",
+                (claims.get("tenant_id", "default"), claims["sub"])).fetchall()
+
+    @app.get("/api/v1/order-action-requests/{confirmation_id}")
+    def order_action_request(confirmation_id: str, authorization: str | None = Header(default=None)):
+        import re
+        if not re.fullmatch(r"[0-9a-f]{8}", confirmation_id):
+            raise HTTPException(422, "Invalid confirmation ID.")
+        _require_authorized(authorization)
+        claims = verify_session_token(_bearer_token(authorization))
+        from core.auth import request_context
+        from core.repositories.postgres_connection import get_postgres_connection
+        with request_context(_claims_context(claims)), get_postgres_connection() as conn:
+            row = conn.execute("""SELECT action, resource_id, confirmed_at, approved_at, rejected_at, completed_at, expires_at
+                FROM action_approvals WHERE tenant_id = %s AND actor_user_id = %s
+                  AND confirmation_id = %s AND action IN ('order.cancel','order.update_shipping_address')""",
+                (claims.get("tenant_id", "default"), claims["sub"], confirmation_id)).fetchone()
+        if not row:
+            raise HTTPException(404, "Request not found for this account.")
+        from datetime import datetime, timezone
+        state = ("completed" if row["completed_at"] else "rejected" if row["rejected_at"]
+                 else "expired" if row["expires_at"] <= datetime.now(timezone.utc)
+                 else "approved" if row["approved_at"] else "waiting_approval" if row["confirmed_at"]
+                 else "waiting_confirmation")
+        return {"action": row["action"], "order_id": row["resource_id"], "state": state}
+
     @app.post("/api/v1/feedback")
     def submit_feedback(request: FeedbackRequest, authorization: str | None = Header(default=None)) -> dict:
         claims = _feedback_identity(authorization)
@@ -220,10 +298,18 @@ def create_app() -> FastAPI:
         from core.auth import request_context
         from core.repositories.postgres_connection import get_postgres_connection
         with request_context(_claims_context(claims)), get_postgres_connection() as conn:
-            return conn.execute("""SELECT confirmation_id, action, resource_id, created_at, expires_at,
-                confirmed_at, approved_at FROM action_approvals WHERE tenant_id = %s
-                AND action LIKE 'order.%%' AND completed_at IS NULL AND expires_at > now()
-                ORDER BY created_at LIMIT 100""", (claims.get("tenant_id", "default"),)).fetchall()
+            return conn.execute("""SELECT a.confirmation_id, a.action, a.resource_id, a.actor_user_id,
+                o.status::text AS order_status,
+                coalesce(u.name, u.email, 'Unknown requester') AS requester_name,
+                a.created_at, a.expires_at, a.confirmed_at, a.approved_at
+                FROM action_approvals a LEFT JOIN users u
+                  ON u.id = a.actor_user_id AND u.tenant_id = a.tenant_id
+                LEFT JOIN orders o ON o.tenant_id = a.tenant_id AND o.order_number = a.resource_id
+                WHERE a.tenant_id = %s AND a.action LIKE 'order.%%'
+                  AND a.confirmed_at IS NOT NULL AND a.approved_at IS NULL
+                  AND a.rejected_at IS NULL
+                  AND a.completed_at IS NULL AND a.expires_at > now()
+                ORDER BY a.created_at LIMIT 100""", (claims.get("tenant_id", "default"),)).fetchall()
 
     @app.post("/api/v1/governance/approvals/{confirmation_id}/approve")
     def approve_action(confirmation_id: str, authorization: str | None = Header(default=None)):
@@ -238,6 +324,20 @@ def create_app() -> FastAPI:
         if not saved:
             raise HTTPException(409, "Action is unavailable, already approved, expired, or requires a different approver.")
         return {"status": "approved", "executed": False}
+
+    @app.post("/api/v1/governance/approvals/{confirmation_id}/reject")
+    def reject_action(confirmation_id: str, authorization: str | None = Header(default=None)):
+        import re
+        if not re.fullmatch(r"[0-9a-f]{8}", confirmation_id):
+            raise HTTPException(422, "Invalid confirmation ID.")
+        claims = _monitoring_identity(authorization)
+        from core.auth import request_context
+        from core.services.action_approvals import reject_pending
+        with request_context(_claims_context(claims)):
+            saved = reject_pending(confirmation_id)
+        if not saved:
+            raise HTTPException(409, "Action is unavailable, already decided, expired, or requires a different reviewer.")
+        return {"status": "rejected", "executed": False}
 
     @app.get("/api/v1/governance/incidents")
     def incident_queue(authorization: str | None = Header(default=None)):

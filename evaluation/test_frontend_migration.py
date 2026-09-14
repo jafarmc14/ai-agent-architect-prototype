@@ -71,9 +71,22 @@ def test_frontend_dependency_manifest():
     assert '"autoprefixer"' in manifest
 
 
+def test_customer_and_admin_views_use_separate_authorized_endpoints():
+    customer = read_frontend_file("app/orders/page.tsx")
+    admin = read_frontend_file("app/admin/page.tsx")
+    login = read_frontend_file("app/login/page.tsx")
+    assert "/api/v1/orders/mine" in customer
+    assert "/api/v1/order-action-requests" in customer
+    assert "session.role !== \"customer\"" in customer
+    assert "/api/v1/governance/approvals" in admin
+    assert 'includes(session.role)' in admin
+    assert 'router.replace(["admin", "manager"]' in login
+
+
 if __name__ == "__main__":
     test_next_frontend_scaffold_exists()
     test_frontend_is_api_backed_and_auth_gated()
     test_frontend_visual_language_is_operational()
     test_frontend_dependency_manifest()
+    test_customer_and_admin_views_use_separate_authorized_endpoints()
     print("Frontend migration tests passed.")

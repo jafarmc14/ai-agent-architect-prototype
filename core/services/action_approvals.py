@@ -29,6 +29,7 @@ def confirm_pending(confirmation_id):
     with get_postgres_connection() as conn:
         return conn.execute("""UPDATE action_approvals SET confirmed_at = COALESCE(confirmed_at, now())
             WHERE tenant_id = %s AND confirmation_id = %s AND actor_id = %s
+              AND rejected_at IS NULL
               AND (expires_at > now() OR completed_at IS NOT NULL)
             RETURNING confirmation_id, idempotency_key, action, resource_type, resource_id,
                       payload, request_id, actor_user_id AS user_id, tenant_id""",
@@ -42,7 +43,8 @@ def approve_pending(confirmation_id):
     with get_postgres_connection() as conn:
         row = conn.execute("""UPDATE action_approvals SET approved_by = %s, approved_at = now()
             WHERE tenant_id = %s AND confirmation_id = %s AND actor_id != %s
-              AND expires_at > now() AND completed_at IS NULL AND approved_by IS NULL
+              AND confirmed_at IS NOT NULL AND expires_at > now()
+              AND completed_at IS NULL AND approved_by IS NULL AND rejected_at IS NULL
               AND action IN ('order.cancel','order.update_shipping_address')
             RETURNING idempotency_key, resource_id, action""",
             (context.user_id, context.tenant_id, confirmation_id, actor_id(context))).fetchone()
@@ -50,6 +52,27 @@ def approve_pending(confirmation_id):
             conn.execute("""INSERT INTO audit_logs
                 (tenant_id, actor_user_id, actor_role, action, resource_type, resource_id, request_id, new_value)
                 VALUES (%s,%s,%s,'action.approve','order',%s,%s,%s)""",
+                (context.tenant_id, context.user_id, context.role, row["resource_id"], context.request_id,
+                 Jsonb({"confirmation_id": confirmation_id, "action": row["action"]})))
+        return bool(row)
+
+
+def reject_pending(confirmation_id):
+    context = get_request_context()
+    if context.role not in {"manager", "admin"} or not context.user_id:
+        raise PermissionError("Independent manager/admin decision is required")
+    with get_postgres_connection() as conn:
+        row = conn.execute("""UPDATE action_approvals SET rejected_by = %s, rejected_at = now()
+            WHERE tenant_id = %s AND confirmation_id = %s AND actor_id != %s
+              AND confirmed_at IS NOT NULL AND expires_at > now()
+              AND completed_at IS NULL AND approved_by IS NULL AND rejected_at IS NULL
+              AND action IN ('order.cancel','order.update_shipping_address')
+            RETURNING resource_id, action""",
+            (context.user_id, context.tenant_id, confirmation_id, actor_id(context))).fetchone()
+        if row:
+            conn.execute("""INSERT INTO audit_logs
+                (tenant_id, actor_user_id, actor_role, action, resource_type, resource_id, request_id, new_value)
+                VALUES (%s,%s,%s,'action.reject','order',%s,%s,%s)""",
                 (context.tenant_id, context.user_id, context.role, row["resource_id"], context.request_id,
                  Jsonb({"confirmation_id": confirmation_id, "action": row["action"]})))
         return bool(row)
@@ -85,6 +108,8 @@ def controlled_mutation(action):
                     AND action = %s FOR UPDATE""", (context.tenant_id, key, actor_id(context), action)).fetchone()
                 if not pending or not pending["confirmed_at"]:
                     return "A valid confirmation is required. No mutation was performed."
+                if pending["rejected_at"] is not None:
+                    return "This request was not approved. No mutation was performed."
                 for name in ("order_id", "new_address", "product_name", "quantity"):
                     expected = pending["payload"].get(name)
                     if expected is not None and bound.arguments.get(name) != expected:

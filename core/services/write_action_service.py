@@ -94,6 +94,23 @@ class WriteActionService:
             return None
         return _PENDING_ACTIONS.pop(_pending_key(get_request_context(), confirmation_id), None)
 
+    def rejected_confirmation_message(self, message: str) -> str | None:
+        match = _CONFIRMATION_RE.fullmatch((message or "").strip())
+        if not match or get_settings().database_provider != "postgres":
+            return None
+        from core.repositories.postgres_connection import get_postgres_connection
+        context = get_request_context()
+        actor = context.user_id or "session:" + context.session_id
+        with get_postgres_connection() as conn:
+            row = conn.execute("""SELECT 1 FROM action_approvals
+                WHERE tenant_id = %s AND actor_id = %s AND confirmation_id = %s
+                  AND action IN ('order.cancel', 'order.update_shipping_address')
+                  AND rejected_at IS NOT NULL""",
+                (context.tenant_id, actor, match.group(2).lower())).fetchone()
+        if row:
+            return "This order change request was not approved. No order change was made."
+        return None
+
     def find_existing_response(self, idempotency_key: str, context: RequestContext | None = None) -> str:
         context = context or get_request_context()
         cache_key = f"{context.tenant_id}:{context.user_id or context.session_id}:{idempotency_key}"
