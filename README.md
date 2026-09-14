@@ -15,14 +15,20 @@ Implementation coverage, remaining work, migration commands, and tests are in
 Apply pending migrations before using this update:
 `py database/migrate_sqlite_to_postgres.py --schema-only`.
 Then validate existing ownership with `py database/validate_tenant_integrity.py --validate`.
-No new paid provider or `.env` setting is required. Retention timers remain opt-in.
+No new paid provider is required. Retention timers remain opt-in; high-risk
+order actions additionally require explicit `HIGH_RISK_WRITE_ACTIONS_ENABLED=true`.
 
-For two-account local testing, keep the existing `admin@example.local` login and
-run `py database/activate_demo_customer.py --order-id ORD005 --generate-password`
-in development with PostgreSQL. The customer credentials are written only to
-ignored `.secrets/demo_customer_login.txt`. Customer orders are at `/orders`;
-admin approvals are at `/admin`. See the governance status guide for the full
-confirmation and approval flow.
+For local order-action testing, keep the existing `admin@example.local` login
+and activate Doni (the owner of `ORD005`) with
+`py database/activate_demo_customer.py --order-id ORD005 --generate-password`.
+His generated credentials are written only to the ignored
+`.secrets/demo_customer_login.txt`. To test both ineligible order states using
+one separate customer login, run
+`py database/provision_order_status_test_customer.py` and enter a development
+password when prompted. That account owns `ORD009` (Shipped) and `ORD010`
+(Completed) in the local PostgreSQL database. Do not commit passwords or run
+the fixture script against production. Customer orders and request statuses
+are at `/orders`; the independent admin's approval queue is at `/admin`.
 
 **Project Name:** Store AI-Agent Architect Prototype  
 **Version:** MVP v2.0 (Enhanced)
@@ -41,7 +47,7 @@ This system is a web-based chat interface powered by an AI model that supports s
 |---|---|---|
 | 1 | **Intent Recognition** | Classify whether the user is asking about stock, orders, policies, shopping, or needs human help. |
 | 2 | **Database Interaction (Read)** | Automatically execute SQL queries against PostgreSQL to retrieve real-time product and order data. |
-| 3 | **Database Interaction (Write)** | Cancel orders, update shipping addresses, and manage shopping cart data in the database. |
+| 3 | **Database Interaction (Write)** | Manage carts through confirmation; cancel orders and update shipping addresses only after ownership/state checks, customer confirmation, and independent approval. |
 | 4 | **Smart Product Search** | Filter and recommend products by category, price range, or combination of both. |
 | 5 | **Shopping Cart** | Add products to cart, view cart contents, and clear cart — all via natural conversation. |
 | 6 | **Knowledge Base (RAG)** | Search store policies (returns, refunds, shipping, warranty, payments) from a knowledge document. |
@@ -1554,26 +1560,34 @@ Default config:
 HIGH_RISK_WRITE_ACTIONS_ENABLED=false
 ```
 
-Chat flow:
+Order-action flow when the flag is enabled:
 
 ```text
-User asks for a write action
+Authenticated customer asks to cancel an owned order or update its address
 |
 v
-tool validates product/order/business state
+tool checks ownership, authorization, and order status
 |
 v
-agent asks for explicit confirmation
+agent proposes the action and issues a confirmation ID
 |
 v
-user replies: confirm <confirmation_id>
+customer replies: confirm <confirmation_id>
 |
 v
-mutation executes once with idempotency key
-|
-v
-audit log records who/what/when/resource/old/new/request_id
+different manager/admin reviews the confirmed request at /admin
+  Approve -> customer repeats confirm <confirmation_id> before expiry
+          -> mutation commits with idempotency and audit if state still allows it
+  Not approve -> request is rejected; the old code cannot execute a mutation
 ```
+
+Only `Awaiting Payment` and `Processing` orders are eligible. `Shipped`,
+`Completed`, and `Cancelled` orders cannot be cancelled or have their shipping
+address changed. The confirmation expires after 15 minutes. Approval alone
+never changes the order. The admin queue shows the current order status;
+customers see a rejected request as `Not approved` in `/orders` and receive a
+deterministic refusal if they retry its confirmation code. PostgreSQL migration
+`V035` stores rejection decisions and their audit records.
 
 Idempotency keys prevent duplicate mutations when a confirmed action is retried. PostgreSQL stores idempotency records and audit logs in:
 
@@ -1592,7 +1606,13 @@ Run controlled write tests:
 
 ```bash
 py evaluation/test_controlled_write_actions.py
+py evaluation/test_order_action_experience.py
+py evaluation/integration_tenant_transactions.py
 ```
+
+The integration test requires a migrated PostgreSQL database and verifies
+independent approval, rejection, tenant isolation, and unchanged order state
+after a rejected request.
 
 ### Human Escalation
 
@@ -2422,29 +2442,46 @@ User: Find comfortable minimalist shoes under Rp 1,500,000
 
 ### ✏️ Feature 2: Transactional Actions (Cancel Order & Update Address)
 
-**Test 8 — Cancel a processing order:**
-```
-User: I want to cancel my order ORD002
-```
-> Expected: Agent calls `cancel_customer_order("ORD002")` → returns success message. Status changes from "Processing" to "Cancelled".
+Sign in as the customer who owns each order. Enable
+`HIGH_RISK_WRITE_ACTIONS_ENABLED=true` in an isolated development or testing
+environment. Use a fresh `ORD005` (Awaiting Payment) for positive tests. Each
+successful mutation persists, so test address change before cancellation.
 
-**Test 9 — Cancel a shipped order (should fail):**
+**Test 8 — Address change with independent approval:**
 ```
-User: Please cancel order ORD001
+User: Change the shipping address for order ORD005 to Jl. Sudirman No. 100, Jakarta
 ```
-> Expected: Agent calls `cancel_customer_order("ORD001")` → returns error: "Cannot cancel, current status is Shipped."
+Expected: Doni receives `confirm <code>`; nothing changes yet. He confirms,
+a different admin approves at `/admin`, then Doni confirms the same code again
+within 15 minutes. Only then is the address updated. The response does not
+echo the shipping address.
 
-**Test 10 — Update shipping address:**
+**Test 9 — Admin rejects a request:**
 ```
-User: I need to change the address for order ORD005 to Jl. Sudirman No. 100, Jakarta
+User: Cancel order ORD005
 ```
-> Expected: Agent calls `update_shipping_address("ORD005", "Jl. Sudirman No. 100, Jakarta")` → updates the address and returns success without echoing the old or new address.
+Expected: Doni confirms the proposed action; the admin selects `Not approve`.
+`/orders` shows `Not approved`, the status remains Awaiting Payment, and retrying
+the rejected confirmation code cannot cancel the order.
 
-**Test 11 — Update address for shipped order (should fail):**
+**Test 10 — Shipped order is ineligible:**
 ```
-User: Change the address for ORD001 to Jl. Baru No. 1
+User: Cancel order ORD009
+User: Change the shipping address for order ORD009 to Jl. Baru No. 1, Jakarta
 ```
-> Expected: Agent calls `update_shipping_address("ORD001", ...)` → returns error: "Cannot update, order already shipped."
+Expected: The status-test customer receives a Shipped-state refusal for both
+requests. There is no confirmation or pending approval.
+
+**Test 11 — Completed order is ineligible:**
+```
+User: Cancel order ORD010
+User: Change the shipping address for order ORD010 to Jl. Baru No. 1, Jakarta
+```
+Expected: The same customer receives a Completed-state refusal for both
+requests. There is no confirmation or pending approval.
+
+`ORD009` and `ORD010` exist only after running the development fixture script.
+Production accounts and orders are not created by `git pull` or migrations.
 
 ---
 
@@ -2657,7 +2694,10 @@ ollama pull nomic-embed-text
 
 The containers reach host Ollama through `http://host.docker.internal:11434`. Pull `llama3.1` when `LLM_PROVIDER=ollama` is used for chat. Pull `nomic-embed-text` for Ollama-backed embeddings and vector search. The backend applies pending PostgreSQL migrations automatically before starting. Development data is stored in named volumes; remove them with `docker compose -f docker-compose.dev.yml down -v` when a clean database is required.
 
-The production stack runs the frontend, backend, PostgreSQL, and Redis. Ollama is intentionally excluded; configure an external production provider through environment variables or secrets:
+The production stack runs the frontend, backend, PostgreSQL, Redis, and an
+Ollama service. Configure the intended production LLM provider through
+environment variables and secrets; the presence of the Ollama service does not
+automatically switch the selected chat provider:
 
 ```bash
 docker compose -f docker-compose.prod.yml up --build -d
@@ -2679,6 +2719,54 @@ export COMPOSE_PROJECT_NAME=ai-agent
 bash deploy/setup_prod_secrets.sh
 docker compose -f docker-compose.prod.yml up -d --build
 ```
+
+### Order actions on a VPS
+
+`git pull` transfers code, **not PostgreSQL rows, passwords, or local Docker
+volumes**. The development customer logins for Doni/`ORD005` and
+`status.test@example.local`/`ORD009`/`ORD010` are not automatically present on
+the VPS. The status-test fixture script is limited to development/testing and
+must not be run against production. Use an isolated development/testing database
+for these exact test accounts and orders.
+
+For a real production order-action flow, verify that the customer has a login
+whose authenticated `users.id` owns the target `orders.user_id` in the same
+tenant, and that a **different** manager/admin login is available. The order
+must be `Awaiting Payment` or `Processing`, and the company must allow the
+corresponding tool. Do not transfer ownership based on a chat claim or create
+an account that is not bound to the actual order owner. Production customer
+onboarding is separate from deployment; provisioning an unrelated new login
+does not grant access to an existing order. If using
+`database/provision_login_account.py` for a verified existing owner, supply
+that owner's exact email, the `customer` role, and a strong non-default
+password. Do not run the script with its published demo defaults in production.
+
+Order cancellation and address updates remain off by default. After business
+approval, set `HIGH_RISK_WRITE_ACTIONS_ENABLED=true` in the VPS's ignored
+`.env` file. `docker-compose.prod.yml` passes it to the backend; editing `.env`
+alone does not change a running process. Before deployment, take a PostgreSQL
+backup using `docs/production-deployment.md` and verify restore procedures.
+This feature does not require a new API key or secret file.
+
+```bash
+cd /opt/ai-agent
+git pull --ff-only origin main
+# In .env, set HIGH_RISK_WRITE_ACTIONS_ENABLED=true only after approval.
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs --tail=80 backend frontend
+docker compose -f docker-compose.prod.yml exec -T backend python -c 'from configs import get_settings; print("high-risk writes enabled:", get_settings().high_risk_write_actions_enabled)'
+curl -fsS https://ikarpedia.cloud/health
+```
+
+The backend applies pending migrations, including `V035`, at startup. An
+eligible customer request still needs the customer's first `confirm <code>`,
+an independent Approve decision at `/admin`, then the customer's second
+`confirm <code>` within 15 minutes. `Not approve` blocks that code and leaves
+the order unchanged. If the flag is `false`, chat returns an action-disabled
+message instead of opening the approval flow. See
+[Governance Implementation Status](docs/governance-implementation-status.md)
+for authorization and transaction details.
 
 ## Disaster Recovery
 

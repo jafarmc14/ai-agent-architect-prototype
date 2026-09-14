@@ -138,10 +138,12 @@ tenants. Example companies have no production catalog/policies seeded automatica
 The Next.js client verifies the signed-in account with the API and shows its
 name, role, and sign-out control. Customer login opens chat and `/orders`, where
 only that customer's orders and change requests appear. Admin login opens
-`/admin`, where confirmed requests from other users can be reviewed and approved.
+`/admin`, where confirmed requests from other users show the current order
+status and can be approved or rejected.
 Order cancellation and address changes start in chat; no order controls are in
 the Details sidebar. The customer replies with the confirmation code from the
-agent and, after approval, completes the action in chat.
+agent and, after approval, completes the action in chat. Rejection leaves the
+order unchanged and invalidates that confirmation code.
 
 For a two-account development test, retain the existing `admin@example.local`
 account and activate the seeded customer who owns `ORD005`:
@@ -154,9 +156,14 @@ The command works only with PostgreSQL in development/testing. It keeps the
 existing customer user ID and order ownership; the generated password is stored
 in the ignored local `.secrets/demo_customer_login.txt` file, never in Git.
 Alternatively, omit `--generate-password` to enter a password privately. Sign
-in with customer and admin in separate browser profiles. The admin approves the
-customer's request at `/admin`; the admin cannot approve its own request.
-`ORD007` is Completed and is useful for a denial test. High-risk writes remain
+in with customer and admin in separate browser profiles. The admin can approve
+or reject the customer's request at `/admin`, but cannot review its own request.
+To test both ineligible statuses from one login in development/testing, run
+`py database/provision_order_status_test_customer.py` and enter a password
+privately. This creates `status.test@example.local` with `ORD009` (Shipped) and
+`ORD010` (Completed) in the local PostgreSQL database. These credentials and
+rows do not move to a production VPS with Git, and the fixture script refuses
+production. High-risk writes remain
 disabled until `HIGH_RISK_WRITE_ACTIONS_ENABLED=true` is explicitly set for the
 test environment.
 
@@ -164,13 +171,15 @@ Manager/admin endpoints, requiring the normal bearer token:
 
 - `GET /api/v1/governance/approvals`
 - `POST /api/v1/governance/approvals/{confirmation_id}/approve`
+- `POST /api/v1/governance/approvals/{confirmation_id}/reject`
 - `GET /api/v1/governance/incidents`
 - `GET /api/v1/governance/decisions/{request_id}`
 
 Order writes still require `HIGH_RISK_WRITE_ACTIONS_ENABLED` to be explicitly
 enabled. The requesting user confirms the action, an independent manager/admin
 approves it within 15 minutes, and the requesting user retries that confirmation.
-Approval alone does not execute the mutation. The tenant, actor, action and
+Approval alone does not execute the mutation; rejection blocks it and is audited.
+The tenant, actor, action and
 arguments are bound to the persisted key. Concurrent retries serialize and return
 the first committed result; audit failures roll back the whole write. Cart writes
 are additionally serialized per actor and recheck cumulative stock in PostgreSQL.

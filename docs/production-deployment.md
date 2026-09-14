@@ -195,6 +195,17 @@ git pull
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
+The backend applies pending PostgreSQL migrations during startup. Order cancellation
+and shipping-address changes remain disabled by default. To enable the confirmed,
+independently approved order workflow, set `HIGH_RISK_WRITE_ACTIONS_ENABLED=true`
+in the VPS `.env`, then recreate the backend with
+`docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend`.
+Only enable it after approving the business policy for production.
+
+Development fixture accounts and orders are local PostgreSQL data, not part of Git.
+`database/provision_order_status_test_customer.py` intentionally refuses to run in
+production; use a staging environment for shipped/completed order test fixtures.
+
 Rollback to the previous image/tag:
 
 ```bash

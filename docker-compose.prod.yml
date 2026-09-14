@@ -58,6 +58,7 @@ services:
       API_CORS_ORIGINS: ${API_CORS_ORIGINS:-https://ikarpedia.cloud}
       DATABASE_PROVIDER: postgres
       RUN_DATABASE_MIGRATIONS: "true"
+      HIGH_RISK_WRITE_ACTIONS_ENABLED: ${HIGH_RISK_WRITE_ACTIONS_ENABLED:-false}
       LLM_PROVIDER: ${LLM_PROVIDER:-openrouter}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openrouter/free}
       OPENROUTER_API_BASE: ${OPENROUTER_API_BASE:-https://openrouter.ai/api/v1}
